@@ -1,0 +1,19 @@
+{
+  "name": "quiz-miniapp",
+  "appid": "_wx72619c6374e69606",
+  "description": "Quiz AI Miniapp",
+  "versionName": "0.1.0",
+  "versionCode": 100,
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false
+    },
+    "permission": {
+      "scope.userLocation": {
+        "desc": "用于学习数据展示"
+      }
+    }
+  }
+}

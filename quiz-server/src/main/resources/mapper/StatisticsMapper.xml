@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quiz.mapper.StatisticsMapper">
+
+    <select id="countTotalUsers" resultType="int">
+        SELECT COUNT(*) FROM user WHERE deleted = 0
+    </select>
+
+    <select id="countTotalQuestions" resultType="int">
+        SELECT COUNT(*) FROM question WHERE deleted = 0
+    </select>
+
+    <select id="countTodayActiveUsers" resultType="int">
+        SELECT COUNT(DISTINCT user_id) FROM (
+            SELECT pr.user_id
+            FROM practice_detail pd
+            JOIN practice_record pr ON pd.record_id = pr.id
+            WHERE DATE(pd.create_time) = CURDATE()
+            UNION
+            SELECT er.user_id
+            FROM exam_answer ea
+            JOIN exam_record er ON ea.exam_id = er.id
+            WHERE DATE(er.create_time) = CURDATE()
+        ) t
+    </select>
+
+    <select id="countTodayAnswers" resultType="int">
+        SELECT (
+            (SELECT COUNT(*) FROM practice_detail WHERE DATE(create_time) = CURDATE())
+            +
+            (SELECT COUNT(*) FROM exam_answer ea JOIN exam_record er ON ea.exam_id = er.id WHERE DATE(er.create_time) = CURDATE())
+        )
+    </select>
+
+    <select id="getUserGrowthTrend" resultType="java.util.Map">
+        SELECT DATE(create_time) AS date, COUNT(*) AS count
+        FROM user
+        WHERE deleted = 0
+          AND DATE(create_time) BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE(create_time)
+        ORDER BY date ASC
+    </select>
+
+    <select id="getAnswerTrend" resultType="java.util.Map">
+        SELECT date, SUM(cnt) AS count FROM (
+            SELECT DATE(create_time) AS date, COUNT(*) AS cnt
+            FROM practice_detail
+            WHERE DATE(create_time) BETWEEN #{startDate} AND #{endDate}
+            GROUP BY DATE(create_time)
+            UNION ALL
+            SELECT DATE(er.create_time) AS date, COUNT(*) AS cnt
+            FROM exam_answer ea
+            JOIN exam_record er ON ea.exam_id = er.id
+            WHERE DATE(er.create_time) BETWEEN #{startDate} AND #{endDate}
+            GROUP BY DATE(er.create_time)
+        ) t
+        GROUP BY date
+        ORDER BY date ASC
+    </select>
+
+    <select id="getBankHotRank" resultType="java.util.Map">
+        SELECT qb.id AS bankId, qb.name AS bankName, IFNULL(t.total, 0) AS totalCount
+        FROM question_bank qb
+        LEFT JOIN (
+            SELECT bank_id, COUNT(*) AS total FROM (
+                SELECT bank_id FROM practice_record
+                UNION ALL
+                SELECT bank_id FROM exam_record
+            ) a
+            GROUP BY bank_id
+        ) t ON qb.id = t.bank_id
+        WHERE qb.deleted = 0
+        ORDER BY totalCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="getWrongQuestionRank" resultType="java.util.Map">
+        SELECT wq.question_id AS questionId, q.content AS questionContent,
+               SUM(wq.wrong_count) AS totalWrongCount
+        FROM wrong_question wq
+        JOIN question q ON wq.question_id = q.id AND q.deleted = 0
+        <where>
+            <if test="bankId != null">
+                AND wq.bank_id = #{bankId}
+            </if>
+        </where>
+        GROUP BY wq.question_id, q.content
+        ORDER BY totalWrongCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="getFavoriteRank" resultType="java.util.Map">
+        SELECT f.question_id AS questionId, q.content AS questionContent,
+               COUNT(*) AS favoriteCount
+        FROM favorite f
+        JOIN question q ON f.question_id = q.id AND q.deleted = 0
+        GROUP BY f.question_id, q.content
+        ORDER BY favoriteCount DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

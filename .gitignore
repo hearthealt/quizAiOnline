@@ -1,0 +1,108 @@
+# ========================
+# IDE
+# ========================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.sublime-*
+*.code-workspace
+
+# ========================
+# Java / Maven
+# ========================
+quiz-server/target/
+quiz-server/*.jar
+quiz-server/*.war
+quiz-server/.mvn/
+quiz-server/mvnw
+quiz-server/mvnw.cmd
+*.class
+*.log
+*.tmp
+
+# ========================
+# Node.js / npm
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ========================
+# Vue / Vite Build
+# ========================
+quiz-admin/dist/
+quiz-miniapp/dist/
+quiz-miniapp/unpackage/
+.cache/
+.temp/
+*.local
+
+# ========================
+# uni-app
+# ========================
+quiz-miniapp/.hbuilderx/
+quiz-miniapp/node_modules/
+
+# ========================
+# TypeScript
+# ========================
+*.tsbuildinfo
+
+# ========================
+# Environment
+# ========================
+.env
+.env.local
+.env.*.local
+*.env
+
+# ========================
+# Upload Files
+# ========================
+uploads/*
+!uploads/.gitkeep
+
+# ========================
+# OS Generated
+# ========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+*.log.*
+
+# ========================
+# Test & Coverage
+# ========================
+coverage/
+.nyc_output/
+test-results/
+*.lcov
+
+# ========================
+# Misc
+# ========================
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
