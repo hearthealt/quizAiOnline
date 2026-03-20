@@ -2,6 +2,7 @@ package com.quiz.controller.admin;
 
 import com.quiz.common.result.R;
 import com.quiz.dto.admin.QuestionDTO;
+import com.quiz.service.QuestionConvertService;
 import com.quiz.service.QuestionService;
 import com.quiz.util.ExcelUtil;
 import com.quiz.vo.admin.QuestionDetailVO;
@@ -14,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "题目管理")
 @RestController
@@ -22,6 +24,7 @@ import java.util.List;
 public class AdminQuestionController {
 
     private final QuestionService questionService;
+    private final QuestionConvertService questionConvertService;
 
     @Operation(summary = "题目分页列表")
     @GetMapping("/list")
@@ -78,5 +81,26 @@ public class AdminQuestionController {
     @GetMapping("/template")
     public void downloadTemplate(HttpServletResponse response) throws IOException {
         ExcelUtil.getTemplate(response);
+    }
+
+    // ==================== 题目转换相关 ====================
+
+    @Operation(summary = "智能解析文件 - 自动识别格式并解析")
+    @PostMapping("/convert/smart-parse")
+    public R<?> smartParse(@RequestParam("file") MultipartFile file) {
+        List<Map<String, Object>> questions = questionConvertService.parseSmart(file);
+        return R.ok(Map.of(
+                "mode", "smart",
+                "questions", questions,
+                "message", "解析完成，共 " + questions.size() + " 道题"
+        ));
+    }
+
+    @Operation(summary = "将转换结果直接导入题库")
+    @PostMapping("/convert/import")
+    public R<?> importConverted(@RequestParam("bankId") Long bankId,
+                                @RequestBody List<Map<String, Object>> questions) {
+        QuestionService.QuestionImportResult result = questionService.importFromConverted(bankId, questions);
+        return R.ok(result);
     }
 }

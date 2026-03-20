@@ -275,6 +275,7 @@ const menuOptions = [
       { label: '分类管理', key: '/category', icon: renderIcon(FolderOutline) },
       { label: '题库列表', key: '/bank', icon: renderIcon(BookOutline) },
       { label: '题目管理', key: '/question', icon: renderIcon(DocumentTextOutline) },
+      { label: '题目转换', key: '/bank/convert', icon: renderIcon(SwapHorizontalOutline) },
     ],
   },
   {
@@ -320,7 +321,6 @@ const menuOptions = [
     children: [
       { label: '模型配置', key: '/ai/config', icon: renderIcon(HardwareChipOutline) },
       { label: '调用日志', key: '/ai/log', icon: renderIcon(DocumentOutline) },
-      { label: '题目转换', key: '/ai/convert', icon: renderIcon(SwapHorizontalOutline) },
     ],
   },
   {

@@ -8,6 +8,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -44,6 +49,7 @@ public class FileParseUtil {
                 case "csv" -> parseCsv(file.getInputStream());
                 case "pdf" -> parsePdf(file.getBytes());
                 case "txt" -> parseTxt(file.getInputStream());
+                case "docx" -> parseDocx(file.getInputStream());
                 default -> throw new BizException("不支持的文件格式: " + ext);
             };
         } catch (BizException e) {
@@ -123,6 +129,38 @@ public class FileParseUtil {
             String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line).append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 解析 Word (.docx) 文件
+     */
+    private static String parseDocx(InputStream inputStream) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        try (XWPFDocument document = new XWPFDocument(inputStream)) {
+            // 读取段落
+            for (XWPFParagraph paragraph : document.getParagraphs()) {
+                String text = paragraph.getText();
+                if (text != null && !text.trim().isEmpty()) {
+                    sb.append(text.trim()).append("\n");
+                }
+            }
+            // 读取表格（有些题目文件用表格排版）
+            for (XWPFTable table : document.getTables()) {
+                for (XWPFTableRow row : table.getRows()) {
+                    List<String> cells = new ArrayList<>();
+                    for (XWPFTableCell cell : row.getTableCells()) {
+                        String text = cell.getText();
+                        if (text != null && !text.trim().isEmpty()) {
+                            cells.add(text.trim());
+                        }
+                    }
+                    if (!cells.isEmpty()) {
+                        sb.append(String.join("\t", cells)).append("\n");
+                    }
+                }
             }
         }
         return sb.toString();

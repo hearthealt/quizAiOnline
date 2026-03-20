@@ -37,3 +37,14 @@ export function importExcel(bankId: number, file: File) {
 export function downloadTemplate() {
   return request.get('/api/admin/question/template', { responseType: 'blob' })
 }
+
+// 题目转换相关
+export function convertSmartParse(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/api/admin/question/convert/smart-parse', formData)
+}
+
+export function convertImport(bankId: number, questions: any[]) {
+  return request.post(`/api/admin/question/convert/import?bankId=${bankId}`, questions)
+}

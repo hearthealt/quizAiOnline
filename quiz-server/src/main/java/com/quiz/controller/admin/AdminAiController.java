@@ -9,15 +9,12 @@ import com.quiz.dto.admin.AiLogQueryDTO;
 import com.quiz.dto.admin.IFlowApiKeyResult;
 import com.quiz.entity.AiConfig;
 import com.quiz.service.AiAnalysisService;
-import com.quiz.service.AiConvertService;
 import com.quiz.service.IFlowApiKeyService;
-import com.quiz.util.FileParseUtil;
 import com.quiz.vo.admin.AiStatsVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "AI管理")
 @RestController
@@ -27,7 +24,6 @@ public class AdminAiController {
 
     private final AiAnalysisService aiAnalysisService;
     private final IFlowApiKeyService iFlowApiKeyService;
-    private final AiConvertService aiConvertService;
 
     @Operation(summary = "获取AI配置")
     @GetMapping("/config")
@@ -112,18 +108,5 @@ public class AdminAiController {
         } else {
             return R.fail(result.getError());
         }
-    }
-
-    @Operation(summary = "解析文件内容")
-    @PostMapping("/convert/parse")
-    public R<?> parseFile(@RequestParam("file") MultipartFile file) {
-        String content = FileParseUtil.parseToText(file);
-        return R.ok(content);
-    }
-
-    @Operation(summary = "规则解析")
-    @PostMapping("/convert/rule-parse")
-    public R<?> ruleParse(@RequestBody String content) {
-        return R.ok(aiConvertService.parseByRule(content));
     }
 }

@@ -8,6 +8,7 @@ import com.quiz.vo.app.QuestionVO;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 
 public interface QuestionService {
 
@@ -26,6 +27,8 @@ public interface QuestionService {
     void batchDelete(List<Long> ids);
 
     QuestionImportResult importFromExcel(Long bankId, InputStream inputStream);
+
+    QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions);
 
     List<Question> listByBankId(Long bankId);
 

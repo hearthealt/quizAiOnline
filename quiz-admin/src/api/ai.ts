@@ -41,16 +41,3 @@ export function refreshIflowKey() {
 export function getIflowModels() {
   return request.get('/api/admin/ai/iflow/models')
 }
-
-// 文件转换
-export function parseFile(file: File) {
-  const formData = new FormData()
-  formData.append('file', file)
-  return request.post('/api/admin/ai/convert/parse', formData)
-}
-
-export function ruleParse(content: string) {
-  return request.post('/api/admin/ai/convert/rule-parse', content, {
-    headers: { 'Content-Type': 'text/plain' }
-  })
-}

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.FavoriteTableDef.FAVORITE;
@@ -338,6 +339,81 @@ public class QuestionServiceImpl implements QuestionService {
         // 更新题库题目数量
         updateBankQuestionCount(bankId);
 
+        return new QuestionImportResult(successCount, failCount, errors);
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions) {
+        QuestionBank bank = questionBankMapper.selectOneById(bankId);
+        if (bank == null) {
+            throw new BizException("题库不存在");
+        }
+
+        int successCount = 0;
+        int failCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < questions.size(); i++) {
+            Map<String, Object> data = questions.get(i);
+            int rowNum = i + 1;
+            try {
+                String content = (String) data.get("content");
+                String answer = (String) data.get("answer");
+                if (content == null || content.trim().isEmpty()) {
+                    errors.add("第" + rowNum + "题：题目内容不能为空");
+                    failCount++;
+                    continue;
+                }
+                if (answer == null || answer.trim().isEmpty()) {
+                    errors.add("第" + rowNum + "题：正确答案不能为空");
+                    failCount++;
+                    continue;
+                }
+
+                String typeStr = (String) data.get("type");
+                int type = parseQuestionType(typeStr);
+                String diffStr = (String) data.get("difficulty");
+                int difficulty = parseDifficulty(diffStr);
+
+                Question question = new Question();
+                question.setBankId(bankId);
+                question.setType(type);
+                question.setContent(content.trim());
+                question.setAnswer(answer.trim());
+                question.setAnalysis((String) data.get("analysis"));
+                question.setDifficulty(difficulty);
+                question.setSort(0);
+                question.setStatus(1);
+                questionMapper.insert(question);
+
+                // 插入选项
+                List<String> options = (List<String>) data.get("options");
+                if (options != null) {
+                    char label = 'A';
+                    int sortIndex = 0;
+                    for (String optContent : options) {
+                        if (optContent != null && !optContent.trim().isEmpty()) {
+                            QuestionOption option = new QuestionOption();
+                            option.setQuestionId(question.getId());
+                            option.setLabel(String.valueOf(label));
+                            option.setContent(optContent.trim());
+                            option.setSort(sortIndex++);
+                            questionOptionMapper.insert(option);
+                        }
+                        label++;
+                    }
+                }
+
+                successCount++;
+            } catch (Exception e) {
+                errors.add("第" + rowNum + "题：" + e.getMessage());
+                failCount++;
+            }
+        }
+
+        updateBankQuestionCount(bankId);
         return new QuestionImportResult(successCount, failCount, errors);
     }
 
