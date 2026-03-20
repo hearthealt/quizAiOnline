@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="config-grid">
       <!-- 左侧：模型配置 -->
-      <n-card :bordered="false" class="config-card" :loading="pageLoading">
+      <n-card :bordered="false" size="small" class="config-card" :loading="pageLoading">
         <template #header>
           <div class="card-header">
             <span class="card-title">模型配置</span>
@@ -61,7 +61,7 @@
       </n-card>
 
       <!-- 右侧：iFlow 配置 -->
-      <n-card :bordered="false" class="config-card">
+      <n-card :bordered="false" size="small" class="config-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">iFlow API Key 自动管理</span>
@@ -293,7 +293,7 @@ onMounted(async () => {
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .config-card {
@@ -307,7 +307,7 @@ onMounted(async () => {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 

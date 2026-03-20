@@ -76,7 +76,7 @@
     </div>
 
     <!-- 快捷入口 -->
-    <n-card :bordered="false" class="quick-actions">
+    <n-card :bordered="false" size="small" class="quick-actions">
       <template #header>
         <span class="section-title">快捷入口</span>
       </template>
@@ -124,14 +124,14 @@
     <div class="main-content">
       <!-- 左侧图表 -->
       <div class="chart-area">
-        <n-card :bordered="false" class="chart-card">
+        <n-card :bordered="false" size="small" class="chart-card">
           <template #header>
             <span class="section-title">7日答题趋势</span>
           </template>
           <div ref="trendChartRef" class="chart-container"></div>
         </n-card>
         
-        <n-card :bordered="false" class="chart-card">
+        <n-card :bordered="false" size="small" class="chart-card">
           <template #header>
             <span class="section-title">题库热度排行</span>
           </template>
@@ -142,7 +142,7 @@
       <!-- 右侧信息 -->
       <div class="info-area">
         <!-- 待审核订单 -->
-        <n-card :bordered="false" class="info-card">
+        <n-card :bordered="false" size="small" class="info-card">
           <template #header>
             <div class="card-header-flex">
               <span class="section-title">待审核订单</span>
@@ -162,7 +162,7 @@
         </n-card>
 
         <!-- 最新注册 -->
-        <n-card :bordered="false" class="info-card">
+        <n-card :bordered="false" size="small" class="info-card">
           <template #header>
             <div class="card-header-flex">
               <span class="section-title">最新注册用户</span>
@@ -183,7 +183,7 @@
         </n-card>
 
         <!-- AI调用统计 -->
-        <n-card :bordered="false" class="info-card">
+        <n-card :bordered="false" size="small" class="info-card">
           <template #header>
             <div class="card-header-flex">
               <span class="section-title">AI调用统计</span>
@@ -311,20 +311,20 @@ onUnmounted(() => {
 .dashboard-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .stat-cards {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 14px;
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -340,15 +340,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   background: var(--card-color);
   color: #fff;
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #333;
   line-height: 1.2;
@@ -365,7 +365,7 @@ onUnmounted(() => {
 }
 
 .section-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: #333;
 }
@@ -373,15 +373,15 @@ onUnmounted(() => {
 .action-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .action-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 16px;
+  gap: 8px;
+  padding: 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
@@ -395,8 +395,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   color: #fff;
 }
@@ -409,13 +409,13 @@ onUnmounted(() => {
 .main-content {
   display: grid;
   grid-template-columns: 1fr 360px;
-  gap: 16px;
+  gap: 12px;
 }
 
 .chart-area {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .chart-card {
@@ -423,13 +423,13 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  height: 260px;
+  height: 220px;
 }
 
 .info-area {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .info-card {
@@ -452,7 +452,7 @@ onUnmounted(() => {
 .order-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .order-item {
@@ -489,7 +489,7 @@ onUnmounted(() => {
 .user-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .user-item {

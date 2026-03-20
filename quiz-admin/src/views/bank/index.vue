@@ -1,8 +1,17 @@
 <template>
   <div class="page-container">
-    <!-- 搜索区 -->
-    <n-card :bordered="false" class="search-card">
-      <n-space>
+    <n-card :bordered="false" size="small" class="main-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">题库管理</span>
+          <n-button type="primary" @click="openDrawer()">
+            <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+            新增题库
+          </n-button>
+        </div>
+      </template>
+
+      <n-space class="search-bar">
         <n-select
           v-model:value="searchParams.categoryId"
           placeholder="选择分类"
@@ -16,19 +25,6 @@
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
       </n-space>
-    </n-card>
-
-    <!-- 表格区 -->
-    <n-card :bordered="false" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">题库管理</span>
-          <n-button type="primary" @click="openDrawer()">
-            <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-            新增题库
-          </n-button>
-        </div>
-      </template>
 
       <n-data-table
         :columns="columns"
@@ -36,6 +32,7 @@
         :loading="loading"
         :pagination="false"
         :row-key="(row: QuestionBank) => row.id"
+        size="small"
         striped
       />
 
@@ -288,11 +285,15 @@ onMounted(() => {
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.search-card, .main-card {
+.main-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-bar {
+  margin-bottom: 12px;
 }
 
 .card-header {
@@ -302,15 +303,15 @@ onMounted(() => {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #f0f0f0;
 }
 

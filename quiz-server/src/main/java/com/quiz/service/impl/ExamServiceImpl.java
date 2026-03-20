@@ -180,9 +180,12 @@ public class ExamServiceImpl implements ExamService {
     }
 
     @Override
-    public ExamResultVO getResult(Long examId) {
+    public ExamResultVO getResult(Long examId, Long userId) {
         ExamRecord record = examRecordMapper.selectOneById(examId);
         if (record == null) throw new BizException("记录不存在");
+        if (!record.getUserId().equals(userId)) {
+            throw new BizException(403, "无权访问该记录");
+        }
         return buildExamResult(record);
     }
 

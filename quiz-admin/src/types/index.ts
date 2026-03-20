@@ -1,3 +1,10 @@
+/** API响应结构 */
+export interface ApiResponse<T = any> {
+  code: number
+  message: string
+  data: T
+}
+
 /** 分页结果 */
 export interface PageResult<T> {
   list: T[]
@@ -5,6 +12,70 @@ export interface PageResult<T> {
   pageNum: number
   pageSize: number
 }
+
+/** 分页参数 */
+export interface PageParams {
+  pageNum?: number
+  pageSize?: number
+}
+
+// ==================== 枚举定义 ====================
+
+/** 状态枚举 */
+export enum Status {
+  DISABLED = 0,
+  ENABLED = 1
+}
+
+/** 题目类型 */
+export enum QuestionType {
+  SINGLE = 1,    // 单选
+  MULTIPLE = 2,  // 多选
+  JUDGE = 3,     // 判断
+  FILL = 4,      // 填空
+  SHORT = 5      // 简答
+}
+
+/** 题目类型映射 */
+export const QuestionTypeMap: Record<QuestionType, string> = {
+  [QuestionType.SINGLE]: '单选题',
+  [QuestionType.MULTIPLE]: '多选题',
+  [QuestionType.JUDGE]: '判断题',
+  [QuestionType.FILL]: '填空题',
+  [QuestionType.SHORT]: '简答题'
+}
+
+/** 难度枚举 */
+export enum Difficulty {
+  EASY = 1,
+  MEDIUM = 2,
+  HARD = 3
+}
+
+/** 难度映射 */
+export const DifficultyMap: Record<Difficulty, string> = {
+  [Difficulty.EASY]: '简单',
+  [Difficulty.MEDIUM]: '中等',
+  [Difficulty.HARD]: '困难'
+}
+
+/** VIP订单状态 */
+export enum OrderStatus {
+  PENDING = 0,   // 待支付
+  PAID = 1,      // 已支付
+  CANCELLED = 2, // 已取消
+  REFUNDED = 3   // 已退款
+}
+
+/** 订单状态映射 */
+export const OrderStatusMap: Record<OrderStatus, string> = {
+  [OrderStatus.PENDING]: '待支付',
+  [OrderStatus.PAID]: '已支付',
+  [OrderStatus.CANCELLED]: '已取消',
+  [OrderStatus.REFUNDED]: '已退款'
+}
+
+// ==================== 实体类型 ====================
 
 /** 分类 */
 export interface Category {

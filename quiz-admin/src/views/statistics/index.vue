@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <n-card :bordered="false" class="main-card">
+    <n-card :bordered="false" size="small" class="main-card">
       <template #header>
         <div class="card-header">
           <span class="card-title">数据统计</span>
@@ -177,20 +177,20 @@ onBeforeUnmount(() => {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .chart-item {
   background: #fafafa;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
 }
 
 .chart-title {
@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
 }
 
 .chart-container {
-  height: 300px;
+  height: 260px;
 }
 
 @media (max-width: 1200px) {

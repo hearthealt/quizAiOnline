@@ -10,6 +10,7 @@ import com.quiz.vo.app.PracticeResultVO;
 import com.quiz.vo.app.QuestionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +26,7 @@ public class AppPracticeController {
 
     @Operation(summary = "开始练习")
     @PostMapping("/start")
-    public R<PracticeRecord> start(@RequestBody StartPracticeDTO dto) {
+    public R<PracticeRecord> start(@Valid @RequestBody StartPracticeDTO dto) {
         Long userId = StpKit.APP.getLoginIdAsLong();
         return R.ok(practiceService.startPractice(userId, dto));
     }

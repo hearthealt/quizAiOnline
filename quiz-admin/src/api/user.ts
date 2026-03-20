@@ -20,3 +20,9 @@ export function getRecords(id: number, params: Record<string, any>) {
 export function getChatHistory(id: number) {
   return request.get<any[]>(`/api/admin/user/${id}/chat-history`)
 }
+
+export function setVip(id: number, isVip: number, expireTime: Date | null) {
+  return request.put(`/api/admin/user/${id}/vip`, null, {
+    params: { isVip, expireTime: expireTime ? new Date(expireTime).toISOString() : null }
+  })
+}

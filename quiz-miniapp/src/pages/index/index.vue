@@ -1,86 +1,81 @@
 <template>
   <view class="page">
-    <view class="hero">
-      <view class="hero-top">
-        <view class="hero-text">
-          <text class="hero-title">{{ greeting }}，{{ nickname }}</text>
-          <text class="hero-sub" v-if="isLogin">坚持学习，进步看得见</text>
-          <text class="hero-sub" v-else>登录后同步学习数据</text>
-        </view>
-        <view class="hero-badge" v-if="isLogin">
-          <text class="badge-label">今日答题</text>
-          <text class="badge-value">{{ home?.studyStats?.todayAnswered || 0 }}</text>
+    <!-- 顶部用户区 -->
+    <view class="header">
+      <view class="user-info" @tap="goMine">
+        <image v-if="userStore.userInfo?.avatar" class="avatar" :src="resolveAssetUrl(userStore.userInfo.avatar)" mode="aspectFill" />
+        <view v-else class="avatar">👤</view>
+        <view class="user-text">
+          <text class="user-name">{{ greeting }}，{{ nickname }}</text>
+          <text class="user-tip">{{ isLogin ? '今天也要加油哦' : '登录同步学习进度' }}</text>
         </view>
       </view>
-
-      <view class="hero-search" @tap="goSearch">
-        <text class="search-icon">搜</text>
-        <text class="search-placeholder">搜索题库、题目...</text>
-      </view>
+      <view class="search-btn" @tap="goSearch">🔍</view>
     </view>
 
-    <view class="stats-grid" v-if="isLogin">
-      <view class="stat-card">
-        <text class="stat-value">{{ home?.studyStats?.totalDays || 0 }}</text>
+    <!-- 学习数据卡片 -->
+    <view class="stats-card">
+      <view class="stat-item">
+        <text class="stat-num">{{ homeData?.studyStats?.totalDays || 0 }}</text>
         <text class="stat-label">学习天数</text>
       </view>
-      <view class="stat-card">
-        <text class="stat-value">{{ home?.studyStats?.totalAnswered || 0 }}</text>
-        <text class="stat-label">累计答题</text>
+      <view class="stat-divider" />
+      <view class="stat-item">
+        <text class="stat-num">{{ homeData?.studyStats?.totalAnswered || 0 }}</text>
+        <text class="stat-label">答题总数</text>
       </view>
-      <view class="stat-card highlight">
-        <text class="stat-value">{{ home?.studyStats?.correctRate || 0 }}%</text>
+      <view class="stat-divider" />
+      <view class="stat-item">
+        <text class="stat-num primary">{{ homeData?.studyStats?.correctRate || 0 }}%</text>
         <text class="stat-label">正确率</text>
       </view>
     </view>
-    <view class="stats-guest" v-else>
-      <view class="guest-card">
-        <text class="guest-title">登录后查看学习统计</text>
-        <text class="guest-desc">记录你的学习天数、答题数量和正确率</text>
+
+    <!-- 功能入口 -->
+    <view class="quick-grid">
+      <view class="quick-item" @tap="goBankList">
+        <view class="quick-icon" style="background: #fee2e2;">📚</view>
+        <text class="quick-text">题库</text>
+      </view>
+      <view class="quick-item" @tap="goWrong">
+        <view class="quick-icon" style="background: #fef3c7;">❌</view>
+        <text class="quick-text">错题</text>
+      </view>
+      <view class="quick-item" @tap="goFavorite">
+        <view class="quick-icon" style="background: #dbeafe;">⭐</view>
+        <text class="quick-text">收藏</text>
+      </view>
+      <view class="quick-item" @tap="goRecord">
+        <view class="quick-icon" style="background: #d1fae5;">📊</view>
+        <text class="quick-text">记录</text>
       </view>
     </view>
 
-    <view class="daily-card" v-if="home?.dailyQuestion">
-      <view class="daily-icon">题</view>
-      <view class="daily-left">
-        <text class="daily-tag">每日一题</text>
-        <text class="daily-content">{{ home?.dailyQuestion?.content }}</text>
+    <!-- 每日一题 -->
+    <view class="daily-card" v-if="homeData?.dailyQuestion" @tap="goPracticeDaily">
+      <view class="daily-header">
+        <text class="daily-tag">📝 每日一题</text>
+        <text class="daily-action">去挑战 →</text>
       </view>
-      <button class="daily-btn" @tap="goPracticeDaily">去挑战</button>
-    </view>
-    <view class="daily-card" v-else>
-      <view class="daily-icon">题</view>
-      <view class="daily-left">
-        <text class="daily-tag">每日一题</text>
-        <text class="daily-empty">暂无题目</text>
-      </view>
+      <text class="daily-content">{{ homeData.dailyQuestion.content }}</text>
     </view>
 
-    <view class="section-header">
-      <text class="section-title">热门题库</text>
-      <text class="section-link" @tap="goBankList">全部</text>
-    </view>
-    <view class="bank-list">
-      <view
-        v-for="bank in home?.hotBanks || []"
-        :key="bank.id"
-        class="bank-item"
-        @tap="goBankDetail(bank.id)"
-      >
-        <image
-          v-if="bank.cover"
-          class="bank-cover"
-          :src="resolveAssetUrl(bank.cover)"
-          mode="aspectFill"
-        />
-        <view v-else class="bank-cover" />
-        <view class="bank-info">
-          <text class="bank-name">{{ bank.name }}</text>
-          <text class="bank-meta">
-            {{ bank.questionCount || 0 }} 题 · {{ formatCount(bank.practiceCount) }} 人练习
-          </text>
+    <!-- 热门题库 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">🔥 热门题库</text>
+        <text class="section-more" @tap="goBankList">更多</text>
+      </view>
+      <view class="bank-list">
+        <view class="bank-item" v-for="bank in homeData?.hotBanks || []" :key="bank.id" @tap="goBankDetail(bank.id)">
+          <image v-if="bank.cover" class="bank-cover" :src="resolveAssetUrl(bank.cover)" mode="aspectFill" />
+          <view v-else class="bank-cover placeholder">📖</view>
+          <view class="bank-info">
+            <text class="bank-name">{{ bank.name }}</text>
+            <text class="bank-meta">{{ bank.questionCount || 0 }}题 · {{ formatCount(bank.practiceCount) }}人练习</text>
+          </view>
+          <view class="bank-btn">开始</view>
         </view>
-        <button class="bank-btn" @tap.stop="goBankDetail(bank.id)">练习</button>
       </view>
     </view>
   </view>
@@ -88,274 +83,234 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app"
-import { getHomeIndex, type HomeVO } from "@/api/home";
+import { onShow } from "@dcloudio/uni-app";
+import { useSharedHomeCache } from "@/composables/useHomeCache";
 import { useUserStore } from "@/stores/user";
 import { useAppStore } from "@/stores/app";
 import { resolveAssetUrl } from "@/utils/assets";
 import { formatCount } from "@/utils/format";
 
-const home = ref<HomeVO>();
+const { homeData, loadHomeData } = useSharedHomeCache();
 const userStore = useUserStore();
 const appStore = useAppStore();
-const nickname = ref("同学");
-const greeting = ref("你好");
-const isLogin = ref(false);
 
-const fetchHome = async () => {
-  await appStore.loadSiteConfig();
-  home.value = await getHomeIndex();
-  isLogin.value = userStore.isLogin;
-  nickname.value = isLogin.value ? userStore.userInfo?.nickname || "同学" : "同学";
-  updateGreeting();
-};
+const isLogin = computed(() => userStore.isLogin);
+const nickname = computed(() => isLogin.value ? userStore.userInfo?.nickname || "同学" : "同学");
+const greeting = ref("你好");
 
 const updateGreeting = () => {
   const hour = new Date().getHours();
-  if (hour < 5) {
-    greeting.value = "夜深了";
-  } else if (hour < 9) {
-    greeting.value = "早安";
-  } else if (hour < 12) {
-    greeting.value = "上午好";
-  } else if (hour < 14) {
-    greeting.value = "中午好";
-  } else if (hour < 18) {
-    greeting.value = "下午好";
-  } else if (hour < 22) {
-    greeting.value = "晚上好";
-  } else {
-    greeting.value = "夜深了";
-  }
+  if (hour < 6) greeting.value = "夜深了";
+  else if (hour < 12) greeting.value = "早上好";
+  else if (hour < 18) greeting.value = "下午好";
+  else greeting.value = "晚上好";
 };
 
-const goBankList = () => uni.navigateTo({ url: "/pages/bank/list" });
 const goSearch = () => uni.navigateTo({ url: "/pages/search/index" });
-const goBankDetail = (id: number) =>
-  uni.navigateTo({ url: `/pages/bank/detail?id=${id}` });
+const goBankList = () => uni.navigateTo({ url: "/pages/bank/list" });
+const goMine = () => uni.switchTab({ url: "/pages/mine/index" });
+const goWrong = () => uni.navigateTo({ url: "/pages/wrong/index" });
+const goFavorite = () => uni.navigateTo({ url: "/pages/favorite/index" });
+const goRecord = () => uni.navigateTo({ url: "/pages/record/index" });
+const goBankDetail = (id: number) => uni.navigateTo({ url: `/pages/bank/detail?id=${id}` });
 const goPracticeDaily = () => {
-  if (!home.value?.dailyQuestion) return;
-  uni.navigateTo({
-    url: `/pages/bank/detail?id=${home.value.dailyQuestion.bankId}`
-  });
+  if (!homeData.value?.dailyQuestion) return;
+  uni.navigateTo({ url: `/pages/bank/detail?id=${homeData.value.dailyQuestion.bankId}` });
 };
 
-onShow(fetchHome);
+onShow(async () => {
+  await appStore.loadSiteConfig();
+  await loadHomeData();
+  updateGreeting();
+});
 </script>
 
 <style lang="scss" scoped>
 .page {
-  padding: var(--space-xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+  padding: 24rpx;
+  background: var(--bg);
+  min-height: 100vh;
 }
 
-.hero {
-  background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
-  border-radius: var(--radius-xl);
-  padding: var(--space-xl);
+.header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space);
-  color: #ffffff;
-}
-
-.hero-top {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: var(--space);
+  justify-content: space-between;
+  margin-bottom: 24rpx;
 }
 
-.hero-text {
+.user-info {
   display: flex;
-  flex-direction: column;
-  gap: 6rpx;
+  align-items: center;
+  gap: 16rpx;
 }
 
-.hero-title {
+.avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: var(--primary-weak);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 32rpx;
-  font-weight: 700;
 }
 
-.hero-sub {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.hero-badge {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius);
-  padding: var(--space-sm) var(--space);
+.user-text {
   display: flex;
   flex-direction: column;
   gap: 4rpx;
-  align-items: center;
-  min-width: 110rpx;
-  backdrop-filter: blur(8rpx);
 }
 
-.badge-label {
-  font-size: 20rpx;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.badge-value {
-  font-size: 28rpx;
-  font-weight: 700;
-}
-
-.hero-search {
-  background: #ffffff;
-  border-radius: var(--radius);
-  padding: var(--space) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.search-icon {
-  font-size: 22rpx;
-  background: var(--primary-weak);
-  color: var(--primary);
-  padding: 6rpx 14rpx;
-  border-radius: var(--radius-full);
-  font-weight: 500;
-}
-
-.search-placeholder {
-  color: var(--muted);
-  font-size: 26rpx;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-sm);
-}
-
-.stats-guest {
-  background: var(--card);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  box-shadow: var(--shadow);
-}
-
-.guest-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.guest-title {
-  font-size: 26rpx;
+.user-name {
+  font-size: 32rpx;
   font-weight: 600;
+  color: var(--text);
 }
 
-.guest-desc {
+.user-tip {
   font-size: 24rpx;
   color: var(--muted);
 }
 
-.stat-card {
+.search-btn {
+  width: 72rpx;
+  height: 72rpx;
   background: var(--card);
-  border-radius: var(--radius);
-  padding: var(--space) var(--space-sm);
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
-  gap: 6rpx;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
   box-shadow: var(--shadow-sm);
-  text-align: center;
 }
 
-.stat-value {
-  font-size: 30rpx;
+.stats-card {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 24rpx;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-bottom: 24rpx;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.stat-num {
+  font-size: 40rpx;
   font-weight: 700;
+  color: #fff;
+}
+
+.stat-num.primary {
+  color: #fef3c7;
 }
 
 .stat-label {
   font-size: 22rpx;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.stat-card.highlight .stat-value {
-  color: var(--primary);
+.stat-divider {
+  width: 1rpx;
+  height: 60rpx;
+  background: rgba(255, 255, 255, 0.3);
 }
 
-.daily-card {
-  background: var(--warning-weak);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.quick-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space);
+  gap: 12rpx;
+  padding: 20rpx 0;
+  background: var(--card);
+  border-radius: 16rpx;
+  box-shadow: var(--shadow-sm);
 }
 
-.daily-icon {
-  width: 52rpx;
-  height: 52rpx;
-  border-radius: var(--radius);
-  background: #fde68a;
-  color: #b45309;
+.quick-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22rpx;
-  font-weight: 700;
+  font-size: 32rpx;
 }
 
-.daily-left {
-  flex: 1;
+.quick-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.daily-card {
+  background: var(--card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: var(--shadow);
+  border-left: 6rpx solid var(--primary);
+}
+
+.daily-header {
   display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-  min-width: 0;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
 }
 
 .daily-tag {
-  font-size: 22rpx;
-  color: var(--warning);
+  font-size: 26rpx;
   font-weight: 600;
+  color: var(--primary);
+}
+
+.daily-action {
+  font-size: 24rpx;
+  color: var(--primary);
 }
 
 .daily-content {
-  font-size: 26rpx;
-  color: #78350f;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.daily-empty {
-  font-size: 26rpx;
-  color: var(--muted);
-}
-
-.daily-btn {
-  background: var(--warning);
-  color: #ffffff;
-  height: 56rpx;
-  line-height: 56rpx;
-  border-radius: var(--radius-full);
-  padding: 0 24rpx;
-  font-size: 24rpx;
-  font-weight: 500;
-  flex-shrink: 0;
+.section {
+  margin-bottom: 24rpx;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 16rpx;
 }
 
 .section-title {
   font-size: 30rpx;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--text);
 }
 
-.section-link {
+.section-more {
   font-size: 24rpx;
   color: var(--muted);
 }
@@ -363,39 +318,44 @@ onShow(fetchHome);
 .bank-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space);
+  gap: 16rpx;
 }
 
 .bank-item {
   background: var(--card);
-  border-radius: var(--radius-lg);
-  padding: var(--space);
+  border-radius: 16rpx;
+  padding: 20rpx;
   display: flex;
-  gap: var(--space);
   align-items: center;
-  box-shadow: var(--shadow);
+  gap: 16rpx;
+  box-shadow: var(--shadow-sm);
 }
 
 .bank-cover {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: var(--radius);
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 12rpx;
   background: var(--primary-weak);
-  overflow: hidden;
   flex-shrink: 0;
+}
+
+.bank-cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
 }
 
 .bank-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
   min-width: 0;
 }
 
 .bank-name {
   font-size: 28rpx;
   font-weight: 600;
+  color: var(--text);
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -404,17 +364,16 @@ onShow(fetchHome);
 .bank-meta {
   font-size: 22rpx;
   color: var(--muted);
+  margin-top: 8rpx;
+  display: block;
 }
 
 .bank-btn {
-  background: var(--primary-weak);
-  color: var(--primary);
-  height: 56rpx;
-  line-height: 56rpx;
-  border-radius: var(--radius-full);
-  padding: 0 24rpx;
+  padding: 12rpx 28rpx;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 32rpx;
   font-size: 24rpx;
   font-weight: 500;
-  flex-shrink: 0;
 }
 </style>

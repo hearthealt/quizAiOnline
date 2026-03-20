@@ -1,16 +1,6 @@
 <template>
   <div class="page-container">
-    <n-card :bordered="false" class="search-card">
-      <n-space>
-        <n-select v-model:value="query.callType" :options="callTypeOptions" placeholder="调用类型" clearable style="width: 120px" />
-        <n-select v-model:value="query.status" :options="statusOptions" placeholder="状态" clearable style="width: 100px" />
-        <n-select v-model:value="query.mode" :options="modeOptions" placeholder="调用模式" clearable style="width: 160px" />
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
-        <n-button @click="handleReset">重置</n-button>
-      </n-space>
-    </n-card>
-
-    <n-card :bordered="false" class="main-card">
+    <n-card :bordered="false" size="small" class="main-card">
       <template #header>
         <div class="card-header">
           <span class="card-title">AI调用日志</span>
@@ -18,7 +8,15 @@
         </div>
       </template>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" :row-props="rowProps" striped />
+      <n-space class="search-bar">
+        <n-select v-model:value="query.callType" :options="callTypeOptions" placeholder="调用类型" clearable style="width: 120px" />
+        <n-select v-model:value="query.status" :options="statusOptions" placeholder="状态" clearable style="width: 100px" />
+        <n-select v-model:value="query.mode" :options="modeOptions" placeholder="调用模式" clearable style="width: 160px" />
+        <n-button type="primary" @click="handleSearch">搜索</n-button>
+        <n-button @click="handleReset">重置</n-button>
+      </n-space>
+
+      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" :row-props="rowProps" striped size="small" />
 
       <div class="pagination-wrap">
         <n-pagination
@@ -190,11 +188,15 @@ onMounted(() => fetchData())
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.search-card, .main-card {
+.main-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-bar {
+  margin-bottom: 12px;
 }
 
 .card-header {
@@ -204,15 +206,15 @@ onMounted(() => fetchData())
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #f0f0f0;
 }
 

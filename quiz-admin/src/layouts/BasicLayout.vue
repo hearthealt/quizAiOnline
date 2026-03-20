@@ -413,7 +413,7 @@ onMounted(async () => {
 }
 
 .main-content {
-  padding: 16px;
+  padding: 12px;
   background: #f5f7f9;
   min-height: calc(100vh - 56px);
   overflow: auto;

@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+
 
 @Slf4j
 @Service
@@ -39,11 +39,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiChatMessageMapper aiChatMessageMapper;
     private final IFlowApiKeyService iFlowApiKeyService;
     private final SysConfigService sysConfigService;
-
-    private final OkHttpClient okHttpClient = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .build();
+    private final OkHttpClient okHttpClient;
 
     @Override
     public String chat(AiChatDTO dto, Long userId) {

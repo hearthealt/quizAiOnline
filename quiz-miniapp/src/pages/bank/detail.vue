@@ -1,58 +1,82 @@
 <template>
   <view class="page">
-    <view class="hero">
-      <view class="hero-top">
-        <image
-          v-if="bank?.cover"
-          class="hero-cover"
-          :src="resolveAssetUrl(bank.cover)"
-          mode="aspectFill"
-        />
-        <view v-else class="hero-cover" />
-        <view class="hero-info">
-          <text class="hero-title">{{ bank?.name }}</text>
-          <text class="hero-sub">
-            {{ bank?.questionCount || 0 }} 题 · {{ formatCount(bank?.practiceCount) }} 人练习
-          </text>
+    <!-- 头部信息卡片 -->
+    <view class="header-card">
+      <image
+        v-if="bank?.cover"
+        class="header-cover"
+        :src="resolveAssetUrl(bank.cover)"
+        mode="aspectFill"
+      />
+      <view v-else class="header-cover placeholder">📚</view>
+      <view class="header-info">
+        <text class="header-title">{{ bank?.name }}</text>
+        <view class="header-tags">
+          <text class="tag">{{ bank?.questionCount || 0 }}题</text>
+          <text class="tag">{{ formatCount(bank?.practiceCount) }}人练习</text>
         </view>
       </view>
     </view>
 
-    <view class="stats-strip">
+    <!-- 数据统计 -->
+    <view class="stats-row">
       <view class="stat-item">
+        <text class="stat-icon">📖</text>
         <text class="stat-value">{{ bank?.questionCount || 0 }}</text>
-        <text class="stat-label">题量</text>
+        <text class="stat-label">总题数</text>
       </view>
+      <view class="stat-divider" />
       <view class="stat-item">
+        <text class="stat-icon">⏱️</text>
+        <text class="stat-value">{{ bank?.examTime || 0 }}</text>
+        <text class="stat-label">分钟</text>
+      </view>
+      <view class="stat-divider" />
+      <view class="stat-item">
+        <text class="stat-icon">🎯</text>
         <text class="stat-value">{{ bank?.passScore || 0 }}</text>
         <text class="stat-label">及格分</text>
       </view>
-      <view class="stat-item">
-        <text class="stat-value">{{ bank?.examTime || 0 }}m</text>
-        <text class="stat-label">考试时长</text>
-      </view>
     </view>
 
-    <view class="section">
-      <text class="section-title">题库简介</text>
-      <view class="card">
-        <text class="card-text">{{ bank?.description || "暂无描述" }}</text>
+    <!-- 学习进度 -->
+    <view v-if="isLogin" class="section">
+      <view class="section-header">
+        <text class="section-title">📊 学习进度</text>
+        <text class="section-percent">{{ progressPercent }}%</text>
       </view>
-    </view>
-
-    <view class="section">
-      <text class="section-title">学习进度</text>
-      <view class="card progress-card">
-        <view class="progress-row">
-          <text v-if="isLogin">
-            已完成 {{ bank?.userProgress || 0 }} / {{ progressTotal }}
-          </text>
-          <text v-else>登录后查看学习进度</text>
-          <text class="progress-rate" v-if="isLogin">{{ progressPercent }}%</text>
+      <view class="progress-card">
+        <view class="progress-info">
+          <text class="progress-text">已做 {{ bank?.userProgress || 0 }} / {{ progressTotal }}</text>
+          <text class="progress-rate">正确率 {{ bank?.userCorrectRate || 0 }}%</text>
         </view>
         <view class="progress-track">
           <view class="progress-bar" :style="{ width: progressWidth }" />
         </view>
+      </view>
+    </view>
+
+    <!-- 题库简介 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">📝 题库简介</text>
+      </view>
+      <view class="desc-card">
+        <text class="desc-text">{{ bank?.description || "暂无描述" }}</text>
+      </view>
+    </view>
+
+    <!-- 底部操作栏 -->
+    <view class="bottom-bar">
+      <view class="bar-actions">
+        <button class="action-btn ghost" @tap="handleExam">
+          <text class="btn-icon">📝</text>
+          <text class="btn-text">模拟考试</text>
+        </button>
+        <button class="action-btn primary" @tap="handlePractice">
+          <text class="btn-icon">✏️</text>
+          <text class="btn-text">开始练习</text>
+        </button>
       </view>
     </view>
 
@@ -61,11 +85,6 @@
       @close="showLogin = false"
       @success="handleLoginSuccess"
     />
-
-    <view class="bottom-actions">
-      <button class="ghost-btn" @tap="handleExam">考试</button>
-      <button class="primary-btn" @tap="handlePractice">练习</button>
-    </view>
   </view>
 </template>
 
@@ -214,91 +233,92 @@ onShow(() => {
 
 <style lang="scss" scoped>
 .page {
-  padding: var(--space-xl) var(--space-xl) 160rpx;
+  padding: 24rpx;
+  background: var(--bg);
+  padding-bottom: 180rpx;
 }
 
-.hero {
-  background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
-  border-radius: var(--radius-xl);
-  padding: var(--space-xl);
-  color: #ffffff;
-}
-
-.hero-top {
+/* 头部卡片 */
+.header-card {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 20rpx;
+  padding: 28rpx;
   display: flex;
   align-items: center;
-  gap: var(--space);
+  gap: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(229, 57, 53, 0.3);
 }
 
-.hero-cover {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: var(--radius-lg);
+.header-cover {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 16rpx;
   background: rgba(255, 255, 255, 0.2);
   overflow: hidden;
   flex-shrink: 0;
 }
 
-.hero-info {
+.header-cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+}
+
+.header-info {
   flex: 1;
   min-width: 0;
 }
 
-.hero-title {
-  font-size: 32rpx;
+.header-title {
+  font-size: 34rpx;
   font-weight: 700;
+  color: #fff;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.hero-sub {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
-  margin-top: 6rpx;
-}
-
-.section {
-  margin-top: var(--space-lg);
-}
-
-.section-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  margin-bottom: var(--space-sm);
-}
-
-.card {
-  background: var(--card);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  box-shadow: var(--shadow);
-}
-
-.card-text {
-  font-size: 26rpx;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.stats-strip {
-  background: var(--card);
-  border-radius: var(--radius-lg);
-  padding: var(--space);
+.header-tags {
   display: flex;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  box-shadow: var(--shadow);
-  margin-top: var(--space);
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.tag {
+  padding: 6rpx 16rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  color: #fff;
+}
+
+/* 统计行 */
+.stats-row {
+  background: var(--card);
+  border-radius: 20rpx;
+  padding: 28rpx 20rpx;
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-item {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
   align-items: center;
+  gap: 8rpx;
+}
+
+.stat-icon {
+  font-size: 32rpx;
 }
 
 .stat-value {
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: 700;
   color: var(--text);
 }
@@ -308,70 +328,135 @@ onShow(() => {
   color: var(--muted);
 }
 
-.progress-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space);
+.stat-divider {
+  width: 1rpx;
+  height: 48rpx;
+  background: var(--border);
 }
 
-.progress-row {
+/* 区块样式 */
+.section {
+  margin-top: 24rpx;
+}
+
+.section-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding-left: 8rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-percent {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* 进度卡片 */
+.progress-card {
+  background: var(--card);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.progress-text {
   font-size: 26rpx;
   color: var(--text-secondary);
 }
 
 .progress-rate {
+  font-size: 26rpx;
   color: var(--primary);
   font-weight: 600;
 }
 
 .progress-track {
-  height: 10rpx;
+  height: 12rpx;
   background: var(--border-light);
-  border-radius: var(--radius-full);
+  border-radius: 6rpx;
   overflow: hidden;
 }
 
 .progress-bar {
   height: 100%;
   background: linear-gradient(90deg, var(--primary), var(--primary-light));
-  border-radius: var(--radius-full);
+  border-radius: 6rpx;
   transition: width 0.3s;
 }
 
-.bottom-actions {
+/* 简介卡片 */
+.desc-card {
+  background: var(--card);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: var(--shadow-sm);
+}
+
+.desc-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+/* 底部操作栏 */
+.bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: var(--space) var(--space-xl) 32rpx;
-  background: rgba(255, 255, 255, 0.95);
+  padding: 20rpx 24rpx;
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(10rpx);
   border-top: 1rpx solid var(--border-light);
-  display: flex;
-  gap: var(--space);
 }
 
-.ghost-btn {
+.bar-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-btn {
   flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.action-btn.ghost {
   background: var(--primary-weak);
   color: var(--primary);
-  height: 80rpx;
-  line-height: 80rpx;
-  border-radius: var(--radius-full);
-  font-size: 28rpx;
-  font-weight: 500;
 }
 
-.primary-btn {
-  flex: 1;
+.action-btn.primary {
   background: var(--primary);
-  color: #ffffff;
-  height: 80rpx;
-  line-height: 80rpx;
-  border-radius: var(--radius-full);
-  font-size: 28rpx;
-  font-weight: 500;
+  color: #fff;
+}
+
+.btn-icon {
+  font-size: 32rpx;
+}
+
+.btn-text {
+  white-space: nowrap;
 }
 </style>

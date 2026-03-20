@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <n-card :bordered="false" class="main-card">
+    <n-card :bordered="false" size="small" class="main-card">
       <template #header>
         <div class="card-header">
           <span class="card-title">VIP套餐管理</span>
@@ -11,7 +11,7 @@
         </div>
       </template>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
+      <n-data-table size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
     </n-card>
 
     <n-modal v-model:show="showForm" preset="card" :title="formData.id ? '编辑套餐' : '新增套餐'" style="width: 520px">
@@ -206,7 +206,7 @@ onMounted(() => fetchData())
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 </style>

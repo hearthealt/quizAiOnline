@@ -15,8 +15,8 @@ import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.FavoriteService;
 import com.quiz.vo.app.FavoriteVO;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -31,23 +31,16 @@ import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class FavoriteServiceImpl implements FavoriteService {
 
     private static final boolean SHOW_ANALYSIS = true;
-    @Autowired
-    private FavoriteMapper favoriteMapper;
 
-    @Autowired
-    private QuestionMapper questionMapper;
-
-    @Autowired
-    private QuestionBankMapper questionBankMapper;
-
-    @Autowired
-    private QuestionOptionMapper questionOptionMapper;
-
-    @Autowired
-    private UserMapper userMapper;
+    private final FavoriteMapper favoriteMapper;
+    private final QuestionMapper questionMapper;
+    private final QuestionBankMapper questionBankMapper;
+    private final QuestionOptionMapper questionOptionMapper;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional
@@ -76,26 +69,50 @@ public class FavoriteServiceImpl implements FavoriteService {
                 .orderBy(FAVORITE.CREATE_TIME.desc());
         Page<Favorite> page = favoriteMapper.paginate(pageNum, pageSize, query);
 
-        List<FavoriteVO> voList = new ArrayList<>();
-        for (Favorite fav : page.getRecords()) {
+        if (page.getRecords().isEmpty()) {
+            return PageResult.of(Collections.emptyList(), 0L, pageNum, pageSize);
+        }
+
+        // 批量查询题目
+        Set<Long> questionIds = page.getRecords().stream()
+                .map(Favorite::getQuestionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Question> questionMap = questionIds.isEmpty() ? Collections.emptyMap() :
+                questionMapper.selectListByIds(questionIds).stream()
+                        .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+
+        // 批量查询题库
+        Set<Long> bankIds = questionMap.values().stream()
+                .map(Question::getBankId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, QuestionBank> bankMap = bankIds.isEmpty() ? Collections.emptyMap() :
+                questionBankMapper.selectListByIds(bankIds).stream()
+                        .collect(Collectors.toMap(QuestionBank::getId, Function.identity(), (a, b) -> a));
+
+        // 批量查询选项
+        Map<Long, List<QuestionOption>> optionsMap = questionIds.isEmpty() ? Collections.emptyMap() :
+                questionOptionMapper.selectListByQuery(
+                        QueryWrapper.create()
+                                .where(QUESTION_OPTION.QUESTION_ID.in(questionIds))
+                                .orderBy(QUESTION_OPTION.SORT.asc())
+                ).stream().collect(Collectors.groupingBy(QuestionOption::getQuestionId));
+
+        List<FavoriteVO> voList = page.getRecords().stream().map(fav -> {
             FavoriteVO vo = new FavoriteVO();
             vo.setId(fav.getId());
             vo.setQuestionId(fav.getQuestionId());
             vo.setCreateTime(fav.getCreateTime());
 
-            // 查询题目信息
-            Question question = questionMapper.selectOneById(fav.getQuestionId());
+            Question question = questionMap.get(fav.getQuestionId());
             if (question != null) {
                 vo.setContent(question.getContent());
                 vo.setType(question.getType());
                 vo.setAnswer(question.getAnswer());
                 vo.setAnalysis(SHOW_ANALYSIS ? question.getAnalysis() : null);
 
-                List<QuestionOption> options = questionOptionMapper.selectListByQuery(
-                        QueryWrapper.create()
-                                .from(QUESTION_OPTION)
-                                .where(QUESTION_OPTION.QUESTION_ID.eq(question.getId()))
-                                .orderBy(QUESTION_OPTION.SORT.asc()));
+                List<QuestionOption> options = optionsMap.getOrDefault(question.getId(), Collections.emptyList());
                 List<FavoriteVO.OptionVO> optionVOs = options.stream().map(opt -> {
                     FavoriteVO.OptionVO optVO = new FavoriteVO.OptionVO();
                     optVO.setLabel(opt.getLabel());
@@ -104,16 +121,13 @@ public class FavoriteServiceImpl implements FavoriteService {
                 }).collect(Collectors.toList());
                 vo.setOptions(optionVOs);
 
-                // 查询题库名称
-                if (question.getBankId() != null) {
-                    QuestionBank bank = questionBankMapper.selectOneById(question.getBankId());
-                    if (bank != null) {
-                        vo.setBankName(bank.getName());
-                    }
+                QuestionBank bank = bankMap.get(question.getBankId());
+                if (bank != null) {
+                    vo.setBankName(bank.getName());
                 }
             }
-            voList.add(vo);
-        }
+            return vo;
+        }).collect(Collectors.toList());
 
         return PageResult.of(voList, page.getTotalRow(), pageNum, pageSize);
     }

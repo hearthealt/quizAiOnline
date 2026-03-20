@@ -1,8 +1,14 @@
 <template>
   <div class="page-container">
-    <!-- 搜索区 -->
-    <n-card :bordered="false" class="search-card">
-      <n-space>
+    <n-card :bordered="false" size="small" class="main-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">用户管理</span>
+          <n-text depth="3">共 {{ pagination.itemCount }} 位用户</n-text>
+        </div>
+      </template>
+
+      <n-space class="search-bar">
         <n-input v-model:value="searchParams.keyword" placeholder="搜索昵称/手机号" clearable style="width: 200px" @keyup.enter="handleSearch">
           <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
         </n-input>
@@ -16,16 +22,6 @@
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
       </n-space>
-    </n-card>
-
-    <!-- 表格区 -->
-    <n-card :bordered="false" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">用户管理</span>
-          <n-text depth="3">共 {{ pagination.itemCount }} 位用户</n-text>
-        </div>
-      </template>
 
       <n-data-table
         :columns="columns"
@@ -33,6 +29,7 @@
         :loading="loading"
         :pagination="false"
         :row-key="(row: User) => row.id"
+        size="small"
         striped
       />
 
@@ -61,6 +58,21 @@
                 <n-tag v-if="detailUser.isVip === 1" type="warning" size="small" round>VIP</n-tag>
               </div>
               <div class="profile-phone">{{ detailUser.phone }}</div>
+              <div class="vip-actions" v-if="detailUser.id">
+                <n-space>
+                  <n-button v-if="detailUser.isVip !== 1" type="success" size="small" @click="openVipModal(detailUser, 'open')">
+                    开通 VIP
+                  </n-button>
+                  <template v-else>
+                    <n-button type="warning" size="small" @click="openVipModal(detailUser, 'renew')">
+                      续费 VIP
+                    </n-button>
+                    <n-button type="error" size="small" ghost @click="cancelVip(detailUser)">
+                      取消 VIP
+                    </n-button>
+                  </template>
+                </n-space>
+              </div>
             </div>
           </div>
 
@@ -72,7 +84,7 @@
               </n-tag>
             </n-descriptions-item>
             <n-descriptions-item v-if="detailUser.isVip === 1" label="VIP到期">
-              {{ dayjs(detailUser.vipExpireTime).format('YYYY-MM-DD HH:mm') }}
+              {{ isPermVip(detailUser.vipExpireTime) ? '永久有效' : dayjs(detailUser.vipExpireTime).format('YYYY-MM-DD HH:mm') }}
             </n-descriptions-item>
             <n-descriptions-item label="注册时间">
               {{ dayjs(detailUser.createTime).format('YYYY-MM-DD HH:mm') }}
@@ -106,8 +118,8 @@
       </n-drawer-content>
     </n-drawer>
     
-    <!-- AI对话记录弹窗 -->
-    <n-modal v-model:show="showChatModal" preset="card" title="AI对话记录" style="width: 600px; max-width: 90vw;">
+    <!-- AI 对话记录弹窗 -->
+    <n-modal v-model:show="showChatModal" preset="card" title="AI 对话记录" style="width: 600px; max-width: 90vw;">
       <div class="chat-modal-content">
         <div v-for="msg in chatHistory" :key="msg.id" :class="['chat-bubble-wrap', msg.role, { deleted: msg.deleted === 1 }]">
           <div class="chat-bubble">
@@ -120,18 +132,46 @@
         </div>
       </div>
     </n-modal>
+
+    <!-- VIP 设置弹窗 -->
+    <n-modal v-model:show="showVipModal" preset="card" :title="vipAction === 'open' ? '开通 VIP' : '续费 VIP'" style="width: 450px;">
+      <n-form label-placement="left" label-width="90px">
+        <n-form-item label="会员时长">
+          <n-radio-group v-model:value="vipForm.days">
+            <n-space>
+              <n-radio :value="30">30天</n-radio>
+              <n-radio :value="90">90天</n-radio>
+              <n-radio :value="180">180天</n-radio>
+              <n-radio :value="365">365天</n-radio>
+              <n-radio :value="-1">永久</n-radio>
+            </n-space>
+          </n-radio-group>
+        </n-form-item>
+        <n-form-item label="到期时间">
+          <n-text v-if="vipForm.days === -1" type="success">永久有效</n-text>
+          <n-text v-else>{{ computedExpireDisplay }}</n-text>
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showVipModal = false">取消</n-button>
+          <n-button type="primary" @click="confirmSetVip">确定</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
-import { NButton, NSwitch, NTag, NAvatar, NSpace, useMessage, type DataTableColumns } from 'naive-ui'
+import { h, ref, reactive, computed, onMounted } from 'vue'
+import { NButton, NSwitch, NTag, NAvatar, NSpace, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
 import type { User } from '@/types'
 import * as userApi from '@/api/user'
 import { useTable } from '@/composables/useTable'
 import dayjs from 'dayjs'
 
 const message = useMessage()
+const dialog = useDialog()
 const searchParams = reactive({ keyword: '', status: null as number | null })
 
 const { loading, data, pagination, fetchData, handlePageChange, handlePageSizeChange } = useTable<User>(
@@ -145,6 +185,10 @@ const recordLoading = ref(false)
 const chatHistory = ref<any[]>([])
 const chatLoading = ref(false)
 const showChatModal = ref(false)
+const showVipModal = ref(false)
+const vipAction = ref<'open' | 'renew'>('open')
+const vipForm = ref({ days: 30 })
+const currentUserId = ref<number>(0)
 
 const columns: DataTableColumns<User> = [
   { title: 'ID', key: 'id', width: 70 },
@@ -218,6 +262,7 @@ async function handleToggleStatus(id: number, status: number) {
 
 async function openDetail(user: User) {
   detailUser.value = user
+  currentUserId.value = user.id
   showDrawer.value = true
   recordLoading.value = true
   chatLoading.value = true
@@ -238,6 +283,73 @@ async function openDetail(user: User) {
   }
 }
 
+function isPermVip(expireTime: string | null) {
+  return expireTime && dayjs(expireTime).year() >= 2099
+}
+
+function openVipModal(user: User, action: 'open' | 'renew') {
+  currentUserId.value = user.id
+  vipAction.value = action
+  vipForm.value = { days: 30 }
+  showVipModal.value = true
+}
+
+function getExpireTime(): Date {
+  if (vipForm.value.days === -1) {
+    return dayjs('2099-12-31 23:59:59').toDate()
+  }
+  let base = dayjs()
+  if (vipAction.value === 'renew' && detailUser.value?.vipExpireTime) {
+    const expiry = dayjs(detailUser.value.vipExpireTime)
+    if (expiry.isAfter(base) && !isPermVip(detailUser.value.vipExpireTime)) {
+      base = expiry
+    }
+  }
+  return base.add(vipForm.value.days, 'day').toDate()
+}
+
+const computedExpireDisplay = computed(() => {
+  return dayjs(getExpireTime()).format('YYYY-MM-DD HH:mm')
+})
+
+function cancelVip(user: User) {
+  dialog.warning({
+    title: '取消 VIP',
+    content: `确定取消 ${user.nickname} 的 VIP 会员吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await userApi.setVip(user.id, 0, null)
+        message.success('已取消 VIP')
+        if (detailUser.value) {
+          detailUser.value.isVip = 0
+          detailUser.value.vipExpireTime = null as any
+        }
+        fetchData(searchParams)
+      } catch (e: any) {
+        message.error(e.message || '操作失败')
+      }
+    }
+  })
+}
+
+async function confirmSetVip() {
+  try {
+    const expireTime = getExpireTime()
+    await userApi.setVip(currentUserId.value, 1, expireTime)
+    message.success(vipAction.value === 'open' ? 'VIP 开通成功' : 'VIP 续费成功')
+    showVipModal.value = false
+    if (detailUser.value) {
+      detailUser.value.isVip = 1
+      detailUser.value.vipExpireTime = dayjs(expireTime).format('YYYY-MM-DD HH:mm:ss') as any
+    }
+    fetchData(searchParams)
+  } catch (e: any) {
+    message.error(e.message || '操作失败')
+  }
+}
+
 function handleSearch() { pagination.page = 1; fetchData(searchParams) }
 function handleReset() {
   searchParams.keyword = ''
@@ -253,11 +365,15 @@ onMounted(() => fetchData())
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.search-card, .main-card {
+.main-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-bar {
+  margin-bottom: 12px;
 }
 
 .card-header {
@@ -267,15 +383,15 @@ onMounted(() => fetchData())
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #f0f0f0;
 }
 
@@ -305,6 +421,10 @@ onMounted(() => fetchData())
   font-size: 14px;
   opacity: 0.8;
   margin-top: 4px;
+}
+
+.vip-actions {
+  margin-top: 12px;
 }
 
 .detail-desc {

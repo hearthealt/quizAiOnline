@@ -311,4 +311,27 @@ public class UserServiceImpl implements UserService {
         user.setStatus(status);
         userMapper.update(user);
     }
+
+    @Override
+    @Transactional
+    public void setVip(Long id, Integer isVip, LocalDateTime expireTime) {
+        User user = userMapper.selectOneById(id);
+        if (user == null) {
+            throw new BizException("用户不存在");
+        }
+        log.info("设置 VIP - userId: {}, isVip: {}, expireTime: {}", id, isVip, expireTime);
+        user.setIsVip(isVip);
+        if (isVip == 1) {
+            // 开通 VIP：设置到期时间
+            user.setVipExpireTime(expireTime != null ? expireTime : LocalDate.now().plusMonths(1).atStartOfDay());
+            log.info("开通 VIP - 设置到期时间：{}", user.getVipExpireTime());
+        } else {
+            // 取消 VIP：清空到期时间
+            user.setVipExpireTime(null);
+            log.info("取消 VIP - 清空到期时间");
+        }
+        // ignoreNulls=false 确保 null 字段也会更新到数据库
+        userMapper.update(user, false);
+        log.info("VIP 设置完成 - userId: {}, final isVip: {}, final vipExpireTime: {}", id, user.getIsVip(), user.getVipExpireTime());
+    }
 }

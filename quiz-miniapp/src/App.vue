@@ -8,11 +8,11 @@
 
 <style lang="scss">
 page {
-  /* 主题色 */
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #818cf8;
-  --primary-weak: #eef2ff;
+  /* 主题色 - 红色 */
+  --primary: #e53935;
+  --primary-dark: #c62828;
+  --primary-light: #ef5350;
+  --primary-weak: #ffebee;
 
   /* 功能色 */
   --success: #10b981;

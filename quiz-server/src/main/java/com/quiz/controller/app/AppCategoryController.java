@@ -30,9 +30,9 @@ public class AppCategoryController {
 
     @Operation(summary = "分类下的题库")
     @GetMapping("/{id}/banks")
-    public R<PageResult<QuestionBank>> banks(@PathVariable Long id,
+    public R<PageResult<QuestionBank>> banks(@PathVariable(required = false) Long id,
                                              @RequestParam(defaultValue = "1") Integer pageNum,
                                              @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(bankService.pageList(id, null, pageNum, pageSize));
+        return R.ok(bankService.pageList(null, id, pageNum, pageSize));
     }
 }

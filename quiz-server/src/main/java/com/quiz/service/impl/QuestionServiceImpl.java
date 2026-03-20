@@ -17,8 +17,8 @@ import com.quiz.service.QuestionService;
 import com.quiz.util.ExcelUtil;
 import com.quiz.vo.admin.QuestionDetailVO;
 import com.quiz.vo.app.QuestionVO;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,20 +33,15 @@ import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class QuestionServiceImpl implements QuestionService {
 
     private static final boolean SHOW_ANALYSIS = true;
-    @Autowired
-    private QuestionMapper questionMapper;
 
-    @Autowired
-    private QuestionOptionMapper questionOptionMapper;
-
-    @Autowired
-    private QuestionBankMapper questionBankMapper;
-
-    @Autowired
-    private FavoriteMapper favoriteMapper;
+    private final QuestionMapper questionMapper;
+    private final QuestionOptionMapper questionOptionMapper;
+    private final QuestionBankMapper questionBankMapper;
+    private final FavoriteMapper favoriteMapper;
 
     @Override
     public PageResult<Question> pageList(Long bankId, Integer type, String keyword, Integer pageNum, Integer pageSize) {

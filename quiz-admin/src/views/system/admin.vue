@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <n-card :bordered="false" class="main-card">
+    <n-card :bordered="false" size="small" class="main-card">
       <template #header>
         <div class="card-header">
           <span class="card-title">管理员管理</span>
@@ -11,7 +11,7 @@
         </div>
       </template>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
+      <n-data-table size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
 
       <div class="pagination-wrap">
         <n-pagination
@@ -218,15 +218,15 @@ onMounted(() => fetchData())
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #f0f0f0;
 }
 </style>

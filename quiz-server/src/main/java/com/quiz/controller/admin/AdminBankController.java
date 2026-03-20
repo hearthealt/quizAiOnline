@@ -22,7 +22,7 @@ public class AdminBankController {
                      @RequestParam(required = false) String keyword,
                      @RequestParam(defaultValue = "1") Integer pageNum,
                      @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(questionBankService.pageList(categoryId, keyword, pageNum, pageSize));
+        return R.ok(questionBankService.pageList(categoryId, null, pageNum, pageSize));
     }
 
     @Operation(summary = "题库详情")

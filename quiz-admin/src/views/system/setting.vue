@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <n-card :bordered="false" class="main-card">
+    <n-card :bordered="false" size="small" class="main-card">
       <template #header>
         <div class="card-header">
           <span class="card-title">系统设置</span>
@@ -200,13 +200,13 @@ onMounted(() => loadSetting())
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .setting-form {
   max-width: 600px;
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
 .logo-upload {

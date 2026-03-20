@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.AiCallLogTableDef.AI_CALL_LOG;
@@ -54,11 +54,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private final IFlowApiKeyService iFlowApiKeyService;
     private final UserMapper userMapper;
     private final AdminMapper adminMapper;
-
-    private final OkHttpClient okHttpClient = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .build();
+    private final OkHttpClient okHttpClient;
 
     @Override
     public AiConfig getConfig() {

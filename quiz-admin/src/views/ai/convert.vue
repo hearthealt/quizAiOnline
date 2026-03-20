@@ -179,7 +179,7 @@ function downloadResult() {
 <style scoped>
 .convert-container {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   height: calc(100vh - 120px);
   min-height: 500px;
 }
@@ -198,7 +198,7 @@ function downloadResult() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid #f0f0f0;
   background: #fafafa;
 }

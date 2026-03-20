@@ -32,6 +32,7 @@ public class RecordServiceImpl implements RecordService {
     private final ExamAnswerMapper examAnswerMapper;
     private final QuestionBankMapper questionBankMapper;
     private final QuestionMapper questionMapper;
+    private final QuestionOptionMapper questionOptionMapper;
     private final UserMapper userMapper;
 
     @Override
@@ -105,6 +106,9 @@ public class RecordServiceImpl implements RecordService {
                     m.put("content", q.getContent());
                     m.put("correctAnswer", q.getAnswer());
                     m.put("analysis", q.getAnalysis());
+                    // 手动查询选项
+                    List<Map<String, String>> options = getQuestionOptions(d.getQuestionId());
+                    m.put("options", options);
                 }
                 return m;
             }).collect(Collectors.toList());
@@ -125,12 +129,34 @@ public class RecordServiceImpl implements RecordService {
                     m.put("content", q.getContent());
                     m.put("correctAnswer", q.getAnswer());
                     m.put("analysis", q.getAnalysis());
+                    // 手动查询选项
+                    List<Map<String, String>> options = getQuestionOptions(a.getQuestionId());
+                    m.put("options", options);
                 }
                 return m;
             }).collect(Collectors.toList());
             result.put("details", detailList);
         }
         return result;
+    }
+
+    /**
+     * 获取题目选项
+     */
+    private List<Map<String, String>> getQuestionOptions(Long questionId) {
+        QueryWrapper qw = QueryWrapper.create()
+                .where(com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION.QUESTION_ID.eq(questionId))
+                .orderBy(com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION.SORT.asc());
+        List<QuestionOption> options = questionOptionMapper.selectListByQuery(qw);
+        if (options.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return options.stream().map(opt -> {
+            Map<String, String> m = new HashMap<>();
+            m.put("label", opt.getLabel());
+            m.put("content", opt.getContent());
+            return m;
+        }).collect(Collectors.toList());
     }
 
     @Override

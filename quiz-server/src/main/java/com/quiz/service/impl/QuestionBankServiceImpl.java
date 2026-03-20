@@ -44,10 +44,10 @@ public class QuestionBankServiceImpl implements QuestionBankService {
     private RedisTemplate<String, Object> redisTemplate;
 
     @Override
-    public PageResult<QuestionBank> pageList(Long categoryId, String keyword, Integer pageNum, Integer pageSize) {
+    public PageResult<QuestionBank> pageList(Long categoryId, Long id, Integer pageNum, Integer pageSize) {
         QueryWrapper query = QueryWrapper.create()
                 .where(QUESTION_BANK.CATEGORY_ID.eq(categoryId).when(categoryId != null))
-                .and(QUESTION_BANK.NAME.like(keyword).when(keyword != null && !keyword.isEmpty()))
+                .and(QUESTION_BANK.STATUS.eq(1))
                 .orderBy(QUESTION_BANK.SORT.asc(), QUESTION_BANK.CREATE_TIME.desc());
         Page<QuestionBank> page = questionBankMapper.paginate(pageNum, pageSize, query);
         return PageResult.of(page.getRecords(), page.getTotalRow(), pageNum, pageSize);

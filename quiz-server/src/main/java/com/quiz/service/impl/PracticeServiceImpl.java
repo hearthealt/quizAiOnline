@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.quiz.common.exception.BizException;
+import com.quiz.common.exception.BizException;
 import com.quiz.dto.app.StartPracticeDTO;
 import com.quiz.dto.app.SubmitAnswerDTO;
 import com.quiz.entity.PracticeDetail;
@@ -20,8 +22,8 @@ import com.quiz.service.PracticeService;
 import com.quiz.service.WrongQuestionService;
 import com.quiz.vo.app.PracticeResultVO;
 import com.quiz.vo.app.QuestionVO;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ import static com.quiz.entity.table.WrongQuestionTableDef.WRONG_QUESTION;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PracticeServiceImpl implements PracticeService {
 
     private static final String PRACTICE_KEY_PREFIX = "practice:questions:";
@@ -46,29 +49,14 @@ public class PracticeServiceImpl implements PracticeService {
     private static final int DEFAULT_PRACTICE_COUNT = 20;
     private static final boolean SHOW_ANALYSIS = true;
 
-    @Autowired
-    private PracticeRecordMapper practiceRecordMapper;
-
-    @Autowired
-    private PracticeDetailMapper practiceDetailMapper;
-
-    @Autowired
-    private QuestionMapper questionMapper;
-
-    @Autowired
-    private QuestionBankMapper questionBankMapper;
-
-    @Autowired
-    private QuestionOptionMapper questionOptionMapper;
-
-    @Autowired
-    private WrongQuestionService wrongQuestionService;
-
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final PracticeRecordMapper practiceRecordMapper;
+    private final PracticeDetailMapper practiceDetailMapper;
+    private final QuestionMapper questionMapper;
+    private final QuestionBankMapper questionBankMapper;
+    private final QuestionOptionMapper questionOptionMapper;
+    private final WrongQuestionService wrongQuestionService;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -111,14 +99,14 @@ public class PracticeServiceImpl implements PracticeService {
         // 错题重练开关检查
         if ("WRONG".equals(mode)) {
             if (!ALLOW_WRONG_RETRY) {
-                throw new RuntimeException("错题重练功能已关闭");
+                throw new BizException("错题重练功能已关闭");
             }
         }
 
         List<Long> questionIds = queryQuestionIds(userId, bankId, mode, dto);
 
         if (questionIds.isEmpty()) {
-            throw new RuntimeException("该题库暂无题目");
+            throw new BizException("该题库暂无题目");
         }
 
         // Shuffle if RANDOM mode
@@ -157,7 +145,7 @@ public class PracticeServiceImpl implements PracticeService {
             practiceRecordMapper.update(record);
             cacheQuestionIds(record.getId(), json);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("序列化题目ID列表失败", e);
+            throw new BizException("序列化题目ID列表失败");
         }
 
         return record;
@@ -181,7 +169,7 @@ public class PracticeServiceImpl implements PracticeService {
         // Get question IDs from Redis
         List<Long> questionIds = getQuestionIds(recordId);
         if (index < 0 || index >= questionIds.size()) {
-            throw new RuntimeException("题目索引超出范围");
+            throw new BizException("题目索引超出范围");
         }
 
         Long questionId = questionIds.get(index);
@@ -196,7 +184,7 @@ public class PracticeServiceImpl implements PracticeService {
         // Get the question's correct answer
         Question question = questionMapper.selectOneById(questionId);
         if (question == null) {
-            throw new RuntimeException("题目不存在");
+            throw new BizException("题目不存在");
         }
 
         PracticeDetail existed = practiceDetailMapper.selectOneByQuery(
@@ -256,7 +244,7 @@ public class PracticeServiceImpl implements PracticeService {
     public PracticeResultVO finishPractice(Long recordId) {
         PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
         if (record == null) {
-            throw new RuntimeException("练习记录不存在");
+            throw new BizException("练习记录不存在");
         }
 
         // Mark as completed
@@ -288,7 +276,7 @@ public class PracticeServiceImpl implements PracticeService {
     public Map<String, Object> getProgress(Long recordId) {
         PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
         if (record == null) {
-            throw new RuntimeException("练习记录不存在");
+            throw new BizException("练习记录不存在");
         }
 
         Map<String, Object> progress = new HashMap<>();
@@ -305,7 +293,7 @@ public class PracticeServiceImpl implements PracticeService {
         if (json == null) {
             PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
             if (record == null) {
-                throw new RuntimeException("练习记录不存在");
+                throw new BizException("练习记录不存在");
             }
             ensureQuestionIds(record, record.getUserId());
             json = record.getQuestionIds();
@@ -314,14 +302,14 @@ public class PracticeServiceImpl implements PracticeService {
             cacheQuestionIds(recordId, json);
             return objectMapper.readValue(json, new TypeReference<List<Long>>() {});
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("解析题目ID列表失败", e);
+            throw new BizException("解析题目ID列表失败");
         }
     }
 
     private QuestionVO buildQuestionVO(Long questionId, Long userId, Long recordId) {
         Question question = questionMapper.selectOneById(questionId);
         if (question == null) {
-            throw new RuntimeException("题目不存在");
+            throw new BizException("题目不存在");
         }
 
         // Get options
@@ -392,7 +380,7 @@ public class PracticeServiceImpl implements PracticeService {
             record.setQuestionIds(json);
             practiceRecordMapper.update(record);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("序列化题目ID列表失败", e);
+            throw new BizException("序列化题目ID列表失败");
         }
     }
 
@@ -440,7 +428,7 @@ public class PracticeServiceImpl implements PracticeService {
         }
 
         if (questionIds.isEmpty()) {
-            throw new RuntimeException("该题库暂无题目");
+            throw new BizException("该题库暂无题目");
         }
         return questionIds;
     }

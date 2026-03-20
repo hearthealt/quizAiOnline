@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Tag(name = "用户管理")
@@ -52,9 +53,18 @@ public class AdminUserController {
         return R.ok(recordService.appRecordList(id, null, pageNum, pageSize));
     }
     
-    @Operation(summary = "用户AI对话记录")
+    @Operation(summary = "用户 AI 对话记录")
     @GetMapping("/{id}/chat-history")
     public R<List<AiChatMessage>> chatHistory(@PathVariable Long id) {
         return R.ok(aiChatService.getAllHistory(id));
+    }
+
+    @Operation(summary = "设置用户 VIP")
+    @PutMapping("/{id}/vip")
+    public R<Void> setVip(@PathVariable Long id, 
+                          @RequestParam Integer isVip,
+                          @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) LocalDateTime expireTime) {
+        userService.setVip(id, isVip, expireTime);
+        return R.ok();
     }
 }

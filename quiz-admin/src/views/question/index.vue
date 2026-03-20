@@ -1,20 +1,6 @@
 <template>
   <div class="page-container">
-    <!-- 搜索区 -->
-    <n-card :bordered="false" class="search-card">
-      <n-space>
-        <n-select v-model:value="searchParams.bankId" placeholder="选择题库" :options="bankOptions" clearable style="width: 200px" />
-        <n-select v-model:value="searchParams.type" placeholder="题目类型" :options="typeOptions" clearable style="width: 140px" />
-        <n-input v-model:value="searchParams.keyword" placeholder="搜索题目内容" clearable style="width: 200px" @keyup.enter="handleSearch">
-          <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
-        </n-input>
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
-        <n-button @click="handleReset">重置</n-button>
-      </n-space>
-    </n-card>
-
-    <!-- 表格区 -->
-    <n-card :bordered="false" class="main-card">
+    <n-card :bordered="false" size="small" class="main-card">
       <template #header>
         <div class="card-header">
           <span class="card-title">题目管理</span>
@@ -32,6 +18,16 @@
         </div>
       </template>
 
+      <n-space class="search-bar">
+        <n-select v-model:value="searchParams.bankId" placeholder="选择题库" :options="bankOptions" clearable style="width: 200px" />
+        <n-select v-model:value="searchParams.type" placeholder="题目类型" :options="typeOptions" clearable style="width: 140px" />
+        <n-input v-model:value="searchParams.keyword" placeholder="搜索题目内容" clearable style="width: 200px" @keyup.enter="handleSearch">
+          <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
+        </n-input>
+        <n-button type="primary" @click="handleSearch">搜索</n-button>
+        <n-button @click="handleReset">重置</n-button>
+      </n-space>
+
       <n-data-table
         :columns="columns"
         :data="data"
@@ -40,6 +36,7 @@
         :row-key="(row: Question) => row.id"
         :checked-row-keys="checkedKeys"
         @update:checked-row-keys="(keys: any) => (checkedKeys = keys)"
+        size="small"
         striped
       />
 
@@ -491,11 +488,15 @@ onMounted(() => {
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.search-card, .main-card {
+.main-card {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-bar {
+  margin-bottom: 12px;
 }
 
 .card-header {
@@ -505,15 +506,15 @@ onMounted(() => {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #f0f0f0;
 }
 

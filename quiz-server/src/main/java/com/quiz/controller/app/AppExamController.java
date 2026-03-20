@@ -13,6 +13,7 @@ import com.quiz.vo.app.ExamSessionVO;
 import com.quiz.vo.app.RecordVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,7 +28,7 @@ public class AppExamController {
 
     @Operation(summary = "开始考试")
     @PostMapping("/start")
-    public R<ExamSessionVO> start(@RequestBody StartExamDTO dto) {
+    public R<ExamSessionVO> start(@Valid @RequestBody StartExamDTO dto) {
         Long userId = StpKit.APP.getLoginIdAsLong();
         return R.ok(examService.startExam(userId, dto));
     }
@@ -64,7 +65,8 @@ public class AppExamController {
     @Operation(summary = "考试结果")
     @GetMapping("/{id}/result")
     public R<ExamResultVO> result(@PathVariable Long id) {
-        return R.ok(examService.getResult(id));
+        Long userId = StpKit.APP.getLoginIdAsLong();
+        return R.ok(examService.getResult(id, userId));
     }
 
     @Operation(summary = "考试记录")

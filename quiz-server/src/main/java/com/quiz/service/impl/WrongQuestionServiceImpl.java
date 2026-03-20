@@ -16,8 +16,8 @@ import com.quiz.mapper.UserMapper;
 import com.quiz.mapper.WrongQuestionMapper;
 import com.quiz.service.WrongQuestionService;
 import com.quiz.vo.app.WrongQuestionVO;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,23 +32,16 @@ import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class WrongQuestionServiceImpl implements WrongQuestionService {
 
     private static final boolean SHOW_ANALYSIS = true;
-    @Autowired
-    private WrongQuestionMapper wrongQuestionMapper;
 
-    @Autowired
-    private QuestionMapper questionMapper;
-
-    @Autowired
-    private QuestionBankMapper questionBankMapper;
-
-    @Autowired
-    private QuestionOptionMapper questionOptionMapper;
-
-    @Autowired
-    private UserMapper userMapper;
+    private final WrongQuestionMapper wrongQuestionMapper;
+    private final QuestionMapper questionMapper;
+    private final QuestionBankMapper questionBankMapper;
+    private final QuestionOptionMapper questionOptionMapper;
+    private final UserMapper userMapper;
 
     @Override
     public PageResult<WrongQuestionVO> list(Long userId, Long bankId, Integer pageNum, Integer pageSize) {
@@ -58,8 +51,37 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
                 .orderBy(WRONG_QUESTION.UPDATE_TIME.desc());
         Page<WrongQuestion> page = wrongQuestionMapper.paginate(pageNum, pageSize, query);
 
-        List<WrongQuestionVO> voList = new ArrayList<>();
-        for (WrongQuestion wq : page.getRecords()) {
+        if (page.getRecords().isEmpty()) {
+            return PageResult.of(Collections.emptyList(), 0L, pageNum, pageSize);
+        }
+
+        // 批量查询题目
+        Set<Long> questionIds = page.getRecords().stream()
+                .map(WrongQuestion::getQuestionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Question> questionMap = questionIds.isEmpty() ? Collections.emptyMap() :
+                questionMapper.selectListByIds(questionIds).stream()
+                        .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+
+        // 批量查询题库
+        Set<Long> bankIds = page.getRecords().stream()
+                .map(WrongQuestion::getBankId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, QuestionBank> bankMap = bankIds.isEmpty() ? Collections.emptyMap() :
+                questionBankMapper.selectListByIds(bankIds).stream()
+                        .collect(Collectors.toMap(QuestionBank::getId, Function.identity(), (a, b) -> a));
+
+        // 批量查询选项
+        Map<Long, List<QuestionOption>> optionsMap = questionIds.isEmpty() ? Collections.emptyMap() :
+                questionOptionMapper.selectListByQuery(
+                        QueryWrapper.create()
+                                .where(QUESTION_OPTION.QUESTION_ID.in(questionIds))
+                                .orderBy(QUESTION_OPTION.SORT.asc())
+                ).stream().collect(Collectors.groupingBy(QuestionOption::getQuestionId));
+
+        List<WrongQuestionVO> voList = page.getRecords().stream().map(wq -> {
             WrongQuestionVO vo = new WrongQuestionVO();
             vo.setId(wq.getId());
             vo.setQuestionId(wq.getQuestionId());
@@ -68,19 +90,14 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
             vo.setLastWrongAnswer(wq.getLastWrongAnswer());
             vo.setCreateTime(wq.getCreateTime());
 
-            // 查询题目信息
-            Question question = questionMapper.selectOneById(wq.getQuestionId());
+            Question question = questionMap.get(wq.getQuestionId());
             if (question != null) {
                 vo.setContent(question.getContent());
                 vo.setType(question.getType());
                 vo.setAnswer(question.getAnswer());
                 vo.setAnalysis(SHOW_ANALYSIS ? question.getAnalysis() : null);
 
-                List<QuestionOption> options = questionOptionMapper.selectListByQuery(
-                        QueryWrapper.create()
-                                .from(QUESTION_OPTION)
-                                .where(QUESTION_OPTION.QUESTION_ID.eq(question.getId()))
-                                .orderBy(QUESTION_OPTION.SORT.asc()));
+                List<QuestionOption> options = optionsMap.getOrDefault(question.getId(), Collections.emptyList());
                 List<WrongQuestionVO.OptionVO> optionVOs = options.stream().map(opt -> {
                     WrongQuestionVO.OptionVO optVO = new WrongQuestionVO.OptionVO();
                     optVO.setLabel(opt.getLabel());
@@ -90,16 +107,13 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
                 vo.setOptions(optionVOs);
             }
 
-            // 查询题库名称
-            if (wq.getBankId() != null) {
-                QuestionBank bank = questionBankMapper.selectOneById(wq.getBankId());
-                if (bank != null) {
-                    vo.setBankName(bank.getName());
-                }
+            QuestionBank bank = bankMap.get(wq.getBankId());
+            if (bank != null) {
+                vo.setBankName(bank.getName());
             }
 
-            voList.add(vo);
-        }
+            return vo;
+        }).collect(Collectors.toList());
 
         return PageResult.of(voList, page.getTotalRow(), pageNum, pageSize);
     }

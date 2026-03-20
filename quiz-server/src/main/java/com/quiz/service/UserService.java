@@ -26,4 +26,6 @@ public interface UserService {
     User getById(Long id);
 
     void updateStatus(Long id, Integer status);
+
+    void setVip(Long id, Integer isVip, java.time.LocalDateTime expireTime);
 }

@@ -15,7 +15,7 @@ public interface ExamService {
 
     ExamResultVO submitExam(Long examId, SubmitExamDTO dto, Long userId);
 
-    ExamResultVO getResult(Long examId);
+    ExamResultVO getResult(Long examId, Long userId);
 
     PageResult<RecordVO> getRecords(Long userId, Integer pageNum, Integer pageSize);
 
