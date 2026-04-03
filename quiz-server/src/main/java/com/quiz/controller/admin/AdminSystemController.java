@@ -29,7 +29,8 @@ public class AdminSystemController {
             "siteName", "siteDescription", "siteLogo", "copyright", "icpNumber",
             "wxAppId", "wxAppSecret",
             "registerEnabled",
-            "aiChatPersona", "aiChatGreeting"
+            "aiChatPersona", "aiChatGreeting",
+            "aiPromptAnalysis", "aiPromptAnswer", "aiPromptBoth"
     ));
 
     @Operation(summary = "管理员列表")

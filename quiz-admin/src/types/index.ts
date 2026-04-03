@@ -179,12 +179,10 @@ export interface VipOrder {
 /** AI配置 */
 export interface AiConfig {
   id: number
+  provider: string
   baseUrl: string
   apiKey: string
   model: string
-  promptAnalysis: string
-  promptAnswer: string
-  promptBoth: string
   maxTokens: number
   temperature: number
   status: number

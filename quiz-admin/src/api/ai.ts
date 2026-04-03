@@ -9,8 +9,12 @@ export function updateConfig(data: Record<string, any>) {
   return request.put('/api/admin/ai/config', data)
 }
 
-export function testConnection() {
-  return request.post('/api/admin/ai/test')
+export function testConnection(data?: Record<string, any>) {
+  return request.post('/api/admin/ai/test', data)
+}
+
+export function getModels(data: Record<string, any>) {
+  return request.post('/api/admin/ai/models', data)
 }
 
 export function generate(data: { questionId: number; mode: string }) {
@@ -27,17 +31,4 @@ export function getLogList(params: Record<string, any>) {
 
 export function getStats() {
   return request.get('/api/admin/ai/stats')
-}
-
-// iFlow API Key 管理
-export function getIflowStatus() {
-  return request.get('/api/admin/ai/iflow/status')
-}
-
-export function refreshIflowKey() {
-  return request.post('/api/admin/ai/iflow/refresh')
-}
-
-export function getIflowModels() {
-  return request.get('/api/admin/ai/iflow/models')
 }
