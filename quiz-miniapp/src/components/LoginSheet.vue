@@ -8,7 +8,7 @@
       <view class="sheet-body">
         <view class="avatar">U</view>
         <text class="welcome">欢迎来到题库小程序</text>
-        <text class="desc">登录后即可进行练习、考试，并同步您的收藏与错题记录</text>
+        <text class="desc">{{ reasonText || "登录后即可进行练习、考试，并同步您的收藏与错题记录" }}</text>
         <button class="wechat-btn" @tap="handleWxLogin">
           微信一键登录
         </button>
@@ -23,7 +23,7 @@ import { onUnmounted, ref, watch } from "vue";
 import { wxLogin } from "@/api/auth";
 import { useUserStore } from "@/stores/user";
 
-const props = defineProps<{ show: boolean }>();
+const props = defineProps<{ show: boolean; reasonText?: string }>();
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "success"): void;

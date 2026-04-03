@@ -11,7 +11,6 @@ import type { PracticeRecord, QuestionVO, PracticeResult, PracticeProgress, Prac
 export interface UsePracticeOptions {
   bankId: number;
   mode: PracticeMode | string;
-  count?: number;
 }
 
 /**
@@ -41,8 +40,7 @@ export function usePractice() {
     try {
       record.value = await startPractice(
         options.bankId,
-        options.mode,
-        options.count
+        options.mode
       );
       currentIndex.value = record.value.lastIndex || 0;
       await loadQuestion(currentIndex.value);

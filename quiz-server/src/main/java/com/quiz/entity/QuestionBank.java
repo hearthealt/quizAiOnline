@@ -22,10 +22,6 @@ public class QuestionBank extends BaseEntity {
 
     private Integer practiceCount;
 
-    private Integer examTime;
-
-    private Integer examQuestionCount;
-
     private Integer passScore;
 
     private Integer sort;

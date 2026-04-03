@@ -13,6 +13,7 @@ import com.quiz.service.CategoryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,9 +126,14 @@ public class CategoryServiceImpl implements CategoryService {
 
     @SuppressWarnings("unchecked")
     private List<Category> getCachedCategoryList() {
-        Object cached = redisTemplate.opsForValue().get(RedisKey.CATEGORY_LIST);
-        if (cached instanceof List<?> list) {
-            return (List<Category>) list;
+        try {
+            Object cached = redisTemplate.opsForValue().get(RedisKey.CATEGORY_LIST);
+            if (cached instanceof List<?> list) {
+                return (List<Category>) list;
+            }
+        } catch (SerializationException e) {
+            log.warn("分类列表缓存反序列化失败，已清除脏缓存", e);
+            redisTemplate.delete(RedisKey.CATEGORY_LIST);
         }
         return null;
     }

@@ -8,8 +8,6 @@ public class QuestionBankDTO {
     private String name;
     private String description;
     private String cover;
-    private Integer examTime;
-    private Integer examQuestionCount;
     private Integer passScore;
     private Integer sort;
     private Integer status;

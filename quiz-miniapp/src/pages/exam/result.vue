@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getExamResult, type ExamAnswerDetail, type ExamResult } from "@/api/exam";
 import EmptyState from "@/components/EmptyState.vue";
@@ -102,6 +102,12 @@ const formatAnswer = (value?: string) => (value && value.length > 0 ? value : "-
 onLoad((query: any) => {
   const examId = Number(query.examId || 0);
   if (examId) fetchResult(examId);
+});
+
+onShow(() => {
+  if (userStore.isLogin) {
+    void userStore.refreshUser().catch(() => null);
+  }
 });
 </script>
 

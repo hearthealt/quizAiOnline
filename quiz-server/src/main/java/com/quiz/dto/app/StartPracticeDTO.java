@@ -19,10 +19,6 @@ public class StartPracticeDTO {
     @Schema(description = "练习模式：ORDER-顺序/RANDOM-随机/WRONG-错题", defaultValue = "ORDER")
     private String mode;
 
-    @Min(value = 0, message = "练习题数不能为负数")
-    @Schema(description = "练习题数（不传则用系统配置，0=全部）")
-    private Integer count;
-
     @Schema(description = "是否重新练习（true=新建记录）", defaultValue = "false")
     private Boolean restart;
 }

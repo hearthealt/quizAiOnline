@@ -6,34 +6,36 @@
       <button class="nav-btn primary" @tap="nextQuestion">下一题</button>
     </view>
 
-    <view v-if="currentQuestion" class="card question-card">
-      <view class="question-meta">
-        <text class="question-type">{{ typeText }}</text>
-        <ExamTimer :seconds="leftSeconds" />
+    <SwipeQuestionPanel @swipe-left="nextQuestion" @swipe-right="prevQuestion">
+      <view v-if="currentQuestion" class="card question-card">
+        <view class="question-meta">
+          <text class="question-type">{{ typeText }}</text>
+          <ExamTimer :seconds="leftSeconds" />
+        </view>
+        <text class="question-content">{{ currentQuestion.content }}</text>
       </view>
-      <text class="question-content">{{ currentQuestion.content }}</text>
-    </view>
 
-    <view v-if="currentQuestion" class="card answer-card">
-      <view class="options">
-        <OptionItem
-          v-for="opt in currentQuestion.options || []"
-          :key="opt.label"
-          :label="opt.label"
-          :content="opt.content"
-          :selected="selectedAnswers.includes(opt.label)"
-          @select="onSelectOption(opt.label)"
-        />
+      <view v-if="currentQuestion" class="card answer-card">
+        <view class="options">
+          <OptionItem
+            v-for="opt in currentQuestion.options || []"
+            :key="opt.label"
+            :label="opt.label"
+            :content="opt.content"
+            :selected="selectedAnswers.includes(opt.label)"
+            @select="onSelectOption(opt.label)"
+          />
+        </view>
+        <view v-if="currentQuestion.type === 4" class="fill">
+          <input
+            class="fill-input"
+            placeholder="请输入答案"
+            v-model="fillAnswer"
+            @blur="emitFill"
+          />
+        </view>
       </view>
-      <view v-if="currentQuestion.type === 4" class="fill">
-        <input
-          class="fill-input"
-          placeholder="请输入答案"
-          v-model="fillAnswer"
-          @blur="emitFill"
-        />
-      </view>
-    </view>
+    </SwipeQuestionPanel>
   </view>
 </template>
 
@@ -42,6 +44,7 @@ import { onLoad, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import OptionItem from "@/components/OptionItem.vue";
 import ExamTimer from "@/components/ExamTimer.vue";
+import SwipeQuestionPanel from "@/components/SwipeQuestionPanel.vue";
 import { getExamSession, saveExamAnswer, startExam, submitExam } from "@/api/exam";
 
 type LocalExamQuestion = {
@@ -273,6 +276,7 @@ onUnload(() => {
   font-weight: 600;
   height: 52rpx;
   line-height: 52rpx;
+  user-select: none;
 }
 
 .card {

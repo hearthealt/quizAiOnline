@@ -28,8 +28,8 @@
       <view class="stat-divider" />
       <view class="stat-item">
         <text class="stat-icon">⏱️</text>
-        <text class="stat-value">{{ bank?.examTime || 0 }}</text>
-        <text class="stat-label">分钟</text>
+        <text class="stat-value">{{ estimatedExamMinutes }}</text>
+        <text class="stat-label">预计分钟</text>
       </view>
       <view class="stat-divider" />
       <view class="stat-item">
@@ -82,7 +82,7 @@
 
     <LoginSheet
       :show="showLogin"
-      @close="showLogin = false"
+      @close="handleLoginClose"
       @success="handleLoginSuccess"
     />
   </view>
@@ -96,19 +96,27 @@ import { startPractice as startPracticeApi } from "@/api/practice";
 import { getExamOngoing } from "@/api/exam";
 import { useUserStore } from "@/stores/user";
 import LoginSheet from "@/components/LoginSheet.vue";
+import { useLoginSheet } from "@/composables/useLoginSheet";
 import { resolveAssetUrl } from "@/utils/assets";
 import { formatCount } from "@/utils/format";
 
 const bank = ref<BankItem>();
 const bankId = ref<number>(0);
-const showLogin = ref(false);
-const pendingAction = ref<null | (() => void | Promise<void>)>(null);
+const detailLoading = ref(false);
+const skipNextOnShow = ref(false);
 const userStore = useUserStore();
+const { showLogin, requestLogin, handleLoginSuccess, handleLoginClose } = useLoginSheet("请先登录");
 
 const isLogin = computed(() => userStore.isLogin);
 
 const fetchDetail = async () => {
+  if (!bankId.value || detailLoading.value) return;
+  detailLoading.value = true;
+  try {
   bank.value = await getBankDetail(bankId.value);
+  } finally {
+    detailLoading.value = false;
+  }
 };
 
 const progressTotal = computed(() => {
@@ -135,6 +143,11 @@ const progressPercent = computed(() => {
   );
 });
 
+const estimatedExamMinutes = computed(() => {
+  const totalQuestions = bank.value?.questionCount || 0;
+  return totalQuestions > 0 ? totalQuestions * 2 : 0;
+});
+
 const hasOngoingPractice = computed(() => {
   if (!bank.value) return false;
   const total = bank.value.practiceTotalCount || 0;
@@ -143,23 +156,11 @@ const hasOngoingPractice = computed(() => {
 });
 
 const requireLogin = (action: () => void | Promise<void>) => {
-  if (userStore.isLogin) {
-    action();
-    return;
-  }
-  pendingAction.value = action;
-  showLogin.value = true;
-};
-
-const handleLoginSuccess = () => {
-  showLogin.value = false;
-  const action = pendingAction.value;
-  pendingAction.value = null;
-  if (action) action();
+  requestLogin(action, "请先登录");
 };
 
 const goPractice = async (mode: string, restart = false) => {
-  const record = await startPracticeApi(bankId.value, mode, undefined, restart);
+  const record = await startPracticeApi(bankId.value, mode, restart);
   const nextIndex =
     record.answerCount > 0 && record.lastIndex < record.totalCount - 1
       ? record.lastIndex + 1
@@ -218,16 +219,16 @@ const handleExam = () => {
 
 onLoad((query: any) => {
   bankId.value = Number(query.id || 0);
+  skipNextOnShow.value = true;
   fetchDetail();
 });
 
 onShow(() => {
-  fetchDetail();
-  if (userStore.isLogin && pendingAction.value) {
-    const action = pendingAction.value;
-    pendingAction.value = null;
-    action();
+  if (skipNextOnShow.value) {
+    skipNextOnShow.value = false;
+    return;
   }
+  fetchDetail();
 });
 </script>
 

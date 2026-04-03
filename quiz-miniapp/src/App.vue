@@ -1,80 +1,102 @@
 <template>
   <view class="app-root">
     <slot />
+    <LoginSheet
+      :show="loginSheetVisible"
+      :reason-text="loginSheetMessage"
+      @close="userStore.closeLoginSheet()"
+      @success="handleGlobalLoginSuccess"
+    />
   </view>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { onShow } from "@dcloudio/uni-app";
+import { storeToRefs } from "pinia";
+import LoginSheet from "@/components/LoginSheet.vue";
+import { useUserStore } from "@/stores/user";
+
+const userStore = useUserStore();
+const { loginSheetVisible, loginSheetMessage } = storeToRefs(userStore);
+
+const handleGlobalLoginSuccess = async () => {
+  userStore.closeLoginSheet();
+  await userStore.runPendingLoginAction();
+};
+
+onShow(() => {
+  if (!userStore.token) return;
+  userStore.refreshUser().catch(() => {
+    // request.ts will handle 401 and logout
+  });
+});
+</script>
 
 <style lang="scss">
 page {
-  /* 主题色 - 红色 */
-  --primary: #e53935;
-  --primary-dark: #c62828;
-  --primary-light: #ef5350;
-  --primary-weak: #ffebee;
+  --primary: #c54c2f;
+  --primary-dark: #96321d;
+  --primary-light: #dd7a59;
+  --primary-weak: #f8e2d8;
 
-  /* 功能色 */
-  --success: #10b981;
-  --success-weak: #d1fae5;
-  --warning: #f59e0b;
-  --warning-weak: #fef3c7;
-  --danger: #ef4444;
-  --danger-weak: #fee2e2;
+  --success: #2f8f63;
+  --success-weak: #d9f1e6;
+  --warning: #d08a1f;
+  --warning-weak: #f9ebc8;
+  --danger: #d04a36;
+  --danger-weak: #f9ddd7;
 
-  /* 背景色 */
-  --bg: #f8fafc;
-  --bg-page: #f1f5f9;
-  --card: #ffffff;
+  --bg: #f6efe6;
+  --bg-page: #f2e9df;
+  --bg-soft: #fbf7f2;
+  --card: rgba(255, 253, 249, 0.92);
+  --card-strong: #fffdfa;
 
-  /* 文字色 */
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --muted: #94a3b8;
+  --text: #241711;
+  --text-secondary: #5f4b3f;
+  --muted: #9a8778;
 
-  /* 边框 */
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
+  --border: rgba(106, 74, 52, 0.12);
+  --border-light: rgba(106, 74, 52, 0.08);
 
-  /* 阴影 */
-  --shadow-sm: 0 2rpx 8rpx rgba(15, 23, 42, 0.04);
-  --shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 16rpx 40rpx rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 8rpx 18rpx rgba(78, 45, 27, 0.05);
+  --shadow: 0 18rpx 36rpx rgba(78, 45, 27, 0.08);
+  --shadow-lg: 0 28rpx 64rpx rgba(78, 45, 27, 0.1);
 
-  /* 圆角 */
-  --radius-sm: 12rpx;
-  --radius: 16rpx;
-  --radius-lg: 20rpx;
-  --radius-xl: 24rpx;
+  --radius-sm: 14rpx;
+  --radius: 18rpx;
+  --radius-lg: 24rpx;
+  --radius-xl: 30rpx;
   --radius-full: 999rpx;
 
-  /* 间距 */
   --space-xs: 8rpx;
-  --space-sm: 12rpx;
-  --space: 16rpx;
-  --space-lg: 20rpx;
-  --space-xl: 24rpx;
+  --space-sm: 14rpx;
+  --space: 18rpx;
+  --space-lg: 24rpx;
+  --space-xl: 30rpx;
 
-  background-color: var(--bg);
+  background:
+    radial-gradient(circle at top left, rgba(197, 76, 47, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 12%, rgba(208, 138, 31, 0.08), transparent 24%),
+    linear-gradient(180deg, #f8f2ea 0%, #f4ebe1 100%);
   color: var(--text);
   font-size: 28rpx;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-family: "Avenir Next", "PingFang SC", "Helvetica Neue", sans-serif;
 }
 
 .app-root {
   min-height: 100vh;
 }
 
-/* 通用卡片样式 */
 .u-card {
   background: var(--card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-lg);
   box-shadow: var(--shadow);
+  border: 1rpx solid var(--border);
 }
 
-/* 通用按钮样式 */
 .u-btn {
   height: 72rpx;
   line-height: 72rpx;
@@ -99,5 +121,18 @@ page {
   background: transparent;
   border: 2rpx solid var(--border);
   color: var(--text-secondary);
+}
+
+.page-shell {
+  padding: 28rpx 24rpx 40rpx;
+  min-height: 100vh;
+}
+
+.glass-card {
+  background: var(--card);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12rpx);
 }
 </style>

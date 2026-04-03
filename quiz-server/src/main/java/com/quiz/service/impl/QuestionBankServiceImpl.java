@@ -18,6 +18,7 @@ import com.quiz.vo.app.BankDetailVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,9 +110,15 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
     @SuppressWarnings("unchecked")
     private BankDetailVO getCachedBankDetail(Long bankId) {
-        Object cached = redisTemplate.opsForValue().get(RedisKey.BANK_DETAIL + bankId);
-        if (cached instanceof BankDetailVO bankDetailVO) {
-            return bankDetailVO;
+        String cacheKey = RedisKey.BANK_DETAIL + bankId;
+        try {
+            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached instanceof BankDetailVO bankDetailVO) {
+                return bankDetailVO;
+            }
+        } catch (SerializationException e) {
+            log.warn("题库详情缓存反序列化失败，已清除脏缓存，bankId={}", bankId, e);
+            redisTemplate.delete(cacheKey);
         }
         return null;
     }
@@ -129,7 +136,6 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         vo.setCover(bank.getCover());
         vo.setQuestionCount(bank.getQuestionCount());
         vo.setPracticeCount(bank.getPracticeCount());
-        vo.setExamTime(bank.getExamTime());
         vo.setPassScore(bank.getPassScore());
         vo.setPracticeTotalCount(0);
         vo.setUserProgress(0);
@@ -145,8 +151,6 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         bank.setName(dto.getName());
         bank.setDescription(dto.getDescription());
         bank.setCover(dto.getCover());
-        bank.setExamTime(dto.getExamTime());
-        bank.setExamQuestionCount(dto.getExamQuestionCount());
         bank.setPassScore(dto.getPassScore());
         if (dto.getSort() != null && dto.getSort() > 0) {
             bank.setSort(dto.getSort());
@@ -180,12 +184,6 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         }
         if (dto.getCover() != null) {
             bank.setCover(dto.getCover());
-        }
-        if (dto.getExamTime() != null) {
-            bank.setExamTime(dto.getExamTime());
-        }
-        if (dto.getExamQuestionCount() != null) {
-            bank.setExamQuestionCount(dto.getExamQuestionCount());
         }
         if (dto.getPassScore() != null) {
             bank.setPassScore(dto.getPassScore());
@@ -241,9 +239,15 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
     @SuppressWarnings("unchecked")
     private List<QuestionBank> getCachedHotBanks(int limit) {
-        Object cached = redisTemplate.opsForValue().get(buildHotBanksKey(limit));
-        if (cached instanceof List<?> list) {
-            return (List<QuestionBank>) list;
+        String cacheKey = buildHotBanksKey(limit);
+        try {
+            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached instanceof List<?> list) {
+                return (List<QuestionBank>) list;
+            }
+        } catch (SerializationException e) {
+            log.warn("热门题库缓存反序列化失败，已清除脏缓存，limit={}", limit, e);
+            redisTemplate.delete(cacheKey);
         }
         return null;
     }

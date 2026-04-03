@@ -24,7 +24,7 @@ export function useHomeCache() {
    * 从缓存读取数据
    */
   const readCache = (): HomeVO | null => {
-    const cached = storage.get<CacheData<HomeVO>>(HOME_CACHE_KEY, null);
+    const cached = storage.get<CacheData<HomeVO> | null>(HOME_CACHE_KEY, null);
     if (!cached) return null;
     
     // 检查是否过期
@@ -77,7 +77,7 @@ export function useHomeCache() {
     } catch (e: any) {
       error.value = e.message || '加载失败';
       // 如果请求失败，尝试使用过期缓存
-      const staleCache = storage.get<CacheData<HomeVO>>(HOME_CACHE_KEY, null);
+      const staleCache = storage.get<CacheData<HomeVO> | null>(HOME_CACHE_KEY, null);
       if (staleCache) {
         homeData.value = staleCache.data;
         isFromCache.value = true;

@@ -158,13 +158,21 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BizException("用户不存在");
         }
+        boolean isVipActive = user.getIsVip() != null
+                && user.getIsVip() == 1
+                && user.getVipExpireTime() != null
+                && user.getVipExpireTime().isAfter(LocalDateTime.now());
+        if (!isVipActive && user.getIsVip() != null && user.getIsVip() == 1) {
+            user.setIsVip(0);
+            userMapper.update(user);
+        }
 
         UserInfoVO vo = new UserInfoVO();
         vo.setId(user.getId());
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
         vo.setPhone(user.getPhone());
-        vo.setIsVip(user.getIsVip());
+        vo.setIsVip(isVipActive ? 1 : 0);
         vo.setVipExpireTime(user.getVipExpireTime());
         return vo;
     }

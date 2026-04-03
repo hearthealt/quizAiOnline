@@ -1,5 +1,23 @@
 <template>
   <div class="dashboard-container">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="hero-kicker">运营面板</span>
+        <h1>今天优先盯住活跃、题库热度、会员收入和 AI 调用状态。</h1>
+        <p>把最容易波动的指标放在第一屏，减少后台切换成本，让巡检和运营决策更直接。</p>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-label">总收入</span>
+          <span class="hero-value">¥{{ vipStats.totalRevenue || 0 }}</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-label">AI 成功率</span>
+          <span class="hero-value">{{ aiStats.successRate || 0 }}%</span>
+        </div>
+      </div>
+    </section>
+
     <!-- 统计卡片 -->
     <div class="stat-cards">
       <div class="stat-card" style="--card-color: #667eea">
@@ -555,6 +573,151 @@ onUnmounted(() => {
   }
   .info-card {
     flex: 1;
+  }
+}
+
+.dashboard-container {
+  gap: 18px;
+}
+
+.hero-panel {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 18px;
+  padding: 28px;
+  border-radius: 30px;
+  background:
+    linear-gradient(145deg, rgba(36, 20, 15, 0.96), rgba(61, 31, 21, 0.9)),
+    radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 26%);
+  color: #fff7f0;
+  box-shadow: 0 24px 64px rgba(55, 27, 17, 0.18);
+}
+
+.hero-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 247, 240, 0.54);
+}
+
+.hero-copy h1 {
+  max-width: 640px;
+  margin: 14px 0 12px;
+  font-size: clamp(30px, 3vw, 42px);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+}
+
+.hero-copy p {
+  max-width: 520px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255, 247, 240, 0.7);
+}
+
+.hero-stats {
+  display: grid;
+  gap: 16px;
+}
+
+.hero-stat {
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.hero-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 247, 240, 0.56);
+}
+
+.hero-value {
+  display: block;
+  margin-top: 12px;
+  font-size: 30px;
+  font-weight: 750;
+}
+
+.stat-cards {
+  gap: 14px;
+}
+
+.stat-card {
+  padding: 18px;
+  background: rgba(255, 252, 247, 0.78);
+  border-radius: 22px;
+  border: 1px solid rgba(95, 68, 47, 0.12);
+  box-shadow: var(--admin-shadow-soft);
+}
+
+.quick-actions {
+  padding: 20px 22px 22px;
+  border-radius: 28px !important;
+}
+
+.action-grid,
+.main-content,
+.chart-area,
+.info-area {
+  gap: 18px;
+}
+
+.action-item {
+  padding: 16px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.56);
+  border: 1px solid rgba(95,68,47,0.08);
+  transition: background 0.2s, transform 0.2s, border-color 0.2s;
+}
+
+.action-item:hover {
+  transform: translateY(-2px);
+  background: rgba(255,255,255,0.82);
+  border-color: rgba(182,64,44,0.24);
+}
+
+.chart-container {
+  height: 260px;
+}
+
+.order-item,
+.ai-stat-item {
+  background: rgba(255,255,255,0.56);
+  border: 1px solid rgba(95,68,47,0.08);
+  border-radius: 16px;
+}
+
+.order-item {
+  padding: 14px 14px;
+}
+
+.order-amount,
+.ai-stat-value {
+  color: var(--admin-accent);
+}
+
+.empty-tip,
+.order-plan,
+.user-time,
+.ai-stat-label {
+  color: var(--admin-muted);
+}
+
+@media (max-width: 1200px) {
+  .hero-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .info-area {
+    flex-direction: column;
+  }
+
+  .info-card {
+    flex: initial;
   }
 }
 </style>

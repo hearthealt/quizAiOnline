@@ -4,6 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 type ApiResponse<T> = {
   code: number;
+  message?: string;
   msg: string;
   data: T;
 };
@@ -25,7 +26,7 @@ interface RequestConfig extends UniApp.RequestOptions {
 
 const DEFAULT_CONFIG: Partial<RequestConfig> = {
   timeout: 10000,
-  retry: 1,
+  retry: 0,
   retryDelay: 1000,
   showLoading: false,
   silent: false
@@ -70,10 +71,17 @@ const generateRequestId = (): string => {
 };
 
 // 处理未授权
-const handleUnauthorized = () => {
+let unauthorizedHandled = false;
+
+const handleUnauthorized = (message = "请先登录") => {
+  if (unauthorizedHandled) return;
+  unauthorizedHandled = true;
   const userStore = useUserStore();
-  userStore.logout();
-  uni.showToast({ title: "请先登录", icon: "none" });
+  userStore.handleSessionExpired(message);
+  uni.showToast({ title: message, icon: "none" });
+  setTimeout(() => {
+    unauthorizedHandled = false;
+  }, 800);
 };
 
 // 自定义错误类
@@ -126,14 +134,23 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
               return;
             }
             if (payload.code === 401) {
-              handleUnauthorized();
-              reject(new ApiError(401, "登录已过期"));
+              const message = payload.message || payload.msg || "登录已过期";
+              handleUnauthorized(message);
+              reject(new ApiError(401, message));
               return;
             }
             if (!config.silent) {
-              uni.showToast({ title: payload.msg || "请求失败", icon: "none" });
+              uni.showToast({ title: payload.message || payload.msg || "请求失败", icon: "none" });
             }
-            reject(new ApiError(payload.code, payload.msg || "请求失败"));
+            reject(new ApiError(payload.code, payload.message || payload.msg || "请求失败"));
+            return;
+          }
+
+          const payload = (res.data || {}) as Partial<ApiResponse<T>>;
+          if (res.statusCode === 401 || payload.code === 401) {
+            const message = payload.message || payload.msg || "登录已过期";
+            handleUnauthorized(message);
+            reject(new ApiError(401, message));
             return;
           }
 
@@ -144,9 +161,9 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
           }
 
           if (!config.silent) {
-            uni.showToast({ title: "服务器异常", icon: "none" });
+            uni.showToast({ title: payload.message || payload.msg || "服务器异常", icon: "none" });
           }
-          reject(new ApiError(res.statusCode, `HTTP Error: ${res.statusCode}`));
+          reject(new ApiError(res.statusCode, payload.message || payload.msg || `HTTP Error: ${res.statusCode}`));
         },
         fail: (err) => {
           pendingRequests.delete(requestKey);

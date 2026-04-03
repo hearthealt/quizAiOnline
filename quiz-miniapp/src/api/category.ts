@@ -20,7 +20,6 @@ export type BankItem = {
   cover?: string;
   questionCount?: number;
   practiceCount?: number;
-  examTime?: number;
   passScore?: number;
 };
 

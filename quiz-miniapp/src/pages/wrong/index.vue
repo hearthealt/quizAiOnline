@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { onLoad, onReachBottom } from "@dcloudio/uni-app";
+import { onLoad, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getWrongList, removeWrong, type WrongItem } from "@/api/wrong";
 import { startPractice } from "@/api/practice";
@@ -121,6 +121,11 @@ const goVip = () => {
 
 onLoad(() => fetchList(true));
 onReachBottom(() => fetchList());
+onShow(() => {
+  if (userStore.isLogin) {
+    void userStore.refreshUser().catch(() => null);
+  }
+});
 </script>
 
 <style lang="scss" scoped>

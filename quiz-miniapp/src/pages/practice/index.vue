@@ -6,63 +6,85 @@
       <button class="nav-btn primary" @tap="nextQuestion">下一题</button>
     </view>
 
-    <view v-if="question" class="card question-card">
-      <view class="question-meta">
-        <text class="question-type">{{ typeText }}</text>
+    <SwipeQuestionPanel @swipe-left="nextQuestion" @swipe-right="prevQuestion">
+      <view v-if="question" class="card question-card">
+        <view class="question-meta">
+          <text class="question-type">{{ typeText }}</text>
+        </view>
+        <button class="favorite-btn" :class="{ active: isFavorite }" @tap="toggleFav">
+          {{ isFavorite ? '♥' : '♡' }}
+        </button>
+        <text class="question-content">{{ question.content }}</text>
       </view>
-      <button class="favorite-btn" :class="{ active: isFavorite }" @tap="toggleFav">
-        {{ isFavorite ? '♥' : '♡' }}
-      </button>
-      <text class="question-content">{{ question.content }}</text>
-    </view>
 
-    <view v-if="question" class="card answer-card">
-      <view class="options">
-        <OptionItem
-          v-for="opt in question.options || []"
-          :key="opt.label"
-          :label="opt.label"
-          :content="opt.content"
-          :selected="selectedAnswers.includes(opt.label)"
-          :correct="showResult && isCorrectOption(opt.label)"
-          :wrong="showResult && isWrongOption(opt.label)"
-          :disabled="isAnswered"
-          @select="onSelectOption(opt.label)"
-        />
+      <view v-if="question" class="card answer-card">
+        <view class="options">
+          <OptionItem
+            v-for="opt in question.options || []"
+            :key="opt.label"
+            :label="opt.label"
+            :content="opt.content"
+            :selected="selectedAnswers.includes(opt.label)"
+            :correct="showResult && isCorrectOption(opt.label)"
+            :wrong="showResult && isWrongOption(opt.label)"
+            :disabled="isAnswered"
+            @select="onSelectOption(opt.label)"
+          />
+        </view>
+        <view v-if="question.type === 4" class="fill">
+          <input
+            class="fill-input"
+            placeholder="请输入答案"
+            v-model="fillAnswer"
+            @blur="emitFill"
+            :disabled="isAnswered"
+          />
+        </view>
       </view>
-      <view v-if="question.type === 4" class="fill">
-        <input
-          class="fill-input"
-          placeholder="请输入答案"
-          v-model="fillAnswer"
-          @blur="emitFill"
-          :disabled="isAnswered"
-        />
-      </view>
-    </view>
 
-    <view v-if="showResult && question" class="analysis">
-      <view class="analysis-head">
-        <text class="analysis-title">解析</text>
-      </view>
-      <view class="analysis-box">
-        <text class="analysis-text">
-          {{ isVip ? question.analysis || "暂无解析" : "内容已隐藏" }}
+    <view v-if="showResult && question" class="result-card">
+      <view class="result-head">
+        <text class="result-title">答题结果</text>
+        <text class="result-tag" :class="{ correct: isAnswerCorrect(), wrong: !isAnswerCorrect() }">
+          {{ isAnswerCorrect() ? "回答正确" : "回答错误" }}
         </text>
-        <view v-if="!isVip" class="analysis-mask" @tap="goVip">
-          <text class="analysis-mask-text">VIP可查看完整解析</text>
-          <text class="analysis-mask-btn">立即开通</text>
+      </view>
+      <view class="result-grid">
+        <view class="result-row">
+          <text class="result-label">你的答案</text>
+          <text class="result-value" :class="{ wrong: !isAnswerCorrect() }">{{ userAnswerText }}</text>
+        </view>
+        <view class="result-row">
+          <text class="result-label">正确答案</text>
+          <text class="result-value correct">{{ correctAnswerText }}</text>
         </view>
       </view>
     </view>
+
+      <view v-if="showResult && question" class="analysis">
+        <view class="analysis-head">
+          <text class="analysis-title">答案解析</text>
+        </view>
+        <view class="analysis-box">
+          <text class="analysis-text">
+            {{ isVip ? question.analysis || "暂无解析" : "内容已隐藏" }}
+          </text>
+          <view v-if="!isVip" class="analysis-mask" @tap="goVip">
+            <text class="analysis-mask-text">VIP可查看完整解析</text>
+            <text class="analysis-mask-btn">立即开通</text>
+          </view>
+        </view>
+      </view>
+    </SwipeQuestionPanel>
 
   </view>
 </template>
 
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import OptionItem from "@/components/OptionItem.vue";
+import SwipeQuestionPanel from "@/components/SwipeQuestionPanel.vue";
 import { getPracticeQuestion, submitPracticeAnswer, finishPractice, startPractice as startPracticeApi } from "@/api/practice";
 import { toggleFavorite } from "@/api/favorite";
 import { useUserStore } from "@/stores/user";
@@ -115,6 +137,17 @@ const isWrongOption = (label: string) => {
 
 const isAnswered = computed(() => answeredSet.value.has(currentIndex.value));
 const isFavorite = computed(() => !!question.value?.isFavorite);
+
+const formatAnswerText = (values: string[]) => {
+  if (!question.value || values.length === 0) return "未作答";
+  if (question.value.type === 4) {
+    return values.join(" / ");
+  }
+  return values.join(" / ");
+};
+
+const userAnswerText = computed(() => formatAnswerText(selectedAnswers.value));
+const correctAnswerText = computed(() => formatAnswerText(parseAnswer(question.value?.answer)));
 
 const fetchQuestion = async () => {
   const res = await getPracticeQuestion(recordId.value, currentIndex.value);
@@ -202,7 +235,7 @@ const nextQuestion = async () => {
       uni.switchTab({ url: "/pages/index/index" });
       return;
     }
-    const record = await startPracticeApi(bankId.value, mode.value, undefined, true);
+    const record = await startPracticeApi(bankId.value, mode.value, true);
     const nextIndex =
       record.answerCount > 0 && record.lastIndex < record.totalCount - 1
         ? record.lastIndex + 1
@@ -249,6 +282,12 @@ onLoad((query: any) => {
   const idx = Number(query.index || 0);
   currentIndex.value = Number.isNaN(idx) ? 0 : Math.max(0, idx);
   fetchQuestion();
+});
+
+onShow(() => {
+  if (userStore.isLogin) {
+    void userStore.refreshUser().catch(() => null);
+  }
 });
 </script>
 
@@ -301,6 +340,7 @@ onLoad((query: any) => {
   font-weight: 600;
   height: 52rpx;
   line-height: 52rpx;
+  user-select: none;
 }
 
 .card {
@@ -381,6 +421,86 @@ onLoad((query: any) => {
   border-radius: var(--radius);
   padding: var(--space);
   font-size: 26rpx;
+}
+
+.result-card {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  padding: 20rpx 22rpx;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.result-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.result-tag {
+  padding: 6rpx 16rpx;
+  border-radius: var(--radius-full);
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.result-tag.correct {
+  background: var(--success-weak);
+  color: var(--success);
+}
+
+.result-tag.wrong {
+  background: var(--danger-weak);
+  color: var(--danger);
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.result-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding: 14rpx 16rpx;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.result-label {
+  font-size: 20rpx;
+  color: var(--muted);
+}
+
+.result-value {
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.result-value.correct {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.result-value.wrong {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .analysis {

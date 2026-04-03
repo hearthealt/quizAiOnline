@@ -1,84 +1,97 @@
 <template>
-  <view class="page">
-    <!-- 用户卡片 -->
-    <view class="user-card" @tap="openLogin">
-      <image v-if="user?.avatar" class="avatar" :src="resolveAssetUrl(user.avatar)" mode="aspectFill" />
-      <view v-else class="avatar">👤</view>
-      <view class="user-info">
-        <text class="user-name">{{ user?.nickname || "点击登录" }}</text>
-        <view class="user-badge" v-if="isLogin && user?.isVip === 1">
-          <text>👑 VIP会员</text>
+  <view class="page-shell mine-page">
+    <view class="profile-card glass-card" @tap="openLogin">
+      <view class="profile-top">
+        <image v-if="user?.avatar" class="avatar" :src="resolveAssetUrl(user.avatar)" mode="aspectFill" />
+        <view v-else class="avatar avatar-fallback">Q</view>
+        <view class="profile-copy">
+          <text class="profile-name">{{ user?.nickname || "点击登录" }}</text>
+          <text class="profile-desc" v-if="isLogin">{{ user?.phone || "已登录，资料可在这里维护" }}</text>
+          <text class="profile-desc" v-else>登录后同步学习进度、收藏与 AI 对话记录</text>
         </view>
-        <text class="user-tip" v-else-if="!isLogin">登录同步学习进度</text>
+        <view class="profile-arrow">›</view>
       </view>
-      <text class="arrow">›</text>
-    </view>
 
-    <!-- 学习数据 -->
-    <view class="stats-card" v-if="isLogin">
-      <view class="stat-item">
-        <text class="stat-num">{{ stats?.totalDays || 0 }}</text>
-        <text class="stat-label">学习天数</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-num">{{ stats?.totalAnswered || 0 }}</text>
-        <text class="stat-label">答题数</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-num primary">{{ stats?.correctRate || 0 }}%</text>
-        <text class="stat-label">正确率</text>
+      <view class="vip-ribbon" :class="{ active: user?.isVip === 1 }" @tap.stop="goVip">
+        <view class="ribbon-copy">
+          <text class="ribbon-title">{{ user?.isVip === 1 ? "VIP 会员进行中" : "开通 VIP 会员" }}</text>
+          <text class="ribbon-desc">{{ user?.isVip === 1 && user?.vipExpireTime ? "到期 " + user.vipExpireTime : "畅享全部题库与 AI 解析" }}</text>
+        </view>
+        <text class="ribbon-action">{{ user?.isVip === 1 ? "续费" : "开通" }}</text>
       </view>
     </view>
 
-    <!-- VIP卡片 -->
-    <view class="vip-card" @tap="goVip">
-      <view class="vip-icon">👑</view>
-      <view class="vip-info">
-        <text class="vip-title">{{ user?.isVip === 1 ? '续费VIP会员' : '开通VIP会员' }}</text>
-        <text class="vip-desc">{{ user?.isVip === 1 && user?.vipExpireTime ? '到期 ' + user.vipExpireTime : '畅享全部题库与AI解析' }}</text>
+    <view class="stats-board glass-card" v-if="isLogin">
+      <view class="board-item">
+        <text class="board-label">学习天数</text>
+        <text class="board-value">{{ stats?.totalDays || 0 }}</text>
       </view>
-      <text class="vip-btn">{{ user?.isVip === 1 ? '续费' : '开通' }}</text>
+      <view class="board-item">
+        <text class="board-label">答题总数</text>
+        <text class="board-value">{{ stats?.totalAnswered || 0 }}</text>
+      </view>
+      <view class="board-item accent">
+        <text class="board-label">正确率</text>
+        <text class="board-value">{{ stats?.correctRate || 0 }}%</text>
+      </view>
     </view>
 
-    <!-- 功能菜单 -->
-    <view class="menu-card">
+    <view class="menu-block glass-card">
       <view class="menu-item" @tap="goRecord">
-        <text class="menu-icon">📊</text>
-        <text class="menu-text">学习记录</text>
+        <text class="menu-tag">记录</text>
+        <view class="menu-copy">
+          <text class="menu-title">学习记录</text>
+          <text class="menu-desc">查看练习与考试轨迹</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-item" @tap="goWrong">
-        <text class="menu-icon">❌</text>
-        <text class="menu-text">我的错题</text>
+        <text class="menu-tag">错题</text>
+        <view class="menu-copy">
+          <text class="menu-title">我的错题</text>
+          <text class="menu-desc">重新补齐易错知识点</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-item" @tap="goFavorite">
-        <text class="menu-icon">⭐</text>
-        <text class="menu-text">我的收藏</text>
+        <text class="menu-tag">收藏</text>
+        <view class="menu-copy">
+          <text class="menu-title">我的收藏</text>
+          <text class="menu-desc">沉淀重点题目与笔记</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
     </view>
 
-    <view class="menu-card">
+    <view class="menu-block glass-card">
       <view class="menu-item" @tap="goProfile">
-        <text class="menu-icon">👤</text>
-        <text class="menu-text">编辑资料</text>
+        <text class="menu-tag">资料</text>
+        <view class="menu-copy">
+          <text class="menu-title">编辑资料</text>
+          <text class="menu-desc">完善昵称、头像与手机号</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-item" @tap="goSettings">
-        <text class="menu-icon">⚙️</text>
-        <text class="menu-text">设置</text>
+        <text class="menu-tag">设置</text>
+        <view class="menu-copy">
+          <text class="menu-title">系统设置</text>
+          <text class="menu-desc">管理偏好和页面选项</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
     </view>
 
-    <!-- 底部版权 -->
     <view class="footer" v-if="siteName">
       <text class="footer-name">{{ siteName }}</text>
       <text class="footer-meta" v-if="icpNumber">{{ icpNumber }}</text>
     </view>
 
-    <LoginSheet :show="showLogin" @close="showLogin = false" @success="handleLoginSuccess" />
+    <LoginSheet
+      :show="showLogin"
+      @close="handleLoginClose"
+      @success="handleLoginSuccess"
+    />
   </view>
 </template>
 
@@ -89,17 +102,17 @@ import { useUserStore } from "@/stores/user";
 import { useAppStore } from "@/stores/app";
 import { getStudyStats } from "@/api/user";
 import LoginSheet from "@/components/LoginSheet.vue";
+import { useLoginSheet } from "@/composables/useLoginSheet";
 import { resolveAssetUrl } from "@/utils/assets";
 
 const userStore = useUserStore();
 const appStore = useAppStore();
 const user = computed(() => userStore.userInfo);
 const stats = ref<any>(null);
-const showLogin = ref(false);
-const pendingAction = ref<null | (() => void)>(null);
 const isLogin = computed(() => userStore.isLogin);
 const siteName = computed(() => appStore.siteConfig.siteName || "");
 const icpNumber = computed(() => appStore.siteConfig.icpNumber || "");
+const { showLogin, requestLogin, handleLoginSuccess, handleLoginClose } = useLoginSheet("请先登录");
 
 const fetchStats = async () => {
   if (!userStore.isLogin) return;
@@ -107,18 +120,12 @@ const fetchStats = async () => {
 };
 
 const requireLogin = (action: () => void) => {
-  if (userStore.isLogin) { action(); return; }
-  pendingAction.value = action;
-  showLogin.value = true;
+  requestLogin(action, "请先登录");
 };
 
-const handleLoginSuccess = () => {
-  showLogin.value = false;
-  fetchStats();
-  if (pendingAction.value) { pendingAction.value(); pendingAction.value = null; }
+const openLogin = () => {
+  if (!userStore.isLogin) requestLogin(null, "请先登录");
 };
-
-const openLogin = () => { if (!userStore.isLogin) showLogin.value = true; };
 const goProfile = () => requireLogin(() => uni.navigateTo({ url: "/pages/mine/profile" }));
 const goRecord = () => requireLogin(() => uni.navigateTo({ url: "/pages/record/index" }));
 const goFavorite = () => requireLogin(() => uni.navigateTo({ url: "/pages/favorite/index" }));
@@ -127,156 +134,152 @@ const goVip = () => requireLogin(() => uni.navigateTo({ url: "/pages/vip/index" 
 const goSettings = () => uni.navigateTo({ url: "/pages/mine/settings" });
 
 onShow(() => {
+  if (userStore.isLogin) {
+    void userStore.refreshUser().catch(() => null);
+  }
   appStore.loadSiteConfig();
   fetchStats();
 });
 </script>
 
 <style lang="scss" scoped>
-.page {
-  padding: 24rpx;
-  background: var(--bg);
-  min-height: 100vh;
+.mine-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
 }
 
-.user-card {
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  border-radius: 24rpx;
-  padding: 32rpx;
+.profile-card {
+  padding: 24rpx;
+}
+
+.profile-top {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  margin-bottom: 24rpx;
+  gap: 18rpx;
 }
 
 .avatar {
   width: 100rpx;
   height: 100rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  border-radius: 30rpx;
+  overflow: hidden;
+  background: var(--primary-weak);
+  flex-shrink: 0;
+}
+
+.avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: var(--primary-dark);
 }
 
-.user-info {
+.profile-copy {
   flex: 1;
+  min-width: 0;
 }
 
-.user-name {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #fff;
+.profile-name {
   display: block;
+  font-size: 34rpx;
+  font-weight: 700;
 }
 
-.user-badge {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 6rpx 16rpx;
-  border-radius: 20rpx;
+.profile-desc {
+  display: block;
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: #fef3c7;
-}
-
-.user-tip {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 8rpx;
-}
-
-.arrow {
-  font-size: 36rpx;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.stats-card {
-  background: var(--card);
-  border-radius: 20rpx;
-  padding: 28rpx;
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 24rpx;
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.stat-num {
-  font-size: 36rpx;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.stat-num.primary {
-  color: var(--primary);
-}
-
-.stat-label {
-  font-size: 24rpx;
   color: var(--muted);
 }
 
-.vip-card {
-  background: linear-gradient(135deg, #1f2937, #374151);
-  border-radius: 20rpx;
-  padding: 28rpx;
+.profile-arrow {
+  font-size: 36rpx;
+  color: var(--muted);
+}
+
+.vip-ribbon {
+  margin-top: 20rpx;
+  padding: 20rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(145deg, #2b1b15, #4c2a20);
+  color: #fff6ee;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16rpx;
-  margin-bottom: 24rpx;
 }
 
-.vip-icon {
-  font-size: 40rpx;
+.vip-ribbon.active {
+  background: linear-gradient(145deg, #342014, #654227);
 }
 
-.vip-info {
+.ribbon-copy {
   flex: 1;
 }
 
-.vip-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #fef3c7;
+.ribbon-title {
   display: block;
+  font-size: 28rpx;
+  font-weight: 700;
 }
 
-.vip-desc {
+.ribbon-desc {
+  display: block;
+  margin-top: 6rpx;
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 4rpx;
+  color: rgba(255, 246, 238, 0.68);
 }
 
-.vip-btn {
-  padding: 16rpx 32rpx;
-  background: #f59e0b;
-  color: #1f2937;
-  border-radius: 32rpx;
-  font-size: 26rpx;
-  font-weight: 600;
+.ribbon-action {
+  padding: 12rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(255,255,255,0.16);
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
-.menu-card {
-  background: var(--card);
-  border-radius: 20rpx;
+.stats-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
+  padding: 20rpx;
+}
+
+.board-item {
+  padding: 18rpx 14rpx;
+  border-radius: 22rpx;
+  background: rgba(255,255,255,0.56);
+}
+
+.board-item.accent {
+  background: linear-gradient(135deg, rgba(197, 76, 47, 0.12), rgba(221, 122, 89, 0.08));
+}
+
+.board-label {
+  display: block;
+  font-size: 20rpx;
+  color: var(--muted);
+}
+
+.board-value {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.menu-block {
   overflow: hidden;
-  margin-bottom: 24rpx;
-  box-shadow: var(--shadow-sm);
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 28rpx 24rpx;
+  gap: 16rpx;
+  padding: 24rpx 22rpx;
   border-bottom: 1rpx solid var(--border-light);
 }
 
@@ -284,15 +287,36 @@ onShow(() => {
   border-bottom: none;
 }
 
-.menu-icon {
-  font-size: 32rpx;
-  margin-right: 20rpx;
+.menu-tag {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 20rpx;
+  background: var(--primary-weak);
+  color: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.menu-text {
+.menu-copy {
   flex: 1;
+  min-width: 0;
+}
+
+.menu-title {
+  display: block;
   font-size: 28rpx;
-  color: var(--text);
+  font-weight: 700;
+}
+
+.menu-desc {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--muted);
 }
 
 .menu-arrow {
@@ -302,18 +326,19 @@ onShow(() => {
 
 .footer {
   text-align: center;
-  padding: 40rpx 0;
+  padding: 24rpx 0 32rpx;
 }
 
 .footer-name {
+  display: block;
   font-size: 24rpx;
   color: var(--muted);
-  display: block;
 }
 
 .footer-meta {
+  display: block;
+  margin-top: 8rpx;
   font-size: 22rpx;
   color: var(--muted);
-  margin-top: 8rpx;
 }
 </style>

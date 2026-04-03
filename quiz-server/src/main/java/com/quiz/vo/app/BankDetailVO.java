@@ -1,8 +1,10 @@
 package com.quiz.vo.app;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BankDetailVO {
     private Long id;
     private Long categoryId;
@@ -15,7 +17,6 @@ public class BankDetailVO {
      * 当前练习总题数（进行中时使用）
      */
     private Integer practiceTotalCount;
-    private Integer examTime;
     private Integer passScore;
     /**
      * 已答题数

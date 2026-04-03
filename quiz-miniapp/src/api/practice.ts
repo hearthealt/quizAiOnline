@@ -28,11 +28,11 @@ export type PracticeProgress = {
   lastIndex?: number;
 };
 
-export const startPractice = (bankId: number, mode: string, count?: number, restart?: boolean) =>
+export const startPractice = (bankId: number, mode: string, restart?: boolean) =>
   request<PracticeRecord>({
     url: "/api/app/practice/start",
     method: "POST",
-    data: { bankId, mode, count, restart }
+    data: { bankId, mode, restart }
   });
 
 export const getPracticeQuestion = (recordId: number, index: number) =>

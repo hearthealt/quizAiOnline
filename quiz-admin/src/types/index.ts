@@ -95,8 +95,6 @@ export interface QuestionBank {
   description: string
   cover: string
   questionCount: number
-  examTime: number
-  examQuestionCount: number
   passScore: number
   sort: number
   status: number

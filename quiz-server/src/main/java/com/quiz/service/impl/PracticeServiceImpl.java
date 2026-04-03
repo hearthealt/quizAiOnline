@@ -46,7 +46,6 @@ public class PracticeServiceImpl implements PracticeService {
 
     private static final String PRACTICE_KEY_PREFIX = "practice:questions:";
     private static final boolean ALLOW_WRONG_RETRY = true;
-    private static final int DEFAULT_PRACTICE_COUNT = 20;
     private static final boolean SHOW_ANALYSIS = true;
 
     private final PracticeRecordMapper practiceRecordMapper;
@@ -112,17 +111,6 @@ public class PracticeServiceImpl implements PracticeService {
         // Shuffle if RANDOM mode
         if ("RANDOM".equals(mode)) {
             Collections.shuffle(questionIds);
-        }
-
-        // 限制练习题数：前端传count > 系统配置 > 全部（0=全部）
-        int limit = 0;
-        if (dto.getCount() != null && dto.getCount() > 0) {
-            limit = dto.getCount();
-        } else {
-            limit = DEFAULT_PRACTICE_COUNT;
-        }
-        if (limit > 0 && limit < questionIds.size()) {
-            questionIds = questionIds.subList(0, limit);
         }
 
         // Create practice record
@@ -402,16 +390,6 @@ public class PracticeServiceImpl implements PracticeService {
 
         if ("RANDOM".equals(mode)) {
             Collections.shuffle(questionIds);
-        }
-
-        int limit = 0;
-        if (dto != null && dto.getCount() != null && dto.getCount() > 0) {
-            limit = dto.getCount();
-        } else {
-            limit = DEFAULT_PRACTICE_COUNT;
-        }
-        if (limit > 0 && limit < questionIds.size()) {
-            questionIds = questionIds.subList(0, limit);
         }
 
         if (questionIds.isEmpty()) {

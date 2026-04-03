@@ -1,0 +1,142 @@
+:root {
+  --admin-bg: #f5f0e8;
+  --admin-bg-soft: #fbf8f3;
+  --admin-surface: rgba(255, 252, 247, 0.86);
+  --admin-surface-strong: #fffdfa;
+  --admin-line: rgba(95, 68, 47, 0.12);
+  --admin-line-strong: rgba(95, 68, 47, 0.2);
+  --admin-text: #23170f;
+  --admin-text-soft: #6d5949;
+  --admin-muted: #9f8c7c;
+  --admin-accent: #b6402c;
+  --admin-accent-strong: #8e2a19;
+  --admin-accent-soft: #f3d7c8;
+  --admin-shadow: 0 18px 50px rgba(59, 32, 18, 0.08);
+  --admin-shadow-soft: 0 10px 30px rgba(59, 32, 18, 0.06);
+  --admin-radius: 24px;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(182, 64, 44, 0.11), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(190, 149, 91, 0.14), transparent 22%),
+    linear-gradient(180deg, #f7f2ea 0%, #f3ede4 100%);
+  color: var(--admin-text);
+  font-family: "Avenir Next", "Segoe UI", "PingFang SC", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.page-container {
+  min-height: 100%;
+}
+
+.main-card,
+.config-card,
+.quick-actions,
+.chart-card,
+.info-card {
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius) !important;
+  box-shadow: var(--admin-shadow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.card-header,
+.card-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-title,
+.section-title {
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.search-bar {
+  padding: 16px 0 14px;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.main-card :where(.n-data-table),
+.main-card :where(.n-tabs-nav),
+.main-card :where(.n-card__content) {
+  color: var(--admin-text);
+}
+
+.main-card :where(.n-data-table-th) {
+  background: rgba(182, 64, 44, 0.05);
+}
+
+.main-card :where(.n-data-table-tr:hover .n-data-table-td) {
+  background: rgba(182, 64, 44, 0.04);
+}
+
+.main-card :where(.n-input__input-el),
+.main-card :where(.n-base-selection-label),
+.main-card :where(.n-input-number-input),
+.config-card :where(.n-input__input-el),
+.config-card :where(.n-base-selection-label),
+.config-card :where(.n-input-number-input) {
+  color: var(--admin-text);
+}
+
+.main-card :where(.n-input),
+.main-card :where(.n-base-selection),
+.main-card :where(.n-input-number),
+.config-card :where(.n-input),
+.config-card :where(.n-base-selection),
+.config-card :where(.n-input-number) {
+  --n-border: 1px solid var(--admin-line-strong);
+  --n-border-hover: 1px solid rgba(182, 64, 44, 0.45);
+  --n-border-focus: 1px solid rgba(182, 64, 44, 0.75);
+  --n-box-shadow-focus: 0 0 0 3px rgba(182, 64, 44, 0.1);
+  --n-color: rgba(255, 253, 250, 0.92);
+  --n-color-focus: #fffdfa;
+  --n-color-active: #fffdfa;
+}
+
+.n-pagination .n-pagination-item:not(.n-pagination-item--disabled):hover {
+  color: var(--admin-accent);
+}
+
+.n-pagination .n-pagination-item--active {
+  background: var(--admin-accent);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(109, 89, 73, 0.28);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

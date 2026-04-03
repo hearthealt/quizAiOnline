@@ -67,7 +67,6 @@ export interface BankSimple {
 export interface BankDetail extends BankSimple {
   categoryId: number;
   description?: string;
-  examTime?: number;
   passScore?: number;
   isVip?: number;
 }

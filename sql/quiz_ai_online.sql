@@ -74,8 +74,6 @@ CREATE TABLE `question_bank` (
   `cover` VARCHAR(500) DEFAULT '' COMMENT '封面图URL',
   `question_count` INT NOT NULL DEFAULT 0 COMMENT '题目总数(冗余)',
   `practice_count` INT NOT NULL DEFAULT 0 COMMENT '练习次数',
-  `exam_time` INT DEFAULT 60 COMMENT '考试时长(分钟)',
-  `exam_question_count` INT DEFAULT 50 COMMENT '考试抽题数量',
   `pass_score` INT DEFAULT 60 COMMENT '及格分数',
   `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态: 0-禁用 1-正常',
@@ -332,18 +330,17 @@ INSERT INTO `ai_config` (`provider`, `base_url`, `api_key`, `model`, `max_tokens
 INSERT INTO `sys_config` (`config_key`, `config_value`) VALUES
 ('siteName', 'Quiz AI 在线答题系统'),
 ('siteDescription', '基于AI的智能在线答题平台'),
+('siteLogo', ''),
 ('copyright', '© 2025 Quiz AI'),
+('icpNumber', ''),
+('wxAppId', ''),
+('wxAppSecret', ''),
 ('registerEnabled', '1'),
-('defaultNickname', '微信用户'),
-('defaultPracticeCount', '20'),
-('examTimePerQuestion', '60'),
-('showAnalysis', '1'),
-('allowWrongRetry', '1'),
+('aiChatPersona', '你是AI智能导师，回答简洁清晰，必要时分点说明。'),
+('aiChatGreeting', '你好！我是你的 AI 智能导师。遇到不懂的题目、需要解释的知识点，或者想要制定学习计划，都可以随时问我哦！'),
 ('aiPromptAnalysis', '题目：{content}\n选项：{options}\n正确答案：{answer}\n\n请用简洁的语言输出解析：\n1. 一句话说明为什么选{answer}\n2. 简要指出其他选项的错误\n不要啰嗦，直接输出解析内容。'),
 ('aiPromptAnswer', '题目：{content}\n选项：{options}\n解析：{analysis}\n\n请直接输出答案选项字母，多选题用逗号分隔。'),
-('aiPromptBoth', '题目：{content}\n选项：{options}\n\n请按格式输出：\n答案：[选项字母]\n解析：[简洁说明正确答案的原因，并简要指出其他选项的错误]'),
-('maxFileSize', '10'),
-('allowedFileTypes', 'jpg,jpeg,png,gif,webp,svg');
+('aiPromptBoth', '题目：{content}\n选项：{options}\n\n请按格式输出：\n答案：[选项字母]\n解析：[简洁说明正确答案的原因，并简要指出其他选项的错误]');
 
 -- 默认VIP套餐
 INSERT INTO `vip_plan` (`name`, `duration`, `price`, `original_price`, `description`, `sort`) VALUES

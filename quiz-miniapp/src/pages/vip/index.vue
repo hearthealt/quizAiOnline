@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getVipPlans, getVipStatus, createVipOrder, type VipPlan } from "@/api/vip";
 import { useUserStore } from "@/stores/user";
@@ -111,6 +111,7 @@ const plans = ref<VipPlan[]>([]);
 const vipStatus = ref<any>(null);
 const selectedPlanId = ref<number | null>(null);
 const showSuccess = ref(false);
+const skipNextOnShow = ref(false);
 const userStore = useUserStore();
 const nickname = computed(() => userStore.userInfo?.nickname || "微信用户");
 const avatar = computed(() => userStore.userInfo?.avatar || "");
@@ -123,6 +124,9 @@ const actionText = computed(() =>
 );
 
 const fetchData = async () => {
+  if (userStore.isLogin) {
+    await userStore.refreshUser().catch(() => null);
+  }
   plans.value = await getVipPlans();
   vipStatus.value = await getVipStatus();
   if (plans.value.length) selectedPlanId.value = plans.value[0].id;
@@ -143,7 +147,17 @@ const goOrders = () => {
   uni.navigateTo({ url: "/pages/vip/orders" });
 };
 
-onLoad(fetchData);
+onLoad(() => {
+  skipNextOnShow.value = true;
+  void fetchData();
+});
+onShow(() => {
+  if (skipNextOnShow.value) {
+    skipNextOnShow.value = false;
+    return;
+  }
+  void fetchData();
+});
 </script>
 
 <style lang="scss" scoped>

@@ -41,7 +41,7 @@ import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 @RequiredArgsConstructor
 public class ExamServiceImpl implements ExamService {
 
-    private static final int DEFAULT_EXAM_TIME_PER_QUESTION = 60;
+    private static final int DEFAULT_EXAM_TIME_PER_QUESTION = 120;
     private final ExamRecordMapper examRecordMapper;
     private final ExamAnswerMapper examAnswerMapper;
     private final QuestionMapper questionMapper;
@@ -89,8 +89,8 @@ public class ExamServiceImpl implements ExamService {
                         .and(QUESTION.STATUS.eq(1))
                         .orderBy(QUESTION.SORT.asc()));
 
-        int count = Math.min(bank.getExamQuestionCount(), allQuestions.size());
-        List<Question> examQuestions = allQuestions.subList(0, count);
+        int count = allQuestions.size();
+        List<Question> examQuestions = allQuestions;
 
         ExamRecord record = new ExamRecord();
         record.setUserId(userId);
@@ -107,7 +107,6 @@ public class ExamServiceImpl implements ExamService {
         examRecordMapper.insert(record);
         incrementPracticeCount(dto.getBankId());
 
-        // 考试时间：题库设置 > 系统配置（每题秒数 * 题数 / 60 = 分钟）
         int examTime = resolveExamTime(bank, count);
         ExamSessionVO session = buildExamSession(record.getId(), count, examTime, examQuestions);
         cacheExamSession(session, examTime);
@@ -322,11 +321,7 @@ public class ExamServiceImpl implements ExamService {
     }
 
     private int resolveExamTime(QuestionBank bank, int count) {
-        Integer examTime = bank.getExamTime();
-        if (examTime == null || examTime <= 0) {
-            examTime = (int) Math.ceil(count * DEFAULT_EXAM_TIME_PER_QUESTION / 60.0);
-        }
-        return examTime;
+        return (int) Math.ceil(count * DEFAULT_EXAM_TIME_PER_QUESTION / 60.0);
     }
 
     private ExamSessionVO buildExamSession(Long examId, int count, int examTime, List<Question> questions) {

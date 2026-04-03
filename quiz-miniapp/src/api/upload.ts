@@ -19,7 +19,14 @@ export const uploadImage = (filePath: string): Promise<string> =>
             resolve(payload.data);
             return;
           }
-          reject(new Error(payload.msg || "上传失败"));
+          if (res.statusCode === 401 || payload.code === 401) {
+            const message = payload.message || payload.msg || "登录已过期";
+            userStore.handleSessionExpired(message);
+            uni.showToast({ title: message, icon: "none" });
+            reject(new Error(message));
+            return;
+          }
+          reject(new Error(payload.message || payload.msg || "上传失败"));
         } catch (err) {
           reject(err);
         }

@@ -1,14 +1,18 @@
 <template>
-  <view class="page">
-    <view class="header">
-      <text class="title">全部题库</text>
-      <text class="subtitle">选择想练习的题库</text>
+  <view class="page-shell bank-page">
+    <view class="page-head">
+      <view>
+        <text class="head-title">全部题库</text>
+        <text class="head-sub">按练习热度和题量快速挑选学习入口</text>
+      </view>
+      <view class="head-badge">{{ total }} 个题库</view>
     </view>
+
     <view class="bank-list">
       <view
         v-for="bank in banks"
         :key="bank.id"
-        class="bank-item"
+        class="bank-card glass-card"
         @tap="goDetail(bank.id)"
       >
         <image
@@ -17,16 +21,16 @@
           :src="resolveAssetUrl(bank.cover)"
           mode="aspectFill"
         />
-        <view v-else class="bank-cover" />
+        <view v-else class="bank-cover placeholder">题库</view>
         <view class="bank-info">
           <text class="bank-name">{{ bank.name }}</text>
-          <text class="bank-meta">
-            {{ bank.questionCount || 0 }} 题 · {{ formatCount(bank.practiceCount) }} 人练习
-          </text>
+          <text class="bank-meta">{{ bank.questionCount || 0 }} 题</text>
+          <text class="bank-users">{{ formatCount(bank.practiceCount) }} 人练习</text>
         </view>
-        <button class="bank-btn" @tap.stop="goDetail(bank.id)">练习</button>
+        <view class="bank-btn">进入</view>
       </view>
     </view>
+
     <LoadMore :status="loadStatus" />
   </view>
 </template>
@@ -63,50 +67,70 @@ onReachBottom(fetchBanks);
 </script>
 
 <style lang="scss" scoped>
-.page {
-  padding: var(--space-xl);
-}
-
-.header {
-  margin-bottom: var(--space-lg);
+.bank-page {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 18rpx;
 }
 
-.title {
-  font-size: 32rpx;
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.head-title {
+  display: block;
+  font-size: 34rpx;
   font-weight: 700;
 }
 
-.subtitle {
-  font-size: 24rpx;
+.head-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
   color: var(--muted);
+}
+
+.head-badge {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: var(--card);
+  border: 1rpx solid var(--border);
+  font-size: 22rpx;
+  color: var(--text-secondary);
 }
 
 .bank-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space);
+  gap: 16rpx;
 }
 
-.bank-item {
-  background: var(--card);
-  border-radius: var(--radius-lg);
-  padding: var(--space);
+.bank-card {
+  padding: 18rpx;
   display: flex;
-  gap: var(--space);
+  gap: 16rpx;
   align-items: center;
-  box-shadow: var(--shadow);
 }
 
 .bank-cover {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: var(--radius);
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 24rpx;
   background: var(--primary-weak);
   overflow: hidden;
   flex-shrink: 0;
+}
+
+.bank-cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-dark);
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
 .bank-info {
@@ -119,26 +143,25 @@ onReachBottom(fetchBanks);
 
 .bank-name {
   font-size: 28rpx;
-  font-weight: 600;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.bank-meta {
+.bank-meta,
+.bank-users {
   font-size: 22rpx;
   color: var(--muted);
 }
 
 .bank-btn {
-  background: var(--primary-weak);
-  color: var(--primary);
-  height: 56rpx;
-  line-height: 56rpx;
-  border-radius: var(--radius-full);
-  padding: 0 24rpx;
-  font-size: 24rpx;
-  font-weight: 500;
+  padding: 12rpx 24rpx;
+  border-radius: 999rpx;
+  background: var(--primary);
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 700;
   flex-shrink: 0;
 }
 </style>

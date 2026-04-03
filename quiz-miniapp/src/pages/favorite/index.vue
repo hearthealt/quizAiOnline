@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { onLoad, onReachBottom } from "@dcloudio/uni-app";
+import { onLoad, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getFavoriteList, toggleFavorite, type FavoriteItem } from "@/api/favorite";
 import EmptyState from "@/components/EmptyState.vue";
@@ -86,6 +86,11 @@ const goVip = () => {
 
 onLoad(() => fetchList(true));
 onReachBottom(() => fetchList());
+onShow(() => {
+  if (userStore.isLogin) {
+    void userStore.refreshUser().catch(() => null);
+  }
+});
 </script>
 
 <style lang="scss" scoped>

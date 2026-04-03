@@ -1,81 +1,89 @@
 <template>
-  <view class="page">
-    <!-- 顶部用户区 -->
-    <view class="header">
-      <view class="user-info" @tap="goMine">
-        <image v-if="userStore.userInfo?.avatar" class="avatar" :src="resolveAssetUrl(userStore.userInfo.avatar)" mode="aspectFill" />
-        <view v-else class="avatar">👤</view>
-        <view class="user-text">
-          <text class="user-name">{{ greeting }}，{{ nickname }}</text>
-          <text class="user-tip">{{ isLogin ? '今天也要加油哦' : '登录同步学习进度' }}</text>
-        </view>
-      </view>
-      <view class="search-btn" @tap="goSearch">🔍</view>
-    </view>
-
-    <!-- 学习数据卡片 -->
-    <view class="stats-card">
-      <view class="stat-item">
-        <text class="stat-num">{{ homeData?.studyStats?.totalDays || 0 }}</text>
-        <text class="stat-label">学习天数</text>
-      </view>
-      <view class="stat-divider" />
-      <view class="stat-item">
-        <text class="stat-num">{{ homeData?.studyStats?.totalAnswered || 0 }}</text>
-        <text class="stat-label">答题总数</text>
-      </view>
-      <view class="stat-divider" />
-      <view class="stat-item">
-        <text class="stat-num primary">{{ homeData?.studyStats?.correctRate || 0 }}%</text>
-        <text class="stat-label">正确率</text>
-      </view>
-    </view>
-
-    <!-- 功能入口 -->
-    <view class="quick-grid">
-      <view class="quick-item" @tap="goBankList">
-        <view class="quick-icon" style="background: #fee2e2;">📚</view>
-        <text class="quick-text">题库</text>
-      </view>
-      <view class="quick-item" @tap="goWrong">
-        <view class="quick-icon" style="background: #fef3c7;">❌</view>
-        <text class="quick-text">错题</text>
-      </view>
-      <view class="quick-item" @tap="goFavorite">
-        <view class="quick-icon" style="background: #dbeafe;">⭐</view>
-        <text class="quick-text">收藏</text>
-      </view>
-      <view class="quick-item" @tap="goRecord">
-        <view class="quick-icon" style="background: #d1fae5;">📊</view>
-        <text class="quick-text">记录</text>
-      </view>
-    </view>
-
-    <!-- 每日一题 -->
-    <view class="daily-card" v-if="homeData?.dailyQuestion" @tap="goPracticeDaily">
-      <view class="daily-header">
-        <text class="daily-tag">📝 每日一题</text>
-        <text class="daily-action">去挑战 →</text>
-      </view>
-      <text class="daily-content">{{ homeData.dailyQuestion.content }}</text>
-    </view>
-
-    <!-- 热门题库 -->
-    <view class="section">
-      <view class="section-header">
-        <text class="section-title">🔥 热门题库</text>
-        <text class="section-more" @tap="goBankList">更多</text>
-      </view>
-      <view class="bank-list">
-        <view class="bank-item" v-for="bank in homeData?.hotBanks || []" :key="bank.id" @tap="goBankDetail(bank.id)">
-          <image v-if="bank.cover" class="bank-cover" :src="resolveAssetUrl(bank.cover)" mode="aspectFill" />
-          <view v-else class="bank-cover placeholder">📖</view>
-          <view class="bank-info">
-            <text class="bank-name">{{ bank.name }}</text>
-            <text class="bank-meta">{{ bank.questionCount || 0 }}题 · {{ formatCount(bank.practiceCount) }}人练习</text>
+  <view class="page-shell home-page">
+    <view class="hero glass-card">
+      <view class="hero-top">
+        <view class="user-info" @tap="goMine">
+          <image
+            v-if="userStore.userInfo?.avatar"
+            class="avatar"
+            :src="resolveAssetUrl(userStore.userInfo.avatar)"
+            mode="aspectFill"
+          />
+          <view v-else class="avatar avatar-fallback">Q</view>
+          <view class="user-copy">
+            <text class="user-greeting">{{ greeting }}，{{ nickname }}</text>
+            <text class="user-tip">{{ isLogin ? "学习状态已同步到云端" : "登录后同步学习进度与AI记录" }}</text>
           </view>
-          <view class="bank-btn">开始</view>
         </view>
+        <view class="search-btn" @tap="goSearch">检索</view>
+      </view>
+
+      <view class="hero-body">
+        <view class="hero-stats">
+          <view class="stat-chip">
+            <text class="chip-label">学习天数</text>
+            <text class="chip-value">{{ homeData?.studyStats?.totalDays || 0 }}</text>
+          </view>
+          <view class="stat-chip">
+            <text class="chip-label">答题总数</text>
+            <text class="chip-value">{{ homeData?.studyStats?.totalAnswered || 0 }}</text>
+          </view>
+          <view class="stat-chip accent">
+            <text class="chip-label">正确率</text>
+            <text class="chip-value">{{ homeData?.studyStats?.correctRate || 0 }}%</text>
+          </view>
+        </view>
+
+        <view class="daily-card" v-if="homeData?.dailyQuestion" @tap="goPracticeDaily">
+          <view class="daily-head">
+            <text class="daily-tag">今日问题</text>
+            <text class="daily-link">去挑战</text>
+          </view>
+          <text class="daily-content">{{ homeData.dailyQuestion.content }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="quick-strip">
+      <view class="quick-item glass-card" @tap="goBankList">
+        <text class="quick-icon">题</text>
+        <text class="quick-title">全部题库</text>
+        <text class="quick-desc">快速进入练习</text>
+      </view>
+      <view class="quick-item glass-card" @tap="goWrong">
+        <text class="quick-icon">错</text>
+        <text class="quick-title">错题重练</text>
+        <text class="quick-desc">重新补齐薄弱点</text>
+      </view>
+      <view class="quick-item glass-card" @tap="goFavorite">
+        <text class="quick-icon">藏</text>
+        <text class="quick-title">收藏题目</text>
+        <text class="quick-desc">保留重点难点</text>
+      </view>
+      <view class="quick-item glass-card" @tap="goRecord">
+        <text class="quick-icon">记</text>
+        <text class="quick-title">学习记录</text>
+        <text class="quick-desc">查看练习轨迹</text>
+      </view>
+    </view>
+
+    <view class="section-head">
+      <view>
+        <text class="section-title">热门题库</text>
+        <text class="section-sub">从高频练习题库里直接开始</text>
+      </view>
+      <text class="section-link" @tap="goBankList">查看全部</text>
+    </view>
+
+    <view class="bank-stack">
+      <view class="bank-card glass-card" v-for="bank in homeData?.hotBanks || []" :key="bank.id" @tap="goBankDetail(bank.id)">
+        <image v-if="bank.cover" class="bank-cover" :src="resolveAssetUrl(bank.cover)" mode="aspectFill" />
+        <view v-else class="bank-cover placeholder">题库</view>
+        <view class="bank-copy">
+          <text class="bank-name">{{ bank.name }}</text>
+          <text class="bank-meta">{{ bank.questionCount || 0 }}题 · {{ formatCount(bank.practiceCount) }}人练习</text>
+        </view>
+        <view class="bank-action">开始</view>
       </view>
     </view>
   </view>
@@ -126,215 +134,224 @@ onShow(async () => {
 </script>
 
 <style lang="scss" scoped>
-.page {
-  padding: 24rpx;
-  background: var(--bg);
-  min-height: 100vh;
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
 }
 
-.header {
+.hero {
+  padding: 28rpx;
+  background:
+    linear-gradient(145deg, rgba(39, 22, 16, 0.95), rgba(88, 44, 30, 0.92)),
+    radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 26%);
+  color: #fff8f1;
+}
+
+.hero-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
+  gap: 16rpx;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 16rpx;
+  min-width: 0;
+  flex: 1;
 }
 
 .avatar {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: var(--primary-weak);
+  width: 86rpx;
+  height: 86rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+}
+
+.avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  font-size: 34rpx;
+  font-weight: 700;
 }
 
-.user-text {
+.user-copy {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 6rpx;
 }
 
-.user-name {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--text);
+.user-greeting {
+  font-size: 34rpx;
+  font-weight: 700;
+  display: block;
 }
 
 .user-tip {
-  font-size: 24rpx;
-  color: var(--muted);
+  font-size: 22rpx;
+  color: rgba(255, 248, 241, 0.68);
 }
 
 .search-btn {
-  width: 72rpx;
-  height: 72rpx;
-  background: var(--card);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  box-shadow: var(--shadow-sm);
-}
-
-.stats-card {
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  border-radius: 24rpx;
-  padding: 32rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  margin-bottom: 24rpx;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.stat-num {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #fff;
-}
-
-.stat-num.primary {
-  color: #fef3c7;
-}
-
-.stat-label {
+  padding: 14rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.12);
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff8f1;
+  flex-shrink: 0;
 }
 
-.stat-divider {
-  width: 1rpx;
-  height: 60rpx;
-  background: rgba(255, 255, 255, 0.3);
+.hero-body {
+  margin-top: 26rpx;
 }
 
-.quick-grid {
+.hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16rpx;
-  margin-bottom: 24rpx;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
 }
 
-.quick-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12rpx;
-  padding: 20rpx 0;
-  background: var(--card);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
+.stat-chip {
+  padding: 18rpx 16rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.quick-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 20rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
+.stat-chip.accent {
+  background: linear-gradient(135deg, rgba(208, 138, 31, 0.22), rgba(221, 122, 89, 0.18));
 }
 
-.quick-text {
-  font-size: 24rpx;
-  color: var(--text-secondary);
+.chip-label {
+  display: block;
+  font-size: 20rpx;
+  color: rgba(255, 248, 241, 0.6);
+}
+
+.chip-value {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 34rpx;
+  font-weight: 800;
 }
 
 .daily-card {
-  background: var(--card);
-  border-radius: 20rpx;
-  padding: 24rpx;
-  margin-bottom: 24rpx;
-  box-shadow: var(--shadow);
-  border-left: 6rpx solid var(--primary);
+  margin-top: 18rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255,255,255,0.08);
 }
 
-.daily-header {
+.daily-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16rpx;
 }
 
 .daily-tag {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--primary);
+  font-size: 20rpx;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 241, 0.56);
 }
 
-.daily-action {
-  font-size: 24rpx;
-  color: var(--primary);
+.daily-link {
+  font-size: 22rpx;
+  color: #ffd9c8;
 }
 
 .daily-content {
+  display: block;
+  margin-top: 14rpx;
   font-size: 28rpx;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.7;
 }
 
-.section {
-  margin-bottom: 24rpx;
+.quick-strip {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
 }
 
-.section-header {
+.quick-item {
+  padding: 22rpx;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.quick-icon {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 18rpx;
+  background: var(--primary-weak);
+  color: var(--primary-dark);
+  display: flex;
   align-items: center;
-  margin-bottom: 16rpx;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.section-more {
+  justify-content: center;
   font-size: 24rpx;
+  font-weight: 700;
+}
+
+.quick-title {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.quick-desc {
+  font-size: 22rpx;
   color: var(--muted);
 }
 
-.bank-list {
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 6rpx 4rpx 0;
+}
+
+.section-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.section-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--muted);
+}
+
+.section-link {
+  font-size: 24rpx;
+  color: var(--primary);
+}
+
+.bank-stack {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
 }
 
-.bank-item {
-  background: var(--card);
-  border-radius: 16rpx;
-  padding: 20rpx;
+.bank-card {
+  padding: 18rpx;
   display: flex;
   align-items: center;
   gap: 16rpx;
-  box-shadow: var(--shadow-sm);
 }
 
 .bank-cover {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 12rpx;
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
   background: var(--primary-weak);
   flex-shrink: 0;
 }
@@ -343,37 +360,39 @@ onShow(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36rpx;
+  color: var(--primary-dark);
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
-.bank-info {
+.bank-copy {
   flex: 1;
   min-width: 0;
 }
 
 .bank-name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text);
   display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .bank-meta {
+  display: block;
+  margin-top: 8rpx;
   font-size: 22rpx;
   color: var(--muted);
-  margin-top: 8rpx;
-  display: block;
 }
 
-.bank-btn {
-  padding: 12rpx 28rpx;
+.bank-action {
+  padding: 12rpx 24rpx;
+  border-radius: 999rpx;
   background: var(--primary);
   color: #fff;
-  border-radius: 32rpx;
-  font-size: 24rpx;
-  font-weight: 500;
+  font-size: 22rpx;
+  font-weight: 700;
 }
 </style>

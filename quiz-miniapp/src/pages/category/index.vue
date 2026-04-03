@@ -1,62 +1,69 @@
 <template>
-  <view class="page">
+  <view class="page-shell category-page">
+    <view class="category-head">
+      <view>
+        <text class="head-title">题库分类</text>
+        <text class="head-sub">按方向筛选，快速进入高频题库</text>
+      </view>
+      <view class="head-pill">{{ banks.length }} 个题库</view>
+    </view>
+
     <view class="layout">
-      <!-- 左侧分类 -->
-      <scroll-view class="sidebar" scroll-y>
-        <view 
+      <scroll-view class="sidebar glass-card" scroll-y>
+        <view
           class="side-item"
           :class="{ active: activeId === 0 }"
           @tap="selectCategory(0, '全部')"
         >
-          <view class="side-bar" />
           <text class="side-text">全部</text>
         </view>
-        <view 
-          v-for="item in categories" 
-          :key="item.id" 
+        <view
+          v-for="item in categories"
+          :key="item.id"
           class="side-item"
           :class="{ active: activeId === item.id }"
           @tap="selectCategory(item.id, item.name)"
         >
-          <view class="side-bar" />
           <text class="side-text">{{ item.name }}</text>
         </view>
       </scroll-view>
 
-      <!-- 右侧题库列表 -->
       <scroll-view class="content" scroll-y>
-        <view class="content-header">
-          <text class="content-title">{{ activeName }}</text>
-          <text class="content-count">共 {{ banks.length }} 个题库</text>
-        </view>
-        
-        <view class="bank-list">
-          <view 
-            v-for="bank in banks" 
-            :key="bank.id" 
-            class="bank-card"
-            @tap="goDetail(bank.id)"
-          >
-            <image 
-              v-if="bank.cover" 
-              class="bank-cover" 
-              :src="resolveAssetUrl(bank.cover)" 
-              mode="aspectFill" 
-            />
-            <view v-else class="bank-cover placeholder">📚</view>
-            <view class="bank-info">
-              <text class="bank-name">{{ bank.name }}</text>
-              <text class="bank-meta">{{ bank.questionCount || 0 }}题</text>
-              <text class="bank-users">{{ formatCount(bank.practiceCount) }}人练习</text>
+        <view class="content-panel glass-card">
+          <view class="content-header">
+            <view>
+              <text class="content-title">{{ activeName }}</text>
+              <text class="content-sub">精选题库与练习热度一并展示</text>
             </view>
-            <view class="bank-btn">练习</view>
           </view>
-        </view>
 
-        <!-- 空状态 -->
-        <view v-if="banks.length === 0 && !loading" class="empty">
-          <text class="empty-icon">📭</text>
-          <text class="empty-text">暂无题库</text>
+          <view class="bank-list">
+            <view
+              v-for="bank in banks"
+              :key="bank.id"
+              class="bank-card"
+              @tap="goDetail(bank.id)"
+            >
+              <image
+                v-if="bank.cover"
+                class="bank-cover"
+                :src="resolveAssetUrl(bank.cover)"
+                mode="aspectFill"
+              />
+              <view v-else class="bank-cover placeholder">题库</view>
+              <view class="bank-info">
+                <text class="bank-name">{{ bank.name }}</text>
+                <text class="bank-meta">{{ bank.questionCount || 0 }}题</text>
+                <text class="bank-users">{{ formatCount(bank.practiceCount) }}人练习</text>
+              </view>
+              <view class="bank-btn">练习</view>
+            </view>
+          </view>
+
+          <view v-if="banks.length === 0 && !loading" class="empty">
+            <text class="empty-icon">题库空</text>
+            <text class="empty-text">当前分类暂无题库</text>
+          </view>
         </view>
       </scroll-view>
     </view>
@@ -79,7 +86,6 @@ const loading = ref(false);
 
 const fetchCategories = async () => {
   categories.value = await getCategories();
-  // 默认获取全部题库
   activeId.value = 0;
   activeName.value = "全部";
   fetchBanks(0);
@@ -112,104 +118,119 @@ onShow(fetchCategories);
 </script>
 
 <style lang="scss" scoped>
-.page {
-  height: 100vh;
-  background: var(--bg);
+.category-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.category-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.head-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.head-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--muted);
+}
+
+.head-pill {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: var(--card);
+  border: 1rpx solid var(--border);
+  font-size: 22rpx;
+  color: var(--text-secondary);
 }
 
 .layout {
   display: flex;
-  height: 100vh;
+  gap: 16rpx;
+  min-height: calc(100vh - 180rpx);
 }
 
 .sidebar {
-  width: 180rpx;
-  height: 100vh;
-  background: var(--card);
+  width: 196rpx;
+  padding: 14rpx;
   flex-shrink: 0;
 }
 
 .side-item {
-  position: relative;
-  padding: 28rpx 16rpx;
-  font-size: 26rpx;
-  color: var(--text-secondary);
-  text-align: center;
+  padding: 18rpx 14rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10rpx;
 }
 
 .side-item.active {
-  color: var(--primary);
-  font-weight: 600;
-  background: var(--bg);
-}
-
-.side-bar {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6rpx;
-  height: 36rpx;
-  border-radius: 0 6rpx 6rpx 0;
-  background: transparent;
-}
-
-.side-item.active .side-bar {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #fff;
+  box-shadow: var(--shadow-sm);
 }
 
 .side-text {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 24rpx;
+  font-weight: 700;
+  text-align: center;
 }
 
 .content {
   flex: 1;
-  height: 100vh;
-  padding: 20rpx;
-  box-sizing: border-box;
+  min-width: 0;
 }
 
-.content-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20rpx;
+.content-panel {
+  padding: 18rpx;
+  min-height: 100%;
 }
 
 .content-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--text);
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
 }
 
-.content-count {
-  font-size: 24rpx;
+.content-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
   color: var(--muted);
 }
 
 .bank-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 14rpx;
+  margin-top: 18rpx;
 }
 
 .bank-card {
-  background: var(--card);
-  border-radius: 16rpx;
-  padding: 20rpx;
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  box-shadow: var(--shadow-sm);
+  gap: 14rpx;
+  padding: 18rpx;
+  border-radius: 24rpx;
+  background: rgba(255,255,255,0.58);
+  border: 1rpx solid var(--border);
 }
 
 .bank-cover {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 12rpx;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 22rpx;
+  overflow: hidden;
   background: var(--primary-weak);
   flex-shrink: 0;
 }
@@ -218,7 +239,9 @@ onShow(fetchCategories);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  color: var(--primary-dark);
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
 .bank-info {
@@ -227,51 +250,50 @@ onShow(fetchCategories);
 }
 
 .bank-name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text);
   display: block;
+  font-size: 28rpx;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.bank-meta {
-  font-size: 22rpx;
-  color: var(--muted);
-  margin-top: 6rpx;
-  display: inline;
-}
-
+.bank-meta,
 .bank-users {
+  display: block;
+  margin-top: 6rpx;
   font-size: 22rpx;
   color: var(--muted);
-  margin-left: 12rpx;
 }
 
 .bank-btn {
-  padding: 12rpx 24rpx;
+  padding: 12rpx 20rpx;
+  border-radius: 999rpx;
   background: var(--primary);
   color: #fff;
-  border-radius: 24rpx;
-  font-size: 24rpx;
-  flex-shrink: 0;
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
+  padding: 100rpx 0 60rpx;
 }
 
 .empty-icon {
-  font-size: 64rpx;
-  margin-bottom: 16rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: var(--primary-weak);
+  color: var(--primary-dark);
+  font-size: 26rpx;
+  font-weight: 700;
 }
 
 .empty-text {
-  font-size: 26rpx;
+  margin-top: 18rpx;
+  font-size: 24rpx;
   color: var(--muted);
 }
 </style>

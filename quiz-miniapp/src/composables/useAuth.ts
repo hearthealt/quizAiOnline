@@ -81,7 +81,7 @@ export function useAuth() {
    */
   const requireLogin = (message = '请先登录'): boolean => {
     if (!isLogin.value) {
-      uni.showToast({ title: message, icon: 'none' });
+      userStore.requestLogin(null, message);
       return false;
     }
     return true;

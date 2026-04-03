@@ -91,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getRecordDetail } from "@/api/record";
 import EmptyState from "@/components/EmptyState.vue";
@@ -170,6 +170,12 @@ onLoad((query: any) => {
   const id = Number(query.id || 0);
   const type = String(query.type || "practice");
   fetchDetail(id, type);
+});
+
+onShow(() => {
+  if (userStore.isLogin) {
+    void userStore.refreshUser().catch(() => null);
+  }
 });
 </script>
 

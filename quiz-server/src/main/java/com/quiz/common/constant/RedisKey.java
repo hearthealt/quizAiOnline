@@ -36,7 +36,7 @@ public final class RedisKey {
     /**
      * 题库详情 quiz:bank:detail:{bankId}
      */
-    public static final String BANK_DETAIL = PREFIX + "bank:detail:";
+    public static final String BANK_DETAIL = PREFIX + "bank:detail:v2:";
 
     /**
      * 题库题目列表 quiz:bank:questions:{bankId}

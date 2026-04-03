@@ -82,36 +82,18 @@
               <n-button v-if="formValue.cover" text type="error" size="small" @click="formValue.cover = ''">移除</n-button>
             </div>
           </n-form-item>
-          <n-grid :cols="2" :x-gap="16">
-            <n-gi>
-              <n-form-item label="考试时长" path="examTime" label-width="80">
-                <n-input-number v-model:value="formValue.examTime" :min="1" style="width: 100%">
-                  <template #suffix>分钟</template>
-                </n-input-number>
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="考试题数" path="examQuestionCount" label-width="80">
-                <n-input-number v-model:value="formValue.examQuestionCount" :min="1" style="width: 100%">
-                  <template #suffix>题</template>
-                </n-input-number>
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-          <n-grid :cols="2" :x-gap="16">
-            <n-gi>
-              <n-form-item label="及格分" path="passScore" label-width="80">
-                <n-input-number v-model:value="formValue.passScore" :min="0" style="width: 100%">
-                  <template #suffix>分</template>
-                </n-input-number>
-              </n-form-item>
-            </n-gi>
-            <n-gi v-if="editingId">
+        <n-form-item label="及格分" path="passScore">
+          <n-input-number v-model:value="formValue.passScore" :min="0" style="width: 100%">
+            <template #suffix>分</template>
+          </n-input-number>
+        </n-form-item>
+        <n-grid :cols="2" :x-gap="16">
+          <n-gi v-if="editingId">
               <n-form-item label="排序" path="sort" label-width="80">
                 <n-input-number v-model:value="formValue.sort" :min="0" style="width: 100%" />
               </n-form-item>
-            </n-gi>
-          </n-grid>
+          </n-gi>
+        </n-grid>
         </n-form>
         <template #footer>
           <n-space>
@@ -147,7 +129,7 @@ const showDrawer = ref(false)
 const editingId = ref<number | null>(null)
 const submitLoading = ref(false)
 
-const defaultForm = { categoryId: null as number | null, name: '', description: '', cover: '', examTime: 60, examQuestionCount: 50, passScore: 60, sort: 0 }
+const defaultForm = { categoryId: null as number | null, name: '', description: '', cover: '', passScore: 60, sort: 0 }
 const { formValue, formRef, resetForm, validate } = useForm(defaultForm)
 
 const formRules: FormRules = {
@@ -175,7 +157,6 @@ const columns: DataTableColumns<QuestionBank> = [
   },
   { title: '描述', key: 'description', ellipsis: { tooltip: true } },
   { title: '题目数', key: 'questionCount', width: 80, render(row) { return h('span', { style: 'font-weight:500;color:#667eea' }, row.questionCount || 0) } },
-  { title: '考试时长', key: 'examTime', width: 90, render(row) { return `${row.examTime}分钟` } },
   { title: '及格分', key: 'passScore', width: 80 },
   {
     title: '状态',
@@ -210,8 +191,6 @@ function openDrawer(row?: QuestionBank) {
       name: row.name,
       description: row.description,
       cover: row.cover,
-      examTime: row.examTime,
-      examQuestionCount: row.examQuestionCount,
       passScore: row.passScore,
       sort: row.sort,
     }

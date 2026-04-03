@@ -1,12 +1,12 @@
 <template>
-  <view class="page">
-    <view class="search-box">
+  <view class="page-shell search-page">
+    <view class="search-bar glass-card">
       <input v-model="keyword" placeholder="输入题目关键词" class="search-input" />
-      <button class="search-btn" @tap="doSearch">搜索</button>
+      <view class="search-btn" @tap="doSearch">搜索</view>
     </view>
 
-    <view v-if="hotKeywords.length" class="hot">
-      <text class="hot-title">热门搜索</text>
+    <view v-if="hotKeywords.length" class="hot-panel glass-card">
+      <text class="panel-title">热门搜索</text>
       <view class="hot-list">
         <text
           v-for="word in hotKeywords"
@@ -19,13 +19,17 @@
       </view>
     </view>
 
-    <view v-if="results.length" class="result-list">
+    <view v-if="results.length" class="result-panel">
       <view
         v-for="item in results"
         :key="item.id"
-        class="result-item"
+        class="result-item glass-card"
         @tap="goQuestion(item.id, item.bankId)"
       >
+        <view class="result-top">
+          <text class="result-type">题目 {{ item.type }}</text>
+          <text class="result-difficulty" v-if="item.difficulty">难度 {{ item.difficulty }}</text>
+        </view>
         <text class="result-content">{{ item.content }}</text>
       </view>
     </view>
@@ -69,7 +73,7 @@ const selectHot = (word: string) => {
   doSearch();
 };
 
-const goQuestion = (id: number, bankId?: number) => {
+const goQuestion = (_id: number, bankId?: number) => {
   if (bankId) {
     uni.navigateTo({ url: `/pages/bank/detail?id=${bankId}` });
     return;
@@ -86,71 +90,92 @@ onReachBottom(fetchMore);
 </script>
 
 <style lang="scss" scoped>
-.page {
-  padding: var(--space-xl);
+.search-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
 }
 
-.search-box {
+.search-bar {
+  padding: 14rpx;
   display: flex;
-  gap: var(--space-sm);
+  gap: 12rpx;
+  align-items: center;
 }
 
 .search-input {
   flex: 1;
-  border: 2rpx solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space);
+  height: 76rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: rgba(255,255,255,0.7);
   font-size: 28rpx;
-  background: var(--card);
 }
 
 .search-btn {
+  min-width: 128rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  text-align: center;
+  border-radius: 999rpx;
   background: var(--primary);
-  color: #ffffff;
-  border-radius: var(--radius);
-  height: 72rpx;
-  line-height: 72rpx;
-  padding: 0 var(--space-xl);
-  font-size: 28rpx;
-  font-weight: 500;
-}
-
-.hot {
-  margin-top: var(--space-lg);
-}
-
-.hot-title {
+  color: #fff;
   font-size: 26rpx;
-  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.hot-panel {
+  padding: 20rpx;
+}
+
+.panel-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
 }
 
 .hot-list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  gap: 12rpx;
+  margin-top: 16rpx;
 }
 
 .hot-item {
-  background: var(--bg-page);
-  padding: var(--space-xs) var(--space);
-  border-radius: var(--radius-full);
-  font-size: 26rpx;
-  color: var(--text-secondary);
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: var(--primary-weak);
+  color: var(--primary-dark);
+  font-size: 24rpx;
 }
 
-.result-list {
-  margin-top: var(--space-xl);
+.result-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 14rpx;
 }
 
 .result-item {
-  background: var(--card);
-  border-radius: var(--radius-lg);
-  padding: var(--space);
+  padding: 20rpx;
+}
+
+.result-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.result-type,
+.result-difficulty {
+  font-size: 20rpx;
+  color: var(--muted);
+}
+
+.result-content {
+  display: block;
+  margin-top: 12rpx;
   font-size: 28rpx;
-  box-shadow: var(--shadow-sm);
+  line-height: 1.7;
+  color: var(--text);
 }
 </style>

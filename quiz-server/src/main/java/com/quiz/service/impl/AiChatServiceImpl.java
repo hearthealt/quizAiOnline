@@ -2,14 +2,17 @@ package com.quiz.service.impl;
 
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.quiz.common.enums.BizCode;
 import com.quiz.common.exception.BizException;
 import com.quiz.dto.app.AiChatDTO;
 import com.quiz.entity.AiCallLog;
 import com.quiz.entity.AiChatMessage;
 import com.quiz.entity.AiConfig;
+import com.quiz.entity.User;
 import com.quiz.mapper.AiCallLogMapper;
 import com.quiz.mapper.AiChatMessageMapper;
 import com.quiz.mapper.AiConfigMapper;
+import com.quiz.mapper.UserMapper;
 import com.quiz.service.AiChatService;
 import com.quiz.service.SysConfigService;
 import com.quiz.util.AiProviderUtil;
@@ -40,9 +43,11 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiChatMessageMapper aiChatMessageMapper;
     private final SysConfigService sysConfigService;
     private final OkHttpClient okHttpClient;
+    private final UserMapper userMapper;
 
     @Override
     public String chat(AiChatDTO dto, Long userId) {
+        ensureVipAccess(userId);
         if (dto == null || dto.getMessage() == null || dto.getMessage().trim().isEmpty()) {
             throw new BizException("请输入要咨询的问题");
         }
@@ -271,6 +276,7 @@ public class AiChatServiceImpl implements AiChatService {
     
     @Override
     public List<AiChatMessage> getHistory(Long userId) {
+        ensureVipAccess(userId);
         return aiChatMessageMapper.selectListByQuery(
             com.mybatisflex.core.query.QueryWrapper.create()
                 .where("user_id = ?", userId)
@@ -292,6 +298,7 @@ public class AiChatServiceImpl implements AiChatService {
     
     @Override
     public void clearHistory(Long userId) {
+        ensureVipAccess(userId);
         // 软删除：将 deleted 置为 1
         aiChatMessageMapper.updateByQuery(
             new AiChatMessage() {{ setDeleted(1); }},
@@ -299,5 +306,24 @@ public class AiChatServiceImpl implements AiChatService {
                 .where("user_id = ?", userId)
                 .and("deleted = 0")
         );
+    }
+
+    private void ensureVipAccess(Long userId) {
+        User user = userMapper.selectOneById(userId);
+        if (user == null) {
+            throw new BizException("用户不存在");
+        }
+        boolean hasVipAccess = user.getIsVip() != null
+                && user.getIsVip() == 1
+                && user.getVipExpireTime() != null
+                && user.getVipExpireTime().isAfter(LocalDateTime.now());
+        if (hasVipAccess) {
+            return;
+        }
+        if (user.getIsVip() != null && user.getIsVip() == 1) {
+            user.setIsVip(0);
+            userMapper.update(user);
+        }
+        throw BizCode.VIP_REQUIRED.exception("AI辅导仅限VIP使用");
     }
 }
