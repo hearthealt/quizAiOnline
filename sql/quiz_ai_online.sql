@@ -267,21 +267,13 @@ CREATE TABLE `vip_order` (
 -- ================================================
 CREATE TABLE `ai_config` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '配置ID',
-  `base_url` VARCHAR(500) NOT NULL DEFAULT 'https://apis.iflow.cn/v1' COMMENT 'API地址',
+  `provider` VARCHAR(20) NOT NULL DEFAULT 'OPENAI' COMMENT '提供商: OPENAI/DEEPSEEK/CUSTOM',
+  `base_url` VARCHAR(500) NOT NULL DEFAULT 'https://api.openai.com/v1' COMMENT '兼容OpenAI的API Base URL',
   `api_key` VARCHAR(500) NOT NULL COMMENT 'API Key',
-  `model` VARCHAR(100) NOT NULL DEFAULT 'TBStars2-200B-A13B' COMMENT '模型名称',
-  `prompt_analysis` TEXT NOT NULL COMMENT '生成解析的Prompt模板',
-  `prompt_answer` TEXT NOT NULL COMMENT '推导答案的Prompt模板',
-  `prompt_both` TEXT NOT NULL COMMENT '生成答案+解析的Prompt模板',
+  `model` VARCHAR(100) NOT NULL DEFAULT 'gpt-4o-mini' COMMENT '模型名称',
   `max_tokens` INT NOT NULL DEFAULT 2000 COMMENT '最大token数',
   `temperature` DECIMAL(2,1) NOT NULL DEFAULT 0.7 COMMENT '温度参数',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态: 0-禁用 1-启用',
-  `bx_auth` VARCHAR(500) DEFAULT NULL COMMENT 'iFlow平台BXAuth Cookie',
-  `iflow_name` VARCHAR(100) DEFAULT NULL COMMENT 'iFlow平台用户名称',
-  `expire_time` DATETIME DEFAULT NULL COMMENT 'API Key过期时间',
-  `auto_renew` TINYINT DEFAULT 0 COMMENT '是否自动续期: 0-否 1-是',
-  `last_renew_time` DATETIME DEFAULT NULL COMMENT '上次续期时间',
-  `last_renew_result` VARCHAR(500) DEFAULT NULL COMMENT '上次续期结果',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -333,12 +325,8 @@ INSERT INTO `admin` (`username`, `password`, `nickname`, `role`) VALUES
 ('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '超级管理员', 'super_admin');
 
 -- 默认AI配置
-INSERT INTO `ai_config` (`base_url`, `api_key`, `model`, `prompt_analysis`, `prompt_answer`, `prompt_both`, `max_tokens`, `temperature`) VALUES
-('https://apis.iflow.cn/v1', '', 'TBStars2-200B-A13B',
- '题目：{content}\n选项：{options}\n正确答案：{answer}\n\n请用简洁的语言输出解析：\n1. 一句话说明为什么选{answer}\n2. 简要指出其他选项的错误\n不要啰嗦，直接输出解析内容。',
- '题目：{content}\n选项：{options}\n解析：{analysis}\n\n请直接输出答案选项字母，多选题用逗号分隔。',
- '题目：{content}\n选项：{options}\n\n请按格式输出：\n答案：[选项字母]\n解析：[简洁说明正确答案的原因，并简要指出其他选项的错误]',
- 2000, 0.7);
+INSERT INTO `ai_config` (`provider`, `base_url`, `api_key`, `model`, `max_tokens`, `temperature`) VALUES
+('OPENAI', 'https://api.openai.com/v1', '', 'gpt-4o-mini', 2000, 0.7);
 
 -- 默认系统配置
 INSERT INTO `sys_config` (`config_key`, `config_value`) VALUES
@@ -351,6 +339,9 @@ INSERT INTO `sys_config` (`config_key`, `config_value`) VALUES
 ('examTimePerQuestion', '60'),
 ('showAnalysis', '1'),
 ('allowWrongRetry', '1'),
+('aiPromptAnalysis', '题目：{content}\n选项：{options}\n正确答案：{answer}\n\n请用简洁的语言输出解析：\n1. 一句话说明为什么选{answer}\n2. 简要指出其他选项的错误\n不要啰嗦，直接输出解析内容。'),
+('aiPromptAnswer', '题目：{content}\n选项：{options}\n解析：{analysis}\n\n请直接输出答案选项字母，多选题用逗号分隔。'),
+('aiPromptBoth', '题目：{content}\n选项：{options}\n\n请按格式输出：\n答案：[选项字母]\n解析：[简洁说明正确答案的原因，并简要指出其他选项的错误]'),
 ('maxFileSize', '10'),
 ('allowedFileTypes', 'jpg,jpeg,png,gif,webp,svg');
 

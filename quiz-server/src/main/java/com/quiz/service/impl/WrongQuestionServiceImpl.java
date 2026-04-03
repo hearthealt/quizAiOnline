@@ -15,6 +15,7 @@ import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.mapper.WrongQuestionMapper;
 import com.quiz.service.WrongQuestionService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.vo.app.WrongQuestionVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,37 +83,12 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
                 ).stream().collect(Collectors.groupingBy(QuestionOption::getQuestionId));
 
         List<WrongQuestionVO> voList = page.getRecords().stream().map(wq -> {
-            WrongQuestionVO vo = new WrongQuestionVO();
-            vo.setId(wq.getId());
-            vo.setQuestionId(wq.getQuestionId());
-            vo.setBankId(wq.getBankId());
-            vo.setWrongCount(wq.getWrongCount());
-            vo.setLastWrongAnswer(wq.getLastWrongAnswer());
-            vo.setCreateTime(wq.getCreateTime());
-
             Question question = questionMap.get(wq.getQuestionId());
-            if (question != null) {
-                vo.setContent(question.getContent());
-                vo.setType(question.getType());
-                vo.setAnswer(question.getAnswer());
-                vo.setAnalysis(SHOW_ANALYSIS ? question.getAnalysis() : null);
-
-                List<QuestionOption> options = optionsMap.getOrDefault(question.getId(), Collections.emptyList());
-                List<WrongQuestionVO.OptionVO> optionVOs = options.stream().map(opt -> {
-                    WrongQuestionVO.OptionVO optVO = new WrongQuestionVO.OptionVO();
-                    optVO.setLabel(opt.getLabel());
-                    optVO.setContent(opt.getContent());
-                    return optVO;
-                }).collect(Collectors.toList());
-                vo.setOptions(optionVOs);
-            }
-
             QuestionBank bank = bankMap.get(wq.getBankId());
-            if (bank != null) {
-                vo.setBankName(bank.getName());
-            }
-
-            return vo;
+            List<QuestionOption> options = question != null
+                    ? optionsMap.getOrDefault(question.getId(), Collections.emptyList())
+                    : Collections.emptyList();
+            return AppViewMapper.toWrongQuestionVO(wq, question, bank, options, SHOW_ANALYSIS);
         }).collect(Collectors.toList());
 
         return PageResult.of(voList, page.getTotalRow(), pageNum, pageSize);

@@ -1,5 +1,6 @@
 import { request } from "@/utils/request";
 import type { PageResult } from "@/api/category";
+import type { QuestionListVO } from "@/api/home";
 
 export type BankItem = {
   id: number;
@@ -21,22 +22,11 @@ export type QuestionOption = {
   content: string;
 };
 
-export type Question = {
-  id: number;
-  bankId: number;
-  type: number;
-  content: string;
-  answer?: string;
-  analysis?: string;
-  difficulty?: number;
-  options?: QuestionOption[];
-};
-
 export const getBankList = (categoryId?: number, pageNum = 1, pageSize = 10) =>
   request<PageResult<BankItem>>({
     url: "/api/app/bank/list",
     method: "GET",
-    data: { categoryId, pageNum, pageSize }
+    data: categoryId == null ? { pageNum, pageSize } : { categoryId, pageNum, pageSize }
   });
 
 export const getBankDetail = (id: number) =>
@@ -46,7 +36,7 @@ export const getBankDetail = (id: number) =>
   });
 
 export const getBankQuestions = (id: number, pageNum = 1, pageSize = 10) =>
-  request<PageResult<Question>>({
+  request<PageResult<QuestionListVO>>({
     url: `/api/app/bank/${id}/questions`,
     method: "GET",
     data: { pageNum, pageSize }

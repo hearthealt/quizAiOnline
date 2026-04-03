@@ -8,7 +8,7 @@ import java.util.List;
 public class HomeVO {
     private List<CategoryVO> categories;
     private List<BankSimpleVO> hotBanks;
-    private QuestionVO dailyQuestion;
+    private QuestionListVO dailyQuestion;
     private StudyStatsVO studyStats;
 
     @Data

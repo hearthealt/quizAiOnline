@@ -3,11 +3,11 @@ package com.quiz.controller.app;
 import com.quiz.common.result.PageResult;
 import com.quiz.common.result.R;
 import com.quiz.config.StpKit;
-import com.quiz.entity.Question;
 import com.quiz.entity.QuestionBank;
 import com.quiz.service.QuestionBankService;
 import com.quiz.service.QuestionService;
 import com.quiz.vo.app.BankDetailVO;
+import com.quiz.vo.app.QuestionListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ public class AppBankController {
     public R<PageResult<QuestionBank>> list(@RequestParam(required = false) Long categoryId,
                                             @RequestParam(defaultValue = "1") Integer pageNum,
                                             @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(bankService.pageList(categoryId, null, pageNum, pageSize));
+        return R.ok(bankService.pageList(categoryId, pageNum, pageSize));
     }
 
     @Operation(summary = "题库详情")
@@ -41,10 +41,10 @@ public class AppBankController {
 
     @Operation(summary = "题库下的题目列表")
     @GetMapping("/{id}/questions")
-    public R<PageResult<Question>> questions(@PathVariable Long id,
-                                             @RequestParam(defaultValue = "1") Integer pageNum,
-                                             @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(questionService.pageList(id, null, null, pageNum, pageSize));
+    public R<PageResult<QuestionListVO>> questions(@PathVariable Long id,
+                                                   @RequestParam(defaultValue = "1") Integer pageNum,
+                                                   @RequestParam(defaultValue = "10") Integer pageSize) {
+        return R.ok(questionService.pageAppList(id, null, pageNum, pageSize));
     }
 
     @Operation(summary = "热门题库")

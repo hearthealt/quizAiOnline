@@ -27,7 +27,7 @@ public class AdminRecordController {
     @Operation(summary = "练习记录详情")
     @GetMapping("/practice/{id}")
     public R<?> practiceDetail(@PathVariable Long id) {
-        return R.ok(recordService.appRecordDetail(id, "practice"));
+        return R.ok(recordService.appRecordDetail(id, "practice", null));
     }
 
     @Operation(summary = "考试记录列表")
@@ -42,6 +42,6 @@ public class AdminRecordController {
     @Operation(summary = "考试记录详情")
     @GetMapping("/exam/{id}")
     public R<?> examDetail(@PathVariable Long id) {
-        return R.ok(recordService.appRecordDetail(id, "exam"));
+        return R.ok(recordService.appRecordDetail(id, "exam", null));
     }
 }

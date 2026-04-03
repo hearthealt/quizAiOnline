@@ -6,11 +6,8 @@ import com.quiz.common.exception.BizException;
 import com.quiz.common.result.PageResult;
 import com.quiz.dto.app.UpdateProfileDTO;
 import com.quiz.dto.app.WxLoginDTO;
-import com.quiz.entity.PracticeDetail;
-import com.quiz.entity.PracticeRecord;
 import com.quiz.entity.User;
 import com.quiz.mapper.PracticeDetailMapper;
-import com.quiz.mapper.PracticeRecordMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.SysConfigService;
 import com.quiz.service.UserService;
@@ -26,9 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
-import static com.quiz.entity.table.PracticeDetailTableDef.PRACTICE_DETAIL;
-import static com.quiz.entity.table.PracticeRecordTableDef.PRACTICE_RECORD;
 import static com.quiz.entity.table.UserTableDef.USER;
 
 @Slf4j
@@ -42,9 +38,6 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private PracticeDetailMapper practiceDetailMapper;
-
-    @Autowired
-    private PracticeRecordMapper practiceRecordMapper;
 
     @Autowired
     private SysConfigService sysConfigService;
@@ -211,60 +204,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public StudyStatsVO getStudyStats(Long userId) {
         StudyStatsVO vo = new StudyStatsVO();
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        Map<String, Object> stats = practiceDetailMapper.getStudyStats(userId, todayStart);
 
-        // 查询用户的练习记录ID列表
-        QueryWrapper recordQuery = QueryWrapper.create()
-                .select(PRACTICE_RECORD.ID)
-                .where(PRACTICE_RECORD.USER_ID.eq(userId));
-        java.util.List<PracticeRecord> records = practiceRecordMapper.selectListByQuery(recordQuery);
-
-        if (records.isEmpty()) {
-            vo.setTotalDays(0);
-            vo.setTotalAnswered(0);
-            vo.setCorrectRate(0.0);
-            vo.setTodayAnswered(0);
-            return vo;
-        }
-
-        java.util.List<Long> recordIds = records.stream()
-                .map(PracticeRecord::getId)
-                .toList();
-
-        // 总答题数
-        QueryWrapper totalQuery = QueryWrapper.create()
-                .where(PRACTICE_DETAIL.RECORD_ID.in(recordIds));
-        long totalAnswered = practiceDetailMapper.selectCountByQuery(totalQuery);
+        long totalAnswered = toLong(stats != null ? stats.get("totalAnswered") : null);
+        long correctCount = toLong(stats != null ? stats.get("correctCount") : null);
         vo.setTotalAnswered((int) totalAnswered);
-
-        // 正确数
-        QueryWrapper correctQuery = QueryWrapper.create()
-                .where(PRACTICE_DETAIL.RECORD_ID.in(recordIds))
-                .and(PRACTICE_DETAIL.IS_CORRECT.eq(1));
-        long correctCount = practiceDetailMapper.selectCountByQuery(correctQuery);
-
-        // 正确率
+        vo.setTotalDays((int) toLong(stats != null ? stats.get("totalDays") : null));
+        vo.setTodayAnswered((int) toLong(stats != null ? stats.get("todayAnswered") : null));
         vo.setCorrectRate(totalAnswered > 0 ? Math.round(correctCount * 10000.0 / totalAnswered) / 100.0 : 0.0);
 
-        // 练习天数（根据practice_detail的createTime去重日期）
-        QueryWrapper daysQuery = QueryWrapper.create()
-                .select(PRACTICE_DETAIL.CREATE_TIME)
-                .where(PRACTICE_DETAIL.RECORD_ID.in(recordIds));
-        java.util.List<PracticeDetail> details = practiceDetailMapper.selectListByQuery(daysQuery);
-        long distinctDays = details.stream()
-                .map(d -> d.getCreateTime().toLocalDate())
-                .distinct()
-                .count();
-        vo.setTotalDays((int) distinctDays);
-
-        // 今日答题数
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        QueryWrapper todayQuery = QueryWrapper.create()
-                .where(PRACTICE_DETAIL.RECORD_ID.in(recordIds))
-                .and(PRACTICE_DETAIL.CREATE_TIME.ge(todayStart));
-        long todayAnswered = practiceDetailMapper.selectCountByQuery(todayQuery);
-        vo.setTodayAnswered((int) todayAnswered);
-
         return vo;
+    }
+
+    private long toLong(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
     }
 
     @Override

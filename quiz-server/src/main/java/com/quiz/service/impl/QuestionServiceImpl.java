@@ -14,8 +14,10 @@ import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.service.QuestionService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.util.ExcelUtil;
 import com.quiz.vo.admin.QuestionDetailVO;
+import com.quiz.vo.app.QuestionListVO;
 import com.quiz.vo.app.QuestionVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +58,15 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     @Override
+    public PageResult<QuestionListVO> pageAppList(Long bankId, String keyword, Integer pageNum, Integer pageSize) {
+        PageResult<Question> page = pageList(bankId, null, keyword, pageNum, pageSize);
+        List<QuestionListVO> list = page.getList().stream()
+                .map(AppViewMapper::toQuestionListVO)
+                .collect(Collectors.toList());
+        return PageResult.of(list, page.getTotal(), pageNum, pageSize);
+    }
+
+    @Override
     public QuestionDetailVO getDetail(Long id) {
         Question question = questionMapper.selectOneById(id);
         if (question == null) {
@@ -77,24 +88,7 @@ public class QuestionServiceImpl implements QuestionService {
             }
         }
 
-        QuestionDetailVO vo = new QuestionDetailVO();
-        vo.setId(question.getId());
-        vo.setBankId(question.getBankId());
-        vo.setBankName(bankName);
-        vo.setType(question.getType());
-        vo.setContent(question.getContent());
-        vo.setAnswer(question.getAnswer());
-        vo.setAnalysis(question.getAnalysis());
-        vo.setDifficulty(question.getDifficulty());
-        vo.setSort(question.getSort());
-        vo.setOptions(options.stream().map(opt -> {
-            QuestionDetailVO.OptionVO optVO = new QuestionDetailVO.OptionVO();
-            optVO.setLabel(opt.getLabel());
-            optVO.setContent(opt.getContent());
-            return optVO;
-        }).collect(Collectors.toList()));
-
-        return vo;
+        return AppViewMapper.toQuestionDetailVO(question, bankName, options);
     }
 
     @Override
@@ -110,21 +104,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .orderBy(QUESTION_OPTION.SORT.asc());
         List<QuestionOption> options = questionOptionMapper.selectListByQuery(optionQuery);
 
-        QuestionVO vo = new QuestionVO();
-        vo.setId(question.getId());
-        vo.setBankId(question.getBankId());
-        vo.setType(question.getType());
-        vo.setContent(question.getContent());
-        vo.setAnswer(question.getAnswer());
-        // 根据系统配置决定是否返回解析
-        vo.setAnalysis(SHOW_ANALYSIS ? question.getAnalysis() : null);
-        vo.setDifficulty(question.getDifficulty());
-        vo.setOptions(options.stream().map(opt -> {
-            QuestionVO.OptionVO optVO = new QuestionVO.OptionVO();
-            optVO.setLabel(opt.getLabel());
-            optVO.setContent(opt.getContent());
-            return optVO;
-        }).collect(Collectors.toList()));
+        QuestionVO vo = AppViewMapper.toQuestionVO(question, options, true, SHOW_ANALYSIS);
 
         // 检查收藏状态
         if (userId != null) {
@@ -138,6 +118,15 @@ public class QuestionServiceImpl implements QuestionService {
         }
 
         return vo;
+    }
+
+    @Override
+    public QuestionListVO getQuestionListVO(Long id) {
+        Question question = questionMapper.selectOneById(id);
+        if (question == null) {
+            throw new BizException("题目不存在");
+        }
+        return AppViewMapper.toQuestionListVO(question);
     }
 
     @Override

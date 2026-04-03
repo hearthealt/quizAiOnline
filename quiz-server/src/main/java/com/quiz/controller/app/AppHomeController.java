@@ -9,8 +9,9 @@ import com.quiz.service.CategoryService;
 import com.quiz.service.QuestionBankService;
 import com.quiz.service.QuestionService;
 import com.quiz.service.UserService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.vo.app.HomeVO;
-import com.quiz.vo.app.QuestionVO;
+import com.quiz.vo.app.QuestionListVO;
 import com.quiz.vo.app.StudyStatsVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,33 +42,23 @@ public class AppHomeController {
 
         // 分类列表
         List<Category> categories = categoryService.listAll();
-        List<HomeVO.CategoryVO> categoryVOList = categories.stream().map(c -> {
-            HomeVO.CategoryVO cv = new HomeVO.CategoryVO();
-            cv.setId(c.getId());
-            cv.setName(c.getName());
-            cv.setIcon(c.getIcon());
-            return cv;
-        }).collect(Collectors.toList());
+        List<HomeVO.CategoryVO> categoryVOList = categories.stream()
+                .map(AppViewMapper::toHomeCategoryVO)
+                .collect(Collectors.toList());
         vo.setCategories(categoryVOList);
 
         // 热门题库
         List<QuestionBank> hotBanks = bankService.hotBanks(6);
-        List<HomeVO.BankSimpleVO> bankVOList = hotBanks.stream().map(b -> {
-            HomeVO.BankSimpleVO bv = new HomeVO.BankSimpleVO();
-            bv.setId(b.getId());
-            bv.setName(b.getName());
-            bv.setCover(b.getCover());
-            bv.setQuestionCount(b.getQuestionCount());
-            bv.setPracticeCount(b.getPracticeCount());
-            return bv;
-        }).collect(Collectors.toList());
+        List<HomeVO.BankSimpleVO> bankVOList = hotBanks.stream()
+                .map(AppViewMapper::toHomeBankSimpleVO)
+                .collect(Collectors.toList());
         vo.setHotBanks(bankVOList);
 
         // 每日一题：取第一个题库的第一道题
         if (!hotBanks.isEmpty()) {
             List<Question> questions = questionService.listByBankId(hotBanks.get(0).getId());
             if (!questions.isEmpty()) {
-                vo.setDailyQuestion(questionService.getQuestionVO(questions.get(0).getId(), userId));
+                vo.setDailyQuestion(questionService.getQuestionListVO(questions.get(0).getId()));
             }
         }
 
@@ -89,15 +80,14 @@ public class AppHomeController {
 
     @Operation(summary = "每日一题")
     @GetMapping("/daily-question")
-    public R<QuestionVO> dailyQuestion() {
-        Long userId = getUserIdOrNull();
+    public R<QuestionListVO> dailyQuestion() {
         // 随机获取一道题
         List<QuestionBank> banks = bankService.hotBanks(1);
         if (!banks.isEmpty()) {
             List<Question> questions = questionService.listByBankId(banks.get(0).getId());
             if (!questions.isEmpty()) {
                 int randomIndex = (int) (Math.random() * questions.size());
-                return R.ok(questionService.getQuestionVO(questions.get(randomIndex).getId(), userId));
+                return R.ok(questionService.getQuestionListVO(questions.get(randomIndex).getId()));
             }
         }
         return R.ok(null);

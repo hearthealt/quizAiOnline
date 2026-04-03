@@ -37,78 +37,52 @@ public class RecordServiceImpl implements RecordService {
 
     @Override
     public PageResult<RecordVO> appRecordList(Long userId, String type, Integer pageNum, Integer pageSize) {
+        if ("practice".equals(type)) {
+            return pagePracticeRecordsForApp(userId, pageNum, pageSize);
+        }
+        if ("exam".equals(type)) {
+            return pageExamRecordsForApp(userId, pageNum, pageSize);
+        }
+
+        int fetchSize = Math.max(pageNum * pageSize, pageSize);
+        PageResult<RecordVO> practicePage = pagePracticeRecordsForApp(userId, 1, fetchSize);
+        PageResult<RecordVO> examPage = pageExamRecordsForApp(userId, 1, fetchSize);
         List<RecordVO> allRecords = new ArrayList<>();
-
-        if (type == null || "practice".equals(type)) {
-            List<PracticeRecord> practices = practiceRecordMapper.selectListByQuery(
-                    QueryWrapper.create().where(PRACTICE_RECORD.USER_ID.eq(userId))
-                            .orderBy(PRACTICE_RECORD.CREATE_TIME, false));
-            for (PracticeRecord p : practices) {
-                RecordVO vo = new RecordVO();
-                vo.setId(p.getId());
-                QuestionBank bank = questionBankMapper.selectOneById(p.getBankId());
-                vo.setBankName(bank != null ? bank.getName() : "");
-                vo.setMode(p.getMode());
-                vo.setTotalCount(p.getTotalCount());
-                vo.setCorrectCount(p.getCorrectCount());
-                vo.setCorrectRate(p.getTotalCount() > 0 ?
-                        Math.round(p.getCorrectCount() * 10000.0 / p.getTotalCount()) / 100.0 : 0.0);
-                vo.setCreateTime(p.getCreateTime());
-                vo.setType("practice");
-                allRecords.add(vo);
-            }
-        }
-
-        if (type == null || "exam".equals(type)) {
-            List<ExamRecord> exams = examRecordMapper.selectListByQuery(
-                    QueryWrapper.create().where(EXAM_RECORD.USER_ID.eq(userId))
-                            .orderBy(EXAM_RECORD.CREATE_TIME, false));
-            for (ExamRecord e : exams) {
-                RecordVO vo = new RecordVO();
-                vo.setId(e.getId());
-                QuestionBank bank = questionBankMapper.selectOneById(e.getBankId());
-                vo.setBankName(bank != null ? bank.getName() : "");
-                vo.setMode("EXAM");
-                vo.setTotalCount(e.getTotalCount());
-                vo.setCorrectCount(e.getCorrectCount());
-                vo.setCorrectRate(e.getTotalCount() > 0 ?
-                        Math.round(e.getCorrectCount() * 10000.0 / e.getTotalCount()) / 100.0 : 0.0);
-                vo.setScore(e.getScore());
-                vo.setCreateTime(e.getCreateTime());
-                vo.setType("exam");
-                allRecords.add(vo);
-            }
-        }
-
+        allRecords.addAll(practicePage.getList());
+        allRecords.addAll(examPage.getList());
         allRecords.sort((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()));
         int start = (pageNum - 1) * pageSize;
         int end = Math.min(start + pageSize, allRecords.size());
         List<RecordVO> pageList = start < allRecords.size() ? allRecords.subList(start, end) : List.of();
-        return new PageResult<>(pageList, (long) allRecords.size(), pageNum, pageSize);
+        long total = practicePage.getTotal() + examPage.getTotal();
+        return new PageResult<>(pageList, total, pageNum, pageSize);
     }
 
     @Override
-    public Map<String, Object> appRecordDetail(Long id, String type) {
+    public Map<String, Object> appRecordDetail(Long id, String type, Long userId) {
         Map<String, Object> result = new HashMap<>();
         if ("practice".equals(type)) {
             PracticeRecord record = practiceRecordMapper.selectOneById(id);
             if (record == null) throw new BizException("记录不存在");
+            if (userId != null && !Objects.equals(record.getUserId(), userId)) {
+                throw new BizException(403, "无权访问该记录");
+            }
             result.put("record", record);
             List<PracticeDetail> details = practiceDetailMapper.selectListByQuery(
                     QueryWrapper.create().where(PRACTICE_DETAIL.RECORD_ID.eq(id)));
+            Map<Long, Question> questionMap = batchQueryQuestions(details.stream().map(PracticeDetail::getQuestionId).toList());
+            Map<Long, List<Map<String, String>>> optionsMap = batchQueryQuestionOptions(questionMap.keySet());
             List<Map<String, Object>> detailList = details.stream().map(d -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("questionId", d.getQuestionId());
                 m.put("userAnswer", d.getUserAnswer());
                 m.put("isCorrect", d.getIsCorrect());
-                Question q = questionMapper.selectOneById(d.getQuestionId());
+                Question q = questionMap.get(d.getQuestionId());
                 if (q != null) {
                     m.put("content", q.getContent());
                     m.put("correctAnswer", q.getAnswer());
                     m.put("analysis", q.getAnalysis());
-                    // 手动查询选项
-                    List<Map<String, String>> options = getQuestionOptions(d.getQuestionId());
-                    m.put("options", options);
+                    m.put("options", optionsMap.getOrDefault(d.getQuestionId(), Collections.emptyList()));
                 }
                 return m;
             }).collect(Collectors.toList());
@@ -116,22 +90,25 @@ public class RecordServiceImpl implements RecordService {
         } else {
             ExamRecord record = examRecordMapper.selectOneById(id);
             if (record == null) throw new BizException("记录不存在");
+            if (userId != null && !Objects.equals(record.getUserId(), userId)) {
+                throw new BizException(403, "无权访问该记录");
+            }
             result.put("record", record);
             List<ExamAnswer> answers = examAnswerMapper.selectListByQuery(
                     QueryWrapper.create().where(EXAM_ANSWER.EXAM_ID.eq(id)));
+            Map<Long, Question> questionMap = batchQueryQuestions(answers.stream().map(ExamAnswer::getQuestionId).toList());
+            Map<Long, List<Map<String, String>>> optionsMap = batchQueryQuestionOptions(questionMap.keySet());
             List<Map<String, Object>> detailList = answers.stream().map(a -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("questionId", a.getQuestionId());
                 m.put("userAnswer", a.getUserAnswer());
                 m.put("isCorrect", a.getIsCorrect());
-                Question q = questionMapper.selectOneById(a.getQuestionId());
+                Question q = questionMap.get(a.getQuestionId());
                 if (q != null) {
                     m.put("content", q.getContent());
                     m.put("correctAnswer", q.getAnswer());
                     m.put("analysis", q.getAnalysis());
-                    // 手动查询选项
-                    List<Map<String, String>> options = getQuestionOptions(a.getQuestionId());
-                    m.put("options", options);
+                    m.put("options", optionsMap.getOrDefault(a.getQuestionId(), Collections.emptyList()));
                 }
                 return m;
             }).collect(Collectors.toList());
@@ -140,23 +117,96 @@ public class RecordServiceImpl implements RecordService {
         return result;
     }
 
-    /**
-     * 获取题目选项
-     */
-    private List<Map<String, String>> getQuestionOptions(Long questionId) {
+    private PageResult<RecordVO> pagePracticeRecordsForApp(Long userId, Integer pageNum, Integer pageSize) {
+        Page<PracticeRecord> page = practiceRecordMapper.paginate(
+                Page.of(pageNum, pageSize),
+                QueryWrapper.create()
+                        .where(PRACTICE_RECORD.USER_ID.eq(userId))
+                        .orderBy(PRACTICE_RECORD.CREATE_TIME, false)
+        );
+        Map<Long, QuestionBank> bankMap = batchQueryBanks(page.getRecords().stream()
+                .map(PracticeRecord::getBankId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+        List<RecordVO> list = page.getRecords().stream().map(p -> {
+            RecordVO vo = new RecordVO();
+            vo.setId(p.getId());
+            QuestionBank bank = bankMap.get(p.getBankId());
+            vo.setBankName(bank != null ? bank.getName() : "");
+            vo.setMode(p.getMode());
+            vo.setTotalCount(p.getTotalCount());
+            vo.setCorrectCount(p.getCorrectCount());
+            vo.setCorrectRate(p.getTotalCount() > 0 ?
+                    Math.round(p.getCorrectCount() * 10000.0 / p.getTotalCount()) / 100.0 : 0.0);
+            vo.setCreateTime(p.getCreateTime());
+            vo.setType("practice");
+            return vo;
+        }).toList();
+        return new PageResult<>(list, page.getTotalRow(), pageNum, pageSize);
+    }
+
+    private PageResult<RecordVO> pageExamRecordsForApp(Long userId, Integer pageNum, Integer pageSize) {
+        Page<ExamRecord> page = examRecordMapper.paginate(
+                Page.of(pageNum, pageSize),
+                QueryWrapper.create()
+                        .where(EXAM_RECORD.USER_ID.eq(userId))
+                        .orderBy(EXAM_RECORD.CREATE_TIME, false)
+        );
+        Map<Long, QuestionBank> bankMap = batchQueryBanks(page.getRecords().stream()
+                .map(ExamRecord::getBankId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+        List<RecordVO> list = page.getRecords().stream().map(e -> {
+            RecordVO vo = new RecordVO();
+            vo.setId(e.getId());
+            QuestionBank bank = bankMap.get(e.getBankId());
+            vo.setBankName(bank != null ? bank.getName() : "");
+            vo.setMode("EXAM");
+            vo.setTotalCount(e.getTotalCount());
+            vo.setCorrectCount(e.getCorrectCount());
+            vo.setCorrectRate(e.getTotalCount() > 0 ?
+                    Math.round(e.getCorrectCount() * 10000.0 / e.getTotalCount()) / 100.0 : 0.0);
+            vo.setScore(e.getScore());
+            vo.setCreateTime(e.getCreateTime());
+            vo.setType("exam");
+            return vo;
+        }).toList();
+        return new PageResult<>(list, page.getTotalRow(), pageNum, pageSize);
+    }
+
+    private Map<Long, QuestionBank> batchQueryBanks(Set<Long> bankIds) {
+        if (bankIds == null || bankIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return questionBankMapper.selectListByIds(bankIds).stream()
+                .collect(Collectors.toMap(QuestionBank::getId, Function.identity(), (a, b) -> a));
+    }
+
+    private Map<Long, Question> batchQueryQuestions(List<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return questionMapper.selectListByIds(questionIds.stream().filter(Objects::nonNull).distinct().toList()).stream()
+                .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+    }
+
+    private Map<Long, List<Map<String, String>>> batchQueryQuestionOptions(Set<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
         QueryWrapper qw = QueryWrapper.create()
-                .where(com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION.QUESTION_ID.eq(questionId))
+                .where(com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION.QUESTION_ID.in(questionIds))
                 .orderBy(com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION.SORT.asc());
         List<QuestionOption> options = questionOptionMapper.selectListByQuery(qw);
-        if (options.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return options.stream().map(opt -> {
-            Map<String, String> m = new HashMap<>();
-            m.put("label", opt.getLabel());
-            m.put("content", opt.getContent());
-            return m;
-        }).collect(Collectors.toList());
+        return options.stream().collect(Collectors.groupingBy(
+                QuestionOption::getQuestionId,
+                Collectors.mapping(opt -> {
+                    Map<String, String> m = new HashMap<>();
+                    m.put("label", opt.getLabel());
+                    m.put("content", opt.getContent());
+                    return m;
+                }, Collectors.toList())
+        ));
     }
 
     @Override

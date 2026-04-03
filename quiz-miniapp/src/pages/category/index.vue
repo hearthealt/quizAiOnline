@@ -67,6 +67,7 @@
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { getBanksByCategory, getCategories, type BankItem, type Category } from "@/api/category";
+import { getBankList } from "@/api/bank";
 import { resolveAssetUrl } from "@/utils/assets";
 import { formatCount } from "@/utils/format";
 
@@ -87,7 +88,9 @@ const fetchCategories = async () => {
 const fetchBanks = async (categoryId: number) => {
   loading.value = true;
   try {
-    const res = await getBanksByCategory(categoryId, 1, 50);
+    const res = categoryId === 0
+      ? await getBankList(undefined, 1, 50)
+      : await getBanksByCategory(categoryId, 1, 50);
     banks.value = res.list || [];
   } finally {
     loading.value = false;

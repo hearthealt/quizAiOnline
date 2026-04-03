@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.quiz.common.exception.BizException;
-import com.quiz.common.exception.BizException;
 import com.quiz.dto.app.StartPracticeDTO;
 import com.quiz.dto.app.SubmitAnswerDTO;
 import com.quiz.entity.PracticeDetail;
@@ -19,6 +18,7 @@ import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.service.PracticeService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.service.WrongQuestionService;
 import com.quiz.vo.app.PracticeResultVO;
 import com.quiz.vo.app.QuestionVO;
@@ -166,6 +166,7 @@ public class PracticeServiceImpl implements PracticeService {
 
     @Override
     public QuestionVO getQuestion(Long recordId, Integer index, Long userId) {
+        getOwnedRecord(recordId, userId);
         // Get question IDs from Redis
         List<Long> questionIds = getQuestionIds(recordId);
         if (index < 0 || index >= questionIds.size()) {
@@ -179,6 +180,7 @@ public class PracticeServiceImpl implements PracticeService {
     @Override
     @Transactional
     public boolean submitAnswer(Long recordId, SubmitAnswerDTO dto, Long userId) {
+        PracticeRecord record = getOwnedRecord(recordId, userId);
         Long questionId = dto.getQuestionId();
 
         // Get the question's correct answer
@@ -208,31 +210,28 @@ public class PracticeServiceImpl implements PracticeService {
         practiceDetailMapper.insert(detail);
 
         // Update practice record
-        PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
-        if (record != null) {
-            record.setAnswerCount(record.getAnswerCount() + 1);
-            if (isCorrect) {
-                record.setCorrectCount(record.getCorrectCount() + 1);
-            }
-            // Update lastIndex to current question's position
-            List<Long> questionIds = getQuestionIds(recordId);
-            int idx = questionIds.indexOf(questionId);
-            if (idx >= 0) {
-                record.setLastIndex(idx);
-            }
-            if (record.getTotalCount() != null
-                    && record.getAnswerCount() != null
-                    && record.getAnswerCount() >= record.getTotalCount()) {
-                record.setStatus(1);
-            }
-            practiceRecordMapper.update(record);
-            if (record.getStatus() != null && record.getStatus() == 1) {
-                stringRedisTemplate.delete(PRACTICE_KEY_PREFIX + recordId);
-            }
+        record.setAnswerCount(record.getAnswerCount() + 1);
+        if (isCorrect) {
+            record.setCorrectCount(record.getCorrectCount() + 1);
+        }
+        // Update lastIndex to current question's position
+        List<Long> questionIds = getQuestionIds(recordId);
+        int idx = questionIds.indexOf(questionId);
+        if (idx >= 0) {
+            record.setLastIndex(idx);
+        }
+        if (record.getTotalCount() != null
+                && record.getAnswerCount() != null
+                && record.getAnswerCount() >= record.getTotalCount()) {
+            record.setStatus(1);
+        }
+        practiceRecordMapper.update(record);
+        if (record.getStatus() != null && record.getStatus() == 1) {
+            stringRedisTemplate.delete(PRACTICE_KEY_PREFIX + recordId);
         }
 
         // If wrong, add to wrong questions
-        if (!isCorrect && record != null) {
+        if (!isCorrect) {
             wrongQuestionService.addWrongQuestion(userId, questionId, record.getBankId(), dto.getAnswer());
         }
 
@@ -241,11 +240,8 @@ public class PracticeServiceImpl implements PracticeService {
 
     @Override
     @Transactional
-    public PracticeResultVO finishPractice(Long recordId) {
-        PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
-        if (record == null) {
-            throw new BizException("练习记录不存在");
-        }
+    public PracticeResultVO finishPractice(Long recordId, Long userId) {
+        PracticeRecord record = getOwnedRecord(recordId, userId);
 
         // Mark as completed
         record.setStatus(1);
@@ -273,11 +269,8 @@ public class PracticeServiceImpl implements PracticeService {
     }
 
     @Override
-    public Map<String, Object> getProgress(Long recordId) {
-        PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
-        if (record == null) {
-            throw new BizException("练习记录不存在");
-        }
+    public Map<String, Object> getProgress(Long recordId, Long userId) {
+        PracticeRecord record = getOwnedRecord(recordId, userId);
 
         Map<String, Object> progress = new HashMap<>();
         progress.put("answerCount", record.getAnswerCount());
@@ -285,6 +278,17 @@ public class PracticeServiceImpl implements PracticeService {
         progress.put("correctCount", record.getCorrectCount());
         progress.put("lastIndex", record.getLastIndex());
         return progress;
+    }
+
+    private PracticeRecord getOwnedRecord(Long recordId, Long userId) {
+        PracticeRecord record = practiceRecordMapper.selectOneById(recordId);
+        if (record == null) {
+            throw new BizException("练习记录不存在");
+        }
+        if (userId != null && !Objects.equals(record.getUserId(), userId)) {
+            throw new BizException(403, "无权访问该练习记录");
+        }
+        return record;
     }
 
     private List<Long> getQuestionIds(Long recordId) {
@@ -319,24 +323,7 @@ public class PracticeServiceImpl implements PracticeService {
                 .orderBy(QUESTION_OPTION.SORT.asc());
         List<QuestionOption> options = questionOptionMapper.selectListByQuery(optQw);
 
-        QuestionVO vo = new QuestionVO();
-        vo.setId(question.getId());
-        vo.setBankId(question.getBankId());
-        vo.setType(question.getType());
-        vo.setContent(question.getContent());
-        vo.setAnswer(question.getAnswer());
-        // 根据系统配置决定是否返回解析
-        vo.setAnalysis(SHOW_ANALYSIS ? question.getAnalysis() : null);
-        vo.setDifficulty(question.getDifficulty());
-        vo.setIsFavorite(false);
-
-        List<QuestionVO.OptionVO> optionVOs = options.stream().map(opt -> {
-            QuestionVO.OptionVO optVO = new QuestionVO.OptionVO();
-            optVO.setLabel(opt.getLabel());
-            optVO.setContent(opt.getContent());
-            return optVO;
-        }).collect(Collectors.toList());
-        vo.setOptions(optionVOs);
+        QuestionVO vo = AppViewMapper.toQuestionVO(question, options, true, SHOW_ANALYSIS);
 
         if (recordId != null) {
             PracticeDetail detail = practiceDetailMapper.selectOneByQuery(

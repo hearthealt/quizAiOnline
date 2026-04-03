@@ -38,11 +38,11 @@
 import { onLoad, onReachBottom } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { searchQuestions, getHotKeywords } from "@/api/search";
-import type { QuestionVO } from "@/api/home";
+import type { QuestionListVO } from "@/api/home";
 import EmptyState from "@/components/EmptyState.vue";
 
 const keyword = ref("");
-const results = ref<QuestionVO[]>([]);
+const results = ref<QuestionListVO[]>([]);
 const hotKeywords = ref<string[]>([]);
 const pageNum = ref(1);
 const total = ref(0);

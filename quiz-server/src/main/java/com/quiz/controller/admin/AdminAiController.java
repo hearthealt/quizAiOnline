@@ -6,10 +6,7 @@ import com.quiz.dto.admin.AiBatchGenerateDTO;
 import com.quiz.dto.admin.AiConfigDTO;
 import com.quiz.dto.admin.AiGenerateDTO;
 import com.quiz.dto.admin.AiLogQueryDTO;
-import com.quiz.dto.admin.IFlowApiKeyResult;
-import com.quiz.entity.AiConfig;
 import com.quiz.service.AiAnalysisService;
-import com.quiz.service.IFlowApiKeyService;
 import com.quiz.vo.admin.AiStatsVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAiController {
 
     private final AiAnalysisService aiAnalysisService;
-    private final IFlowApiKeyService iFlowApiKeyService;
 
     @Operation(summary = "获取AI配置")
     @GetMapping("/config")
@@ -40,8 +36,14 @@ public class AdminAiController {
 
     @Operation(summary = "测试AI连接")
     @PostMapping("/test")
-    public R<?> testConnection() {
-        return R.ok(aiAnalysisService.testConnection());
+    public R<?> testConnection(@RequestBody(required = false) AiConfigDTO dto) {
+        return R.ok(aiAnalysisService.testConnection(dto));
+    }
+
+    @Operation(summary = "获取模型列表")
+    @PostMapping("/models")
+    public R<?> models(@RequestBody AiConfigDTO dto) {
+        return R.ok(aiAnalysisService.listModels(dto));
     }
 
     @Operation(summary = "生成AI解析")
@@ -69,44 +71,5 @@ public class AdminAiController {
     @GetMapping("/stats")
     public R<AiStatsVO> stats() {
         return R.ok(aiAnalysisService.getAiStats());
-    }
-
-    @Operation(summary = "获取iFlow可用模型列表")
-    @GetMapping("/iflow/models")
-    public R<?> iflowModels() {
-        AiConfig config = aiAnalysisService.getConfig();
-        if (config == null || config.getBxAuth() == null || config.getBxAuth().isEmpty()) {
-            return R.ok(java.util.Collections.emptyList());
-        }
-        return R.ok(iFlowApiKeyService.getModelList(config));
-    }
-
-    @Operation(summary = "获取iFlow API Key状态")
-    @GetMapping("/iflow/status")
-    public R<?> iflowStatus() {
-        AiConfig config = aiAnalysisService.getConfig();
-        if (config == null || config.getBxAuth() == null || config.getBxAuth().isEmpty()) {
-            return R.ok(null);
-        }
-        IFlowApiKeyResult result = iFlowApiKeyService.getApiKeyInfo(config);
-        return R.ok(result);
-    }
-
-    @Operation(summary = "手动刷新iFlow API Key")
-    @PostMapping("/iflow/refresh")
-    public R<?> iflowRefresh() {
-        AiConfig config = aiAnalysisService.getConfig();
-        if (config == null) {
-            return R.fail("AI配置不存在");
-        }
-        if (config.getBxAuth() == null || config.getBxAuth().isEmpty()) {
-            return R.fail("请先配置BXAuth");
-        }
-        IFlowApiKeyResult result = iFlowApiKeyService.refreshApiKey(config);
-        if (result.getSuccess()) {
-            return R.ok(result);
-        } else {
-            return R.fail(result.getError());
-        }
     }
 }

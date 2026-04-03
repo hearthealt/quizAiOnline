@@ -265,13 +265,12 @@ public class VipServiceImpl implements VipService {
         VipStatsVO vo = new VipStatsVO();
         vo.setTotalVipUsers(userMapper.selectCountByQuery(
                 QueryWrapper.create().where("is_vip = 1")));
-        // 总收入
-        List<VipOrder> paidOrders = vipOrderMapper.selectListByQuery(
-                QueryWrapper.create().where(VIP_ORDER.STATUS.eq(1)));
-        BigDecimal total = paidOrders.stream().map(VipOrder::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        vo.setTotalRevenue(total);
-        vo.setMonthRevenue(BigDecimal.ZERO);
+        vo.setTotalRevenue(Optional.ofNullable(vipOrderMapper.sumPaidAmount()).orElse(BigDecimal.ZERO));
+        vo.setMonthRevenue(Optional.ofNullable(
+                vipOrderMapper.sumPaidAmountFrom(
+                        LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
+                )
+        ).orElse(BigDecimal.ZERO));
         vo.setActiveVipCount(vo.getTotalVipUsers());
         return vo;
     }

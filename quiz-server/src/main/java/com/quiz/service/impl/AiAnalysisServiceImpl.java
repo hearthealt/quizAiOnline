@@ -22,7 +22,8 @@ import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.AiAnalysisService;
-import com.quiz.service.IFlowApiKeyService;
+import com.quiz.service.SysConfigService;
+import com.quiz.util.AiProviderUtil;
 import com.quiz.vo.admin.AiCallLogVO;
 import com.quiz.vo.admin.AiStatsVO;
 import cn.hutool.core.bean.BeanUtil;
@@ -33,6 +34,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -51,15 +53,28 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private final AiCallLogMapper aiCallLogMapper;
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
-    private final IFlowApiKeyService iFlowApiKeyService;
     private final UserMapper userMapper;
     private final AdminMapper adminMapper;
+    private final SysConfigService sysConfigService;
     private final OkHttpClient okHttpClient;
 
     @Override
     public AiConfig getConfig() {
         List<AiConfig> list = aiConfigMapper.selectAll();
-        return list.isEmpty() ? null : list.get(0);
+        if (list.isEmpty()) {
+            return null;
+        }
+        AiConfig config = list.get(0);
+        String provider = config.getProvider();
+        if (provider == null || provider.isBlank()) {
+            provider = AiProviderUtil.detectProvider(config.getBaseUrl());
+            config.setProvider(provider);
+        } else {
+            provider = AiProviderUtil.normalizeProvider(provider);
+            config.setProvider(provider);
+        }
+        config.setBaseUrl(AiProviderUtil.normalizeBaseUrl(provider, config.getBaseUrl()));
+        return config;
     }
 
     @Override
@@ -68,22 +83,15 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         if (config == null) {
             config = new AiConfig();
         }
-        config.setBaseUrl(dto.getBaseUrl());
-        config.setApiKey(dto.getApiKey());
-        config.setModel(dto.getModel());
-        config.setPromptAnalysis(dto.getPromptAnalysis());
-        config.setPromptAnswer(dto.getPromptAnswer());
-        config.setPromptBoth(dto.getPromptBoth());
+        String provider = AiProviderUtil.normalizeProvider(dto.getProvider());
+        config.setProvider(provider);
+        config.setBaseUrl(AiProviderUtil.normalizeBaseUrl(provider, dto.getBaseUrl()));
+        config.setApiKey(dto.getApiKey() == null ? null : dto.getApiKey().trim());
+        config.setModel(dto.getModel() == null ? null : dto.getModel().trim());
         config.setMaxTokens(dto.getMaxTokens());
         config.setTemperature(dto.getTemperature());
-        if (dto.getBxAuth() != null) {
-            config.setBxAuth(dto.getBxAuth());
-        }
-        if (dto.getIflowName() != null) {
-            config.setIflowName(dto.getIflowName());
-        }
-        if (dto.getAutoRenew() != null) {
-            config.setAutoRenew(dto.getAutoRenew());
+        if (config.getStatus() == null) {
+            config.setStatus(1);
         }
         config.setUpdateTime(LocalDateTime.now());
 
@@ -93,39 +101,16 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             config.setCreateTime(LocalDateTime.now());
             aiConfigMapper.insert(config);
         }
-
-        // 保存后自动同步 iFlow API Key（配置了BXAuth时）
-        if (config.getBxAuth() != null && !config.getBxAuth().isEmpty()
-                && config.getIflowName() != null && !config.getIflowName().isEmpty()) {
-            try {
-                iFlowApiKeyService.syncApiKey(config);
-            } catch (Exception e) {
-                log.warn("保存配置后同步iFlow API Key失败: {}", e.getMessage());
-            }
-        }
     }
 
     @Override
-    public Map<String, Object> testConnection() {
-        AiConfig config = getConfig();
+    public Map<String, Object> testConnection(AiConfigDTO dto) {
+        AiConfig config = dto != null ? mergeWithStoredConfig(dto) : getConfig();
         if (config == null) throw new BizException("AI配置不存在");
-        // 自动续期检查
-        if (config.getAutoRenew() != null && config.getAutoRenew() == 1) {
-            iFlowApiKeyService.ensureValidApiKey(config);
-            config = getConfig();
-        }
-
-        String apiKey = config.getApiKey();
-        // apiKey脱敏：显示前4位和后4位
-        String maskedKey = "";
-        if (apiKey != null && apiKey.length() > 8) {
-            maskedKey = apiKey.substring(0, 4) + "****" + apiKey.substring(apiKey.length() - 4);
-        } else if (apiKey != null) {
-            maskedKey = apiKey.substring(0, Math.min(4, apiKey.length())) + "****";
-        }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("apiKey", maskedKey);
+        result.put("provider", config.getProvider());
+        result.put("apiKey", AiProviderUtil.maskApiKey(config.getApiKey()));
         result.put("baseUrl", config.getBaseUrl());
         result.put("model", config.getModel());
 
@@ -142,16 +127,60 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
 
     @Override
+    public List<Map<String, Object>> listModels(AiConfigDTO dto) {
+        AiConfig config = buildConfigForRequest(dto);
+        String url = AiProviderUtil.buildModelsUrl(config.getProvider(), config.getBaseUrl());
+
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer " + config.getApiKey())
+                .addHeader("Accept", "application/json")
+                .get()
+                .build();
+
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new BizException("模型列表接口返回错误: " + response.code());
+            }
+            String responseBody = response.body().string();
+            JSONObject json = JSONUtil.parseObj(responseBody);
+            if (json.containsKey("error")) {
+                JSONObject error = json.getJSONObject("error");
+                String errorMsg = error != null ? error.getStr("message", "Unknown error") : "Unknown error";
+                throw new BizException("模型列表接口错误: " + errorMsg);
+            }
+
+            cn.hutool.json.JSONArray data = json.getJSONArray("data");
+            if (data == null) {
+                return Collections.emptyList();
+            }
+
+            List<Map<String, Object>> models = new ArrayList<>();
+            for (Object item : data) {
+                if (!(item instanceof JSONObject obj)) {
+                    continue;
+                }
+                String id = obj.getStr("id");
+                if (id == null || id.trim().isEmpty()) {
+                    continue;
+                }
+                Map<String, Object> model = new HashMap<>();
+                model.put("id", id);
+                model.put("label", id);
+                model.put("ownedBy", obj.getStr("owned_by"));
+                models.add(model);
+            }
+            models.sort(Comparator.comparing(model -> String.valueOf(model.get("id"))));
+            return models;
+        } catch (IOException e) {
+            throw new BizException("获取模型列表失败: " + e.getMessage());
+        }
+    }
+
+    @Override
     public String generate(Long questionId, String mode, Long operatorId) {
         AiConfig config = getConfig();
         if (config == null || config.getStatus() != 1) throw new BizException("AI服务未启用");
-
-        // 自动续期检查（如果配置了iFlow）
-        if (config.getAutoRenew() != null && config.getAutoRenew() == 1) {
-            iFlowApiKeyService.ensureValidApiKey(config);
-            // 重新获取最新的config（apiKey可能已更新）
-            config = getConfig();
-        }
 
         Question question = questionMapper.selectOneById(questionId);
         if (question == null) throw new BizException("题目不存在");
@@ -163,12 +192,9 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 .map(o -> o.getLabel() + ". " + o.getContent())
                 .collect(Collectors.joining("\n"));
 
-        String promptTemplate;
-        switch (mode) {
-            case "GENERATE_ANALYSIS": promptTemplate = config.getPromptAnalysis(); break;
-            case "GENERATE_ANSWER": promptTemplate = config.getPromptAnswer(); break;
-            case "GENERATE_BOTH": promptTemplate = config.getPromptBoth(); break;
-            default: throw new BizException("不支持的模式: " + mode);
+        String promptTemplate = resolvePromptTemplate(mode, config);
+        if (promptTemplate == null || promptTemplate.trim().isEmpty()) {
+            throw new BizException("当前模式未配置 Prompt 模板");
         }
 
         String prompt = promptTemplate
@@ -296,58 +322,213 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
 
     private String callAi(AiConfig config, String prompt) {
-        String url = config.getBaseUrl() + "/chat/completions";
+        validateConfig(config);
+        String url = AiProviderUtil.buildChatCompletionsUrl(config.getProvider(), config.getBaseUrl());
+        List<Map<String, String>> messages = List.of(Map.of("role", "user", "content", prompt));
+        JSONObject body = buildChatBody(config, messages, true);
+        String responseBody = executeChatRequest(url, config.getApiKey(), body, true);
+        return parseChatContent(responseBody);
+    }
 
+    private JSONObject buildChatBody(AiConfig config, List<Map<String, String>> messages, boolean includeOptionalParams) {
         JSONObject body = new JSONObject();
         body.set("model", config.getModel());
-        body.set("messages", List.of(Map.of("role", "user", "content", prompt)));
-        body.set("max_tokens", config.getMaxTokens());
-        body.set("temperature", config.getTemperature());
+        body.set("messages", messages);
+        if (includeOptionalParams) {
+            if (config.getMaxTokens() != null && config.getMaxTokens() > 0) {
+                if (preferMaxCompletionTokens(config.getModel())) {
+                    body.set("max_completion_tokens", config.getMaxTokens());
+                } else {
+                    body.set("max_tokens", config.getMaxTokens());
+                }
+            }
+            if (config.getTemperature() != null && supportTemperature(config.getModel())) {
+                body.set("temperature", config.getTemperature());
+            }
+        }
+        return body;
+    }
 
+    private String executeChatRequest(String url, String apiKey, JSONObject body, boolean allowCompatibilityRetry) {
         Request request = new Request.Builder()
                 .url(url)
-                .addHeader("Authorization", "Bearer " + config.getApiKey())
-                .addHeader("Content-Type", "application/json")
-                .post(RequestBody.create(body.toString(),
-                        MediaType.parse("application/json")))
+                .addHeader("Authorization", "Bearer " + apiKey)
+                .addHeader("Accept", "application/json")
+                .post(RequestBody.create(
+                        body.toString().getBytes(StandardCharsets.UTF_8),
+                        MediaType.parse("application/json")
+                ))
                 .build();
 
         try (Response response = okHttpClient.newCall(request).execute()) {
+            String responseBody = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
-                throw new BizException("AI API返回错误: " + response.code());
+                if (allowCompatibilityRetry && response.code() == 400) {
+                    JSONObject minimalBody = new JSONObject();
+                    minimalBody.set("model", body.getStr("model"));
+                    minimalBody.set("messages", body.get("messages"));
+                    return executeChatRequest(url, apiKey, minimalBody, false);
+                }
+                throw new BizException(buildApiErrorMessage("AI API返回错误", response.code(), responseBody));
             }
-            String responseBody = response.body().string();
-            log.debug("AI API响应: {}", responseBody);
-            JSONObject json = JSONUtil.parseObj(responseBody);
-
-            // 检查是否有错误信息
-            if (json.containsKey("error")) {
-                JSONObject error = json.getJSONObject("error");
-                String errorMsg = error != null ? error.getStr("message", "Unknown error") : "Unknown error";
-                throw new BizException("AI API错误: " + errorMsg);
-            }
-
-            // 解析返回内容
-            cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
-            if (choices == null || choices.isEmpty()) {
-                throw new BizException("AI API返回数据异常: choices为空");
-            }
-            JSONObject firstChoice = choices.getJSONObject(0);
-            if (firstChoice == null) {
-                throw new BizException("AI API返回数据异常: choice为空");
-            }
-            JSONObject message = firstChoice.getJSONObject("message");
-            if (message == null) {
-                throw new BizException("AI API返回数据异常: message为空");
-            }
-            String content = message.getStr("content");
-            if (content == null || content.trim().isEmpty()) {
-                throw new BizException("AI API返回内容为空");
-            }
-            return content;
+            return responseBody;
         } catch (IOException e) {
             throw new BizException("AI API调用异常: " + e.getMessage());
         }
+    }
+
+    private String parseChatContent(String responseBody) {
+        log.debug("AI API响应: {}", responseBody);
+        JSONObject json = JSONUtil.parseObj(responseBody);
+
+        if (json.containsKey("error")) {
+            JSONObject error = json.getJSONObject("error");
+            String errorMsg = error != null ? error.getStr("message", "Unknown error") : "Unknown error";
+            throw new BizException("AI API错误: " + errorMsg);
+        }
+
+        cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
+        if (choices == null || choices.isEmpty()) {
+            throw new BizException("AI API返回数据异常: choices为空");
+        }
+        JSONObject firstChoice = choices.getJSONObject(0);
+        if (firstChoice == null) {
+            throw new BizException("AI API返回数据异常: choice为空");
+        }
+        JSONObject message = firstChoice.getJSONObject("message");
+        if (message == null) {
+            throw new BizException("AI API返回数据异常: message为空");
+        }
+        String content = message.getStr("content");
+        if (content == null || content.trim().isEmpty()) {
+            throw new BizException("AI API返回内容为空");
+        }
+        return content;
+    }
+
+    private boolean preferMaxCompletionTokens(String model) {
+        if (model == null) {
+            return false;
+        }
+        String normalized = model.trim().toLowerCase();
+        return normalized.startsWith("gpt-5")
+                || normalized.startsWith("o1")
+                || normalized.startsWith("o3")
+                || normalized.startsWith("o4");
+    }
+
+    private boolean supportTemperature(String model) {
+        if (model == null) {
+            return true;
+        }
+        String normalized = model.trim().toLowerCase();
+        return !(normalized.startsWith("gpt-5")
+                || normalized.startsWith("o1")
+                || normalized.startsWith("o3")
+                || normalized.startsWith("o4"));
+    }
+
+    private String buildApiErrorMessage(String prefix, int statusCode, String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return prefix + ": " + statusCode;
+        }
+        try {
+            JSONObject json = JSONUtil.parseObj(responseBody);
+            if (json.containsKey("error")) {
+                JSONObject error = json.getJSONObject("error");
+                if (error != null) {
+                    String msg = error.getStr("message");
+                    if (msg != null && !msg.isBlank()) {
+                        return prefix + ": " + statusCode + " - " + msg;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return prefix + ": " + statusCode + " - " + responseBody;
+    }
+
+    private void validateConfig(AiConfig config) {
+        if (config == null) {
+            throw new BizException("AI配置不存在");
+        }
+        if (config.getApiKey() == null || config.getApiKey().trim().isEmpty()) {
+            throw new BizException("请先配置AI API Key");
+        }
+        if (config.getModel() == null || config.getModel().trim().isEmpty()) {
+            throw new BizException("请先配置AI模型");
+        }
+        String baseUrl = AiProviderUtil.normalizeBaseUrl(config.getProvider(), config.getBaseUrl());
+        if (baseUrl.isEmpty()) {
+            throw new BizException("请先配置AI Base URL");
+        }
+        config.setBaseUrl(baseUrl);
+        config.setProvider(AiProviderUtil.normalizeProvider(config.getProvider()));
+    }
+
+    private AiConfig buildConfigForRequest(AiConfigDTO dto) {
+        if (dto == null) {
+            throw new BizException("请求参数不能为空");
+        }
+        AiConfig config = new AiConfig();
+        String provider = AiProviderUtil.normalizeProvider(dto.getProvider());
+        config.setProvider(provider);
+        config.setBaseUrl(AiProviderUtil.normalizeBaseUrl(provider, dto.getBaseUrl()));
+        config.setApiKey(dto.getApiKey() == null ? null : dto.getApiKey().trim());
+        config.setModel(dto.getModel() == null ? "" : dto.getModel().trim());
+        validateConfigForModels(config);
+        return config;
+    }
+
+    private void validateConfigForModels(AiConfig config) {
+        if (config == null) {
+            throw new BizException("AI配置不存在");
+        }
+        if (config.getApiKey() == null || config.getApiKey().trim().isEmpty()) {
+            throw new BizException("请先填写 API Key");
+        }
+        String baseUrl = AiProviderUtil.normalizeBaseUrl(config.getProvider(), config.getBaseUrl());
+        if (baseUrl.isEmpty()) {
+            throw new BizException("请先填写 Base URL");
+        }
+        config.setProvider(AiProviderUtil.normalizeProvider(config.getProvider()));
+        config.setBaseUrl(baseUrl);
+    }
+
+    private AiConfig mergeWithStoredConfig(AiConfigDTO dto) {
+        AiConfig base = getConfig();
+        AiConfig config = new AiConfig();
+
+        String provider = dto.getProvider();
+        if (provider == null || provider.trim().isEmpty()) {
+            provider = base != null ? base.getProvider() : null;
+        }
+        config.setProvider(AiProviderUtil.normalizeProvider(provider));
+
+        String baseUrl = dto.getBaseUrl();
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            baseUrl = base != null ? base.getBaseUrl() : null;
+        }
+        config.setBaseUrl(AiProviderUtil.normalizeBaseUrl(config.getProvider(), baseUrl));
+
+        String apiKey = dto.getApiKey();
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            apiKey = base != null ? base.getApiKey() : null;
+        }
+        config.setApiKey(apiKey == null ? null : apiKey.trim());
+
+        String model = dto.getModel();
+        if (model == null || model.trim().isEmpty()) {
+            model = base != null ? base.getModel() : null;
+        }
+        config.setModel(model == null ? null : model.trim());
+
+        Integer maxTokens = dto.getMaxTokens() != null ? dto.getMaxTokens() : (base != null ? base.getMaxTokens() : null);
+        config.setMaxTokens(maxTokens);
+        config.setTemperature(dto.getTemperature() != null ? dto.getTemperature() : (base != null ? base.getTemperature() : null));
+        config.setStatus(base != null ? base.getStatus() : 1);
+
+        return config;
     }
 
     private void parseBothResult(Question question, String result) {
@@ -367,5 +548,20 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         if (analysis.length() > 0) {
             question.setAnalysis(analysis.toString().trim());
         }
+    }
+
+    private String resolvePromptTemplate(String mode, AiConfig config) {
+        return switch (mode) {
+            case "GENERATE_ANALYSIS" -> sysConfigService.getValue(
+                    "aiPromptAnalysis"
+            );
+            case "GENERATE_ANSWER" -> sysConfigService.getValue(
+                    "aiPromptAnswer"
+            );
+            case "GENERATE_BOTH" -> sysConfigService.getValue(
+                    "aiPromptBoth"
+            );
+            default -> throw new BizException("不支持的模式: " + mode);
+        };
     }
 }

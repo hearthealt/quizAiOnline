@@ -49,12 +49,14 @@ public class AppPracticeController {
     @Operation(summary = "结束练习")
     @PostMapping("/{id}/finish")
     public R<PracticeResultVO> finish(@PathVariable Long id) {
-        return R.ok(practiceService.finishPractice(id));
+        Long userId = StpKit.APP.getLoginIdAsLong();
+        return R.ok(practiceService.finishPractice(id, userId));
     }
 
     @Operation(summary = "获取练习进度")
     @GetMapping("/{id}/progress")
     public R<Map<String, Object>> progress(@PathVariable Long id) {
-        return R.ok(practiceService.getProgress(id));
+        Long userId = StpKit.APP.getLoginIdAsLong();
+        return R.ok(practiceService.getProgress(id, userId));
     }
 }

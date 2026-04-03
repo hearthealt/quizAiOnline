@@ -16,7 +16,7 @@ public interface PracticeService {
 
     boolean submitAnswer(Long recordId, SubmitAnswerDTO dto, Long userId);
 
-    PracticeResultVO finishPractice(Long recordId);
+    PracticeResultVO finishPractice(Long recordId, Long userId);
 
-    Map<String, Object> getProgress(Long recordId);
+    Map<String, Object> getProgress(Long recordId, Long userId);
 }

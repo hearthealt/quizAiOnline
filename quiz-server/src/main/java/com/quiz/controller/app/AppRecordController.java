@@ -33,6 +33,7 @@ public class AppRecordController {
     @GetMapping("/{id}/detail")
     public R<Map<String, Object>> detail(@PathVariable Long id,
                                           @RequestParam String type) {
-        return R.ok(recordService.appRecordDetail(id, type));
+        Long userId = StpKit.APP.getLoginIdAsLong();
+        return R.ok(recordService.appRecordDetail(id, type, userId));
     }
 }

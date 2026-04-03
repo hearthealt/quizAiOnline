@@ -21,7 +21,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 
 import static com.quiz.entity.table.PracticeDetailTableDef.PRACTICE_DETAIL;
 import static com.quiz.entity.table.PracticeRecordTableDef.PRACTICE_RECORD;
@@ -44,7 +46,7 @@ public class QuestionBankServiceImpl implements QuestionBankService {
     private RedisTemplate<String, Object> redisTemplate;
 
     @Override
-    public PageResult<QuestionBank> pageList(Long categoryId, Long id, Integer pageNum, Integer pageSize) {
+    public PageResult<QuestionBank> pageList(Long categoryId, Integer pageNum, Integer pageSize) {
         QueryWrapper query = QueryWrapper.create()
                 .where(QUESTION_BANK.CATEGORY_ID.eq(categoryId).when(categoryId != null))
                 .and(QUESTION_BANK.STATUS.eq(1))
@@ -55,21 +57,15 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
     @Override
     public BankDetailVO getDetail(Long id, Long userId) {
-        QuestionBank bank = questionBankMapper.selectOneById(id);
-        if (bank == null) {
-            throw new BizException("题库不存在");
+        BankDetailVO vo = getCachedBankDetail(id);
+        if (vo == null) {
+            QuestionBank bank = questionBankMapper.selectOneById(id);
+            if (bank == null) {
+                throw new BizException("题库不存在");
+            }
+            vo = buildBaseDetail(bank);
+            redisTemplate.opsForValue().set(RedisKey.BANK_DETAIL + id, vo, Duration.ofMinutes(30));
         }
-
-        BankDetailVO vo = new BankDetailVO();
-        vo.setId(bank.getId());
-        vo.setCategoryId(bank.getCategoryId());
-        vo.setName(bank.getName());
-        vo.setDescription(bank.getDescription());
-        vo.setCover(bank.getCover());
-        vo.setQuestionCount(bank.getQuestionCount());
-        vo.setPracticeCount(bank.getPracticeCount());
-        vo.setExamTime(bank.getExamTime());
-        vo.setPassScore(bank.getPassScore());
 
         // 查询用户对该题库的当前练习进度（进行中的练习记录）
         if (userId != null) {
@@ -111,6 +107,36 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         return vo;
     }
 
+    @SuppressWarnings("unchecked")
+    private BankDetailVO getCachedBankDetail(Long bankId) {
+        Object cached = redisTemplate.opsForValue().get(RedisKey.BANK_DETAIL + bankId);
+        if (cached instanceof BankDetailVO bankDetailVO) {
+            return bankDetailVO;
+        }
+        return null;
+    }
+
+    private BankDetailVO buildBaseDetail(QuestionBank bank) {
+        if (bank == null) {
+            throw new BizException("题库不存在");
+        }
+
+        BankDetailVO vo = new BankDetailVO();
+        vo.setId(bank.getId());
+        vo.setCategoryId(bank.getCategoryId());
+        vo.setName(bank.getName());
+        vo.setDescription(bank.getDescription());
+        vo.setCover(bank.getCover());
+        vo.setQuestionCount(bank.getQuestionCount());
+        vo.setPracticeCount(bank.getPracticeCount());
+        vo.setExamTime(bank.getExamTime());
+        vo.setPassScore(bank.getPassScore());
+        vo.setPracticeTotalCount(0);
+        vo.setUserProgress(0);
+        vo.setUserCorrectRate(0.0);
+        return vo;
+    }
+
     @Override
     @Transactional
     public void create(QuestionBankDTO dto) {
@@ -133,7 +159,7 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         bank.setQuestionCount(0);
         bank.setPracticeCount(0);
         questionBankMapper.insert(bank);
-        clearCache();
+        clearCache(bank.getId());
     }
 
     @Override
@@ -171,7 +197,7 @@ public class QuestionBankServiceImpl implements QuestionBankService {
             bank.setStatus(dto.getStatus());
         }
         questionBankMapper.update(bank);
-        clearCache();
+        clearCache(bank.getId());
     }
 
     @Override
@@ -182,24 +208,55 @@ public class QuestionBankServiceImpl implements QuestionBankService {
             throw new BizException("题库不存在");
         }
         questionBankMapper.deleteById(id);
-        clearCache();
+        clearCache(id);
     }
 
     @Override
     public List<QuestionBank> hotBanks(Integer limit) {
+        int finalLimit = limit != null ? limit : 10;
+        List<QuestionBank> cached = getCachedHotBanks(finalLimit);
+        if (cached != null) {
+            return cached;
+        }
+
         QueryWrapper query = QueryWrapper.create()
                 .where(QUESTION_BANK.STATUS.eq(1))
                 .orderBy(QUESTION_BANK.QUESTION_COUNT.desc())
-                .limit(limit != null ? limit : 10);
-        return questionBankMapper.selectListByQuery(query);
+                .limit(finalLimit);
+        List<QuestionBank> banks = questionBankMapper.selectListByQuery(query);
+        String cacheKey = buildHotBanksKey(finalLimit);
+        redisTemplate.opsForValue().set(cacheKey, banks, Duration.ofMinutes(15));
+        redisTemplate.opsForSet().add(RedisKey.BANK_HOT_KEYS, cacheKey);
+        redisTemplate.expire(RedisKey.BANK_HOT_KEYS, Duration.ofHours(1));
+        return banks;
     }
 
-    private void clearCache() {
-        redisTemplate.delete(RedisKey.BANK_HOT);
-        // 清除题库详情缓存（使用前缀匹配删除）
-        java.util.Set<String> keys = redisTemplate.keys(RedisKey.BANK_DETAIL + "*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+    private void clearCache(Long bankId) {
+        clearHotBanksCache();
+        if (bankId != null) {
+            redisTemplate.delete(RedisKey.BANK_DETAIL + bankId);
+            redisTemplate.delete(RedisKey.BANK_QUESTIONS + bankId);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<QuestionBank> getCachedHotBanks(int limit) {
+        Object cached = redisTemplate.opsForValue().get(buildHotBanksKey(limit));
+        if (cached instanceof List<?> list) {
+            return (List<QuestionBank>) list;
+        }
+        return null;
+    }
+
+    private String buildHotBanksKey(int limit) {
+        return RedisKey.BANK_HOT + ":" + limit;
+    }
+
+    private void clearHotBanksCache() {
+        Set<Object> cacheKeys = redisTemplate.opsForSet().members(RedisKey.BANK_HOT_KEYS);
+        if (cacheKeys != null && !cacheKeys.isEmpty()) {
+            redisTemplate.delete(cacheKeys.stream().map(String::valueOf).toList());
+        }
+        redisTemplate.delete(RedisKey.BANK_HOT_KEYS);
     }
 }

@@ -9,7 +9,7 @@ public interface RecordService {
 
     PageResult<RecordVO> appRecordList(Long userId, String type, Integer pageNum, Integer pageSize);
 
-    Map<String, Object> appRecordDetail(Long id, String type);
+    Map<String, Object> appRecordDetail(Long id, String type, Long userId);
 
     PageResult<Map<String, Object>> adminPracticeRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize);
 

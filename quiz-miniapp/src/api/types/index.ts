@@ -116,6 +116,15 @@ export interface QuestionVO {
   isCorrect?: number;
 }
 
+/** 题目列表项 */
+export interface QuestionListVO {
+  id: number;
+  bankId: number;
+  type: QuestionType | number;
+  content: string;
+  difficulty?: Difficulty | number;
+}
+
 // ==================== 练习相关 ====================
 
 /** 练习模式枚举 */
@@ -258,7 +267,7 @@ export interface StudyStats {
 export interface HomeVO {
   categories: CategoryItem[];
   hotBanks: BankSimple[];
-  dailyQuestion?: QuestionVO | null;
+  dailyQuestion?: QuestionListVO | null;
   studyStats?: StudyStats;
 }
 

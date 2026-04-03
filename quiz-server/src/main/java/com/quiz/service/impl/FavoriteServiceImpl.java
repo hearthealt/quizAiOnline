@@ -14,6 +14,7 @@ import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.FavoriteService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.vo.app.FavoriteVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -100,33 +101,12 @@ public class FavoriteServiceImpl implements FavoriteService {
                 ).stream().collect(Collectors.groupingBy(QuestionOption::getQuestionId));
 
         List<FavoriteVO> voList = page.getRecords().stream().map(fav -> {
-            FavoriteVO vo = new FavoriteVO();
-            vo.setId(fav.getId());
-            vo.setQuestionId(fav.getQuestionId());
-            vo.setCreateTime(fav.getCreateTime());
-
             Question question = questionMap.get(fav.getQuestionId());
-            if (question != null) {
-                vo.setContent(question.getContent());
-                vo.setType(question.getType());
-                vo.setAnswer(question.getAnswer());
-                vo.setAnalysis(SHOW_ANALYSIS ? question.getAnalysis() : null);
-
-                List<QuestionOption> options = optionsMap.getOrDefault(question.getId(), Collections.emptyList());
-                List<FavoriteVO.OptionVO> optionVOs = options.stream().map(opt -> {
-                    FavoriteVO.OptionVO optVO = new FavoriteVO.OptionVO();
-                    optVO.setLabel(opt.getLabel());
-                    optVO.setContent(opt.getContent());
-                    return optVO;
-                }).collect(Collectors.toList());
-                vo.setOptions(optionVOs);
-
-                QuestionBank bank = bankMap.get(question.getBankId());
-                if (bank != null) {
-                    vo.setBankName(bank.getName());
-                }
-            }
-            return vo;
+            QuestionBank bank = question != null ? bankMap.get(question.getBankId()) : null;
+            List<QuestionOption> options = question != null
+                    ? optionsMap.getOrDefault(question.getId(), Collections.emptyList())
+                    : Collections.emptyList();
+            return AppViewMapper.toFavoriteVO(fav, question, bank, options, SHOW_ANALYSIS);
         }).collect(Collectors.toList());
 
         return PageResult.of(voList, page.getTotalRow(), pageNum, pageSize);

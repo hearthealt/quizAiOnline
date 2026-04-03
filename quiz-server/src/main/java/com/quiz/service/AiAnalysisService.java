@@ -8,6 +8,7 @@ import com.quiz.entity.AiConfig;
 import com.quiz.vo.admin.AiCallLogVO;
 import com.quiz.vo.admin.AiStatsVO;
 
+import java.util.List;
 import java.util.Map;
 
 public interface AiAnalysisService {
@@ -16,7 +17,9 @@ public interface AiAnalysisService {
 
     void updateConfig(AiConfigDTO dto);
 
-    Map<String, Object> testConnection();
+    Map<String, Object> testConnection(AiConfigDTO dto);
+
+    List<Map<String, Object>> listModels(AiConfigDTO dto);
 
     String generate(Long questionId, String mode, Long operatorId);
 

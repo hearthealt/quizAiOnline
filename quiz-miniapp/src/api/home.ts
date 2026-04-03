@@ -27,6 +27,14 @@ export type QuestionOption = {
   content: string;
 };
 
+export type QuestionListVO = {
+  id: number;
+  bankId: number;
+  type: number;
+  content: string;
+  difficulty?: number;
+};
+
 export type QuestionVO = {
   id: number;
   bankId: number;
@@ -44,7 +52,7 @@ export type QuestionVO = {
 export type HomeVO = {
   categories: CategoryItem[];
   hotBanks: BankSimple[];
-  dailyQuestion?: QuestionVO | null;
+  dailyQuestion?: QuestionListVO | null;
   studyStats?: StudyStats;
 };
 
@@ -55,7 +63,7 @@ export const getHomeIndex = () =>
   });
 
 export const getDailyQuestion = () =>
-  request<QuestionVO>({
+  request<QuestionListVO>({
     url: "/api/app/home/daily-question",
     method: "GET"
   });

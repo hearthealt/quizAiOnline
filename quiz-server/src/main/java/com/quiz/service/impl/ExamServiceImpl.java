@@ -13,6 +13,7 @@ import com.quiz.dto.app.SubmitExamDTO;
 import com.quiz.entity.*;
 import com.quiz.mapper.*;
 import com.quiz.service.ExamService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.service.WrongQuestionService;
 import com.quiz.vo.app.ExamOngoingVO;
 import com.quiz.vo.app.ExamResultVO;
@@ -196,10 +197,18 @@ public class ExamServiceImpl implements ExamService {
                 .orderBy(EXAM_RECORD.CREATE_TIME, false);
         Page<ExamRecord> page = examRecordMapper.paginate(Page.of(pageNum, pageSize), qw);
 
+        Set<Long> bankIds = page.getRecords().stream()
+                .map(ExamRecord::getBankId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, QuestionBank> bankMap = bankIds.isEmpty() ? Collections.emptyMap()
+                : questionBankMapper.selectListByIds(bankIds).stream()
+                .collect(Collectors.toMap(QuestionBank::getId, bank -> bank, (a, b) -> a));
+
         List<RecordVO> list = page.getRecords().stream().map(r -> {
             RecordVO vo = new RecordVO();
             vo.setId(r.getId());
-            QuestionBank bank = questionBankMapper.selectOneById(r.getBankId());
+            QuestionBank bank = bankMap.get(r.getBankId());
             vo.setBankName(bank != null ? bank.getName() : "");
             vo.setMode("EXAM");
             vo.setTotalCount(r.getTotalCount());
@@ -328,20 +337,10 @@ public class ExamServiceImpl implements ExamService {
 
         List<ExamSessionVO.ExamQuestionVO> list = new ArrayList<>();
         for (Question q : questions) {
-            ExamSessionVO.ExamQuestionVO qvo = new ExamSessionVO.ExamQuestionVO();
-            qvo.setId(q.getId());
-            qvo.setType(q.getType());
-            qvo.setContent(q.getContent());
             List<QuestionOption> options = questionOptionMapper.selectListByQuery(
                     QueryWrapper.create().where(QUESTION_OPTION.QUESTION_ID.eq(q.getId()))
                             .orderBy(QUESTION_OPTION.SORT, true));
-            List<ExamSessionVO.ExamQuestionOptionVO> optList = options.stream().map(o -> {
-                ExamSessionVO.ExamQuestionOptionVO opt = new ExamSessionVO.ExamQuestionOptionVO();
-                opt.setLabel(o.getLabel());
-                opt.setContent(o.getContent());
-                return opt;
-            }).collect(Collectors.toList());
-            qvo.setOptions(optList);
+            ExamSessionVO.ExamQuestionVO qvo = AppViewMapper.toExamQuestionVO(q, options);
             list.add(qvo);
         }
         session.setQuestions(list);
@@ -477,17 +476,8 @@ public class ExamServiceImpl implements ExamService {
         List<ExamAnswer> answers = examAnswerMapper.selectListByQuery(
                 QueryWrapper.create().where(EXAM_ANSWER.EXAM_ID.eq(record.getId())));
         List<ExamResultVO.ExamAnswerDetail> details = answers.stream().map(a -> {
-            ExamResultVO.ExamAnswerDetail d = new ExamResultVO.ExamAnswerDetail();
-            d.setQuestionId(a.getQuestionId());
             Question q = questionMapper.selectOneById(a.getQuestionId());
-            if (q != null) {
-                d.setContent(q.getContent());
-                d.setCorrectAnswer(q.getAnswer());
-                d.setAnalysis(q.getAnalysis());
-            }
-            d.setUserAnswer(a.getUserAnswer());
-            d.setIsCorrect(a.getIsCorrect() == 1);
-            return d;
+            return AppViewMapper.toExamAnswerDetail(a, q);
         }).collect(Collectors.toList());
         vo.setDetails(details);
         return vo;

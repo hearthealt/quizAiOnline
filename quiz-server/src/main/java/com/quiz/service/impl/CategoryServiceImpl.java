@@ -16,6 +16,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.List;
 
 import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
@@ -41,10 +42,17 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public List<Category> listAll() {
+        List<Category> cached = getCachedCategoryList();
+        if (cached != null) {
+            return cached;
+        }
+
         QueryWrapper query = QueryWrapper.create()
                 .where(CATEGORY.STATUS.eq(1))
                 .orderBy(CATEGORY.SORT.asc());
-        return categoryMapper.selectListByQuery(query);
+        List<Category> categories = categoryMapper.selectListByQuery(query);
+        redisTemplate.opsForValue().set(RedisKey.CATEGORY_LIST, categories, Duration.ofMinutes(30));
+        return categories;
     }
 
     @Override
@@ -113,5 +121,14 @@ public class CategoryServiceImpl implements CategoryService {
 
     private void clearCache() {
         redisTemplate.delete(RedisKey.CATEGORY_LIST);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Category> getCachedCategoryList() {
+        Object cached = redisTemplate.opsForValue().get(RedisKey.CATEGORY_LIST);
+        if (cached instanceof List<?> list) {
+            return (List<Category>) list;
+        }
+        return null;
     }
 }

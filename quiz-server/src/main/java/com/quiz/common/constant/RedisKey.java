@@ -24,9 +24,14 @@ public final class RedisKey {
     // ==================== 题库相关 ====================
 
     /**
-     * 热门题库
+     * 热门题库 quiz:bank:hot:{limit}
      */
     public static final String BANK_HOT = PREFIX + "bank:hot";
+
+    /**
+     * 热门题库缓存索引 quiz:bank:hot:keys
+     */
+    public static final String BANK_HOT_KEYS = PREFIX + "bank:hot:keys";
 
     /**
      * 题库详情 quiz:bank:detail:{bankId}

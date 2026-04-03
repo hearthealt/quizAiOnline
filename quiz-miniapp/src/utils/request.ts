@@ -31,6 +31,31 @@ const DEFAULT_CONFIG: Partial<RequestConfig> = {
   silent: false
 };
 
+const sanitizeData = (value: any): any => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeData(item))
+      .filter((item) => item !== undefined);
+  }
+  if (typeof value === "object") {
+    const result: Record<string, any> = {};
+    Object.keys(value).forEach((key) => {
+      const next = sanitizeData(value[key]);
+      if (next !== undefined) {
+        result[key] = next;
+      }
+    });
+    return result;
+  }
+  return value;
+};
+
 // 请求队列，用于取消重复请求
 const pendingRequests = new Map<string, UniApp.RequestTask>();
 
@@ -62,7 +87,7 @@ export class ApiError extends Error {
 }
 
 export const request = <T = any>(options: RequestConfig): Promise<T> => {
-  const config = { ...DEFAULT_CONFIG, ...options };
+  const config = { ...DEFAULT_CONFIG, ...options, data: sanitizeData(options.data) };
   const requestKey = generateRequestKey(options);
   const requestId = generateRequestId();
 

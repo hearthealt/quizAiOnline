@@ -4,6 +4,7 @@ import com.quiz.common.result.PageResult;
 import com.quiz.dto.admin.QuestionDTO;
 import com.quiz.entity.Question;
 import com.quiz.vo.admin.QuestionDetailVO;
+import com.quiz.vo.app.QuestionListVO;
 import com.quiz.vo.app.QuestionVO;
 
 import java.io.InputStream;
@@ -14,9 +15,13 @@ public interface QuestionService {
 
     PageResult<Question> pageList(Long bankId, Integer type, String keyword, Integer pageNum, Integer pageSize);
 
+    PageResult<QuestionListVO> pageAppList(Long bankId, String keyword, Integer pageNum, Integer pageSize);
+
     QuestionDetailVO getDetail(Long id);
 
     QuestionVO getQuestionVO(Long id, Long userId);
+
+    QuestionListVO getQuestionListVO(Long id);
 
     void create(QuestionDTO dto);
 

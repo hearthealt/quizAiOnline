@@ -92,6 +92,31 @@
                 placeholder="例如：你好！我是你的 AI 智能导师……"
               />
             </n-form-item>
+            <n-divider style="margin: 8px 0 16px">题目生成模板</n-divider>
+            <n-form-item label="解析模板">
+              <n-input
+                v-model:value="formData.aiPromptAnalysis"
+                type="textarea"
+                :rows="4"
+                placeholder="生成解析时使用的 Prompt"
+              />
+            </n-form-item>
+            <n-form-item label="答案模板">
+              <n-input
+                v-model:value="formData.aiPromptAnswer"
+                type="textarea"
+                :rows="4"
+                placeholder="生成答案时使用的 Prompt"
+              />
+            </n-form-item>
+            <n-form-item label="综合模板">
+              <n-input
+                v-model:value="formData.aiPromptBoth"
+                type="textarea"
+                :rows="4"
+                placeholder="同时生成答案和解析时使用的 Prompt"
+              />
+            </n-form-item>
             <n-form-item label=" ">
               <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
             </n-form-item>
@@ -125,6 +150,9 @@ const formData = ref<Record<string, string>>({
   registerEnabled: '1',
   aiChatPersona: '你是AI智能导师，回答简洁清晰，必要时分点说明。',
   aiChatGreeting: '你好！我是你的 AI 智能导师。遇到不懂的题目、需要解释的知识点，或者想要制定学习计划，都可以随时问我哦！',
+  aiPromptAnalysis: '题目：{content}\n选项：{options}\n正确答案：{answer}\n\n请用简洁的语言输出解析：\n1. 一句话说明为什么选{answer}\n2. 简要指出其他选项的错误\n不要啰嗦，直接输出解析内容。',
+  aiPromptAnswer: '题目：{content}\n选项：{options}\n解析：{analysis}\n\n请直接输出答案选项字母，多选题用逗号分隔。',
+  aiPromptBoth: '题目：{content}\n选项：{options}\n\n请按格式输出：\n答案：[选项字母]\n解析：[简洁说明正确答案的原因，并简要指出其他选项的错误]',
 })
 
 const registerEnabled = computed({
