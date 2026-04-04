@@ -470,7 +470,7 @@ function handleReset() {
   searchParams.type = null
   searchParams.keyword = ''
   pagination.page = 1
-  fetchData()
+  fetchData(searchParams)
 }
 
 async function loadBanks() {
@@ -480,7 +480,7 @@ async function loadBanks() {
 
 onMounted(() => {
   loadBanks()
-  fetchData()
+  fetchData(searchParams)
 })
 </script>
 

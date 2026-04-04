@@ -33,6 +33,6 @@ public class AppCategoryController {
     public R<PageResult<QuestionBank>> banks(@PathVariable Long id,
                                              @RequestParam(defaultValue = "1") Integer pageNum,
                                              @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(bankService.pageList(id, pageNum, pageSize));
+        return R.ok(bankService.pageEnabledList(id, pageNum, pageSize));
     }
 }

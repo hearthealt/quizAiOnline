@@ -263,15 +263,21 @@ public class VipServiceImpl implements VipService {
     @Override
     public VipStatsVO getVipStats() {
         VipStatsVO vo = new VipStatsVO();
-        vo.setTotalVipUsers(userMapper.selectCountByQuery(
-                QueryWrapper.create().where("is_vip = 1")));
+        LocalDateTime now = LocalDateTime.now();
+        Long activeVipCount = userMapper.selectCountByQuery(
+                QueryWrapper.create()
+                        .where(USER.IS_VIP.eq(1))
+                        .and(USER.VIP_EXPIRE_TIME.isNotNull())
+                        .and(USER.VIP_EXPIRE_TIME.gt(now))
+        );
+        vo.setTotalVipUsers(activeVipCount);
         vo.setTotalRevenue(Optional.ofNullable(vipOrderMapper.sumPaidAmount()).orElse(BigDecimal.ZERO));
         vo.setMonthRevenue(Optional.ofNullable(
                 vipOrderMapper.sumPaidAmountFrom(
-                        LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
+                        now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
                 )
         ).orElse(BigDecimal.ZERO));
-        vo.setActiveVipCount(vo.getTotalVipUsers());
+        vo.setActiveVipCount(activeVipCount);
         return vo;
     }
 

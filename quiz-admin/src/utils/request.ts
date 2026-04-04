@@ -6,8 +6,32 @@ import router from '@/router'
 // 请求取消管理
 const pendingRequests = new Map<string, AbortController>()
 
+const stableSerialize = (value: unknown): string => {
+  if (value === undefined) return 'undefined'
+  if (value === null) return 'null'
+  if (value instanceof FormData) {
+    const entries = Array.from(value.entries()).map(([key, entryValue]) => {
+      if (entryValue instanceof File) {
+        return `${key}:file(${entryValue.name},${entryValue.size},${entryValue.lastModified})`
+      }
+      return `${key}:${String(entryValue)}`
+    })
+    return `formdata(${entries.sort().join(',')})`
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(',')}]`
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${key}:${stableSerialize(item)}`)
+    return `{${entries.join(',')}}`
+  }
+  return String(value)
+}
+
 const generateRequestKey = (config: AxiosRequestConfig): string => {
-  return `${config.method}:${config.url}`
+  return `${config.method}:${config.url}:${stableSerialize(config.params)}:${stableSerialize(config.data)}`
 }
 
 const removePendingRequest = (config: AxiosRequestConfig) => {

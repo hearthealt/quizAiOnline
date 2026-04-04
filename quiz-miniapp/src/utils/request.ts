@@ -60,9 +60,22 @@ const sanitizeData = (value: any): any => {
 // 请求队列，用于取消重复请求
 const pendingRequests = new Map<string, UniApp.RequestTask>();
 
+const stableSerialize = (value: any): string => {
+  if (value === undefined) return "undefined";
+  if (value === null) return "null";
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((key) => `${key}:${stableSerialize(value[key])}`).join(",")}}`;
+  }
+  return String(value);
+};
+
 // 生成请求唯一标识
 const generateRequestKey = (options: RequestConfig): string => {
-  return `${options.method || "GET"}:${options.url}`;
+  return `${options.method || "GET"}:${options.url}:${stableSerialize(options.data)}`;
 };
 
 // 生成请求ID用于追踪
@@ -96,7 +109,7 @@ export class ApiError extends Error {
 
 export const request = <T = any>(options: RequestConfig): Promise<T> => {
   const config = { ...DEFAULT_CONFIG, ...options, data: sanitizeData(options.data) };
-  const requestKey = generateRequestKey(options);
+  const requestKey = generateRequestKey(config);
   const requestId = generateRequestId();
 
   return new Promise((resolve, reject) => {

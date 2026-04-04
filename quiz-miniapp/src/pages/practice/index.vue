@@ -200,11 +200,7 @@ const submit = async (allowAutoNext = true) => {
   if (isAnswered.value) return;
   const answer = selectedAnswers.value.join(",");
   await submitPracticeAnswer(recordId.value, question.value.id, answer);
-  showResult.value = true;
-  const next = new Set(answeredSet.value);
-  next.add(currentIndex.value);
-  answeredSet.value = next;
-  answerMap.value = { ...answerMap.value, [currentIndex.value]: [...selectedAnswers.value] };
+  await fetchQuestion();
   if (allowAutoNext && autoNext.value && isAnswerCorrect()) {
     const targetIndex = currentIndex.value;
     setTimeout(() => {

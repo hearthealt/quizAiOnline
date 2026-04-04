@@ -17,6 +17,7 @@ import com.quiz.mapper.PracticeRecordMapper;
 import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.mapper.QuestionOptionMapper;
+import com.quiz.service.QuestionBankService;
 import com.quiz.service.PracticeService;
 import com.quiz.util.AppViewMapper;
 import com.quiz.service.WrongQuestionService;
@@ -30,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.*;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.PracticeDetailTableDef.PRACTICE_DETAIL;
@@ -54,6 +57,7 @@ public class PracticeServiceImpl implements PracticeService {
     private final QuestionBankMapper questionBankMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final WrongQuestionService wrongQuestionService;
+    private final QuestionBankService questionBankService;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -150,6 +154,7 @@ public class PracticeServiceImpl implements PracticeService {
         Integer count = bank.getPracticeCount();
         bank.setPracticeCount(count == null ? 1 : count + 1);
         questionBankMapper.update(bank);
+        questionBankService.evictCache(bankId);
     }
 
     @Override
@@ -186,7 +191,7 @@ public class PracticeServiceImpl implements PracticeService {
             return existed.getIsCorrect() != null && existed.getIsCorrect() == 1;
         }
 
-        boolean isCorrect = question.getAnswer() != null && question.getAnswer().equals(dto.getAnswer());
+        boolean isCorrect = isAnswerCorrect(question, dto.getAnswer());
 
         // Save practice detail
         PracticeDetail detail = new PracticeDetail();
@@ -311,18 +316,19 @@ public class PracticeServiceImpl implements PracticeService {
                 .orderBy(QUESTION_OPTION.SORT.asc());
         List<QuestionOption> options = questionOptionMapper.selectListByQuery(optQw);
 
-        QuestionVO vo = AppViewMapper.toQuestionVO(question, options, true, SHOW_ANALYSIS);
-
+        PracticeDetail detail = null;
         if (recordId != null) {
-            PracticeDetail detail = practiceDetailMapper.selectOneByQuery(
-                    QueryWrapper.create()
-                            .where(PRACTICE_DETAIL.RECORD_ID.eq(recordId))
-                            .and(PRACTICE_DETAIL.QUESTION_ID.eq(questionId))
+            detail = practiceDetailMapper.selectOneByQuery(
+                QueryWrapper.create()
+                    .where(PRACTICE_DETAIL.RECORD_ID.eq(recordId))
+                    .and(PRACTICE_DETAIL.QUESTION_ID.eq(questionId))
             );
-            if (detail != null) {
-                vo.setUserAnswer(detail.getUserAnswer());
-                vo.setIsCorrect(detail.getIsCorrect());
-            }
+        }
+        boolean answered = detail != null;
+        QuestionVO vo = AppViewMapper.toQuestionVO(question, options, answered, answered && SHOW_ANALYSIS);
+        if (detail != null) {
+            vo.setUserAnswer(detail.getUserAnswer());
+            vo.setIsCorrect(detail.getIsCorrect());
         }
 
         return vo;
@@ -396,5 +402,37 @@ public class PracticeServiceImpl implements PracticeService {
             throw new BizException("该题库暂无题目");
         }
         return questionIds;
+    }
+
+    private boolean isAnswerCorrect(Question question, String submittedAnswer) {
+        if (question == null || question.getAnswer() == null) {
+            return false;
+        }
+        Integer type = question.getType();
+        String correctAnswer = normalizeAnswer(question.getAnswer(), type);
+        String actualAnswer = normalizeAnswer(submittedAnswer, type);
+        if (type != null && (type == 1 || type == 3)) {
+            return correctAnswer.equalsIgnoreCase(actualAnswer);
+        }
+        return Objects.equals(correctAnswer, actualAnswer);
+    }
+
+    private String normalizeAnswer(String answer, Integer type) {
+        if (answer == null) {
+            return "";
+        }
+        if (type != null && type == 2) {
+            return Arrays.stream(answer.split(","))
+                    .map(String::trim)
+                    .filter(item -> !item.isEmpty())
+                    .map(item -> item.toUpperCase(Locale.ROOT))
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.joining(","));
+        }
+        if (type != null && (type == 1 || type == 3)) {
+            return answer.trim().toUpperCase(Locale.ROOT);
+        }
+        return answer.trim();
     }
 }

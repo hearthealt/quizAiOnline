@@ -9,7 +9,13 @@ import java.util.List;
 
 public interface QuestionBankService {
 
-    PageResult<QuestionBank> pageList(Long categoryId, Integer pageNum, Integer pageSize);
+    PageResult<QuestionBank> pageList(Long categoryId, String keyword, Integer pageNum, Integer pageSize);
+
+    PageResult<QuestionBank> pageEnabledList(Long categoryId, Integer pageNum, Integer pageSize);
+
+    QuestionBank getById(Long id);
+
+    void evictCache(Long bankId);
 
     BankDetailVO getDetail(Long id, Long userId);
 

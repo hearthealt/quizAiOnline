@@ -246,7 +246,7 @@ function handleReset() {
   searchParams.categoryId = null
   searchParams.keyword = ''
   pagination.page = 1
-  fetchData()
+  fetchData(searchParams)
 }
 
 async function loadCategories() {
@@ -256,7 +256,7 @@ async function loadCategories() {
 
 onMounted(() => {
   loadCategories()
-  fetchData()
+  fetchData(searchParams)
 })
 </script>
 

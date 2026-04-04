@@ -4,6 +4,7 @@ import type { PageResult } from '@/types'
 export function useTable<T>(fetchFn: (params: any) => Promise<PageResult<T>>) {
   const loading = ref(false)
   const data = ref<T[]>([]) as ReturnType<typeof ref<T[]>>
+  const lastParams = ref<Record<string, any>>({})
   const pagination = reactive({
     page: 1,
     pageSize: 10,
@@ -13,13 +14,16 @@ export function useTable<T>(fetchFn: (params: any) => Promise<PageResult<T>>) {
     prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   })
 
-  async function fetchData(extraParams: Record<string, any> = {}) {
+  async function fetchData(extraParams?: Record<string, any>) {
+    if (extraParams !== undefined) {
+      lastParams.value = { ...extraParams }
+    }
     loading.value = true
     try {
       const res = await fetchFn({
         pageNum: pagination.page,
         pageSize: pagination.pageSize,
-        ...extraParams,
+        ...lastParams.value,
       })
       data.value = res.list
       pagination.itemCount = res.total

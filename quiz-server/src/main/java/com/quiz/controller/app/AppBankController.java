@@ -1,5 +1,6 @@
 package com.quiz.controller.app;
 
+import com.quiz.common.enums.BizCode;
 import com.quiz.common.result.PageResult;
 import com.quiz.common.result.R;
 import com.quiz.config.StpKit;
@@ -29,12 +30,16 @@ public class AppBankController {
     public R<PageResult<QuestionBank>> list(@RequestParam(required = false) Long categoryId,
                                             @RequestParam(defaultValue = "1") Integer pageNum,
                                             @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(bankService.pageList(categoryId, pageNum, pageSize));
+        return R.ok(bankService.pageEnabledList(categoryId, pageNum, pageSize));
     }
 
     @Operation(summary = "题库详情")
     @GetMapping("/{id}")
     public R<BankDetailVO> detail(@PathVariable Long id) {
+        QuestionBank bank = bankService.getById(id);
+        if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) {
+            throw BizCode.BANK_NOT_FOUND.exception();
+        }
         Long userId = StpKit.APP.isLogin() ? StpKit.APP.getLoginIdAsLong() : null;
         return R.ok(bankService.getDetail(id, userId));
     }
@@ -44,6 +49,10 @@ public class AppBankController {
     public R<PageResult<QuestionListVO>> questions(@PathVariable Long id,
                                                    @RequestParam(defaultValue = "1") Integer pageNum,
                                                    @RequestParam(defaultValue = "10") Integer pageSize) {
+        QuestionBank bank = bankService.getById(id);
+        if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) {
+            throw BizCode.BANK_NOT_FOUND.exception();
+        }
         return R.ok(questionService.pageAppList(id, null, pageNum, pageSize));
     }
 

@@ -13,6 +13,7 @@ import com.quiz.mapper.FavoriteMapper;
 import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionOptionMapper;
+import com.quiz.service.QuestionBankService;
 import com.quiz.service.QuestionService;
 import com.quiz.util.AppViewMapper;
 import com.quiz.util.ExcelUtil;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.FavoriteTableDef.FAVORITE;
+import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 
@@ -45,6 +47,7 @@ public class QuestionServiceImpl implements QuestionService {
     private final QuestionOptionMapper questionOptionMapper;
     private final QuestionBankMapper questionBankMapper;
     private final FavoriteMapper favoriteMapper;
+    private final QuestionBankService questionBankService;
 
     @Override
     public PageResult<Question> pageList(Long bankId, Integer type, String keyword, Integer pageNum, Integer pageSize) {
@@ -59,11 +62,22 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public PageResult<QuestionListVO> pageAppList(Long bankId, String keyword, Integer pageNum, Integer pageSize) {
-        PageResult<Question> page = pageList(bankId, null, keyword, pageNum, pageSize);
-        List<QuestionListVO> list = page.getList().stream()
+        QueryWrapper query = QueryWrapper.create()
+                .where(QUESTION.BANK_ID.eq(bankId).when(bankId != null))
+                .and(QUESTION.STATUS.eq(1))
+                .and(QUESTION.CONTENT.like(keyword).when(keyword != null && !keyword.isEmpty()))
+                .and(QUESTION.BANK_ID.in(
+                        QueryWrapper.create()
+                                .select(QUESTION_BANK.ID)
+                                .from(QUESTION_BANK)
+                                .where(QUESTION_BANK.STATUS.eq(1))
+                ))
+                .orderBy(QUESTION.SORT.asc(), QUESTION.CREATE_TIME.desc());
+        Page<Question> page = questionMapper.paginate(pageNum, pageSize, query);
+        List<QuestionListVO> list = page.getRecords().stream()
                 .map(AppViewMapper::toQuestionListVO)
                 .collect(Collectors.toList());
-        return PageResult.of(list, page.getTotal(), pageNum, pageSize);
+        return PageResult.of(list, page.getTotalRow(), pageNum, pageSize);
     }
 
     @Override
@@ -429,6 +443,7 @@ public class QuestionServiceImpl implements QuestionService {
             bank.setQuestionCount((int) count);
             questionBankMapper.update(bank);
         }
+        questionBankService.evictCache(bankId);
     }
 
     private int parseQuestionType(String typeStr) {

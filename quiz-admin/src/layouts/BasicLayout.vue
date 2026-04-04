@@ -8,33 +8,31 @@
         </div>
         <div v-if="!collapsed" class="brand-copy">
           <span class="brand-title">{{ siteName }}</span>
-          <span class="brand-sub">Console</span>
+          <span class="brand-sub">Workspace</span>
         </div>
         <button class="collapse-btn" @click="collapsed = !collapsed">
           {{ collapsed ? "›" : "‹" }}
         </button>
       </div>
 
-      <div v-if="!collapsed" class="sider-panel">
-        <div class="panel-label">运营中枢</div>
-        <div class="panel-value">{{ siteDescription || "题库、AI、VIP 与用户的统一运营入口" }}</div>
+      <div class="menu-wrap">
+        <div v-if="!collapsed" class="menu-label">主导航</div>
+        <n-menu
+          class="shell-menu"
+          :collapsed="collapsed"
+          :collapsed-width="88"
+          :collapsed-icon-size="20"
+          :options="menuOptions"
+          :value="activeKey"
+          accordion
+          @update:value="handleMenuSelect"
+        />
       </div>
 
-      <n-menu
-        class="shell-menu"
-        :collapsed="collapsed"
-        :collapsed-width="88"
-        :collapsed-icon-size="22"
-        :options="menuOptions"
-        :value="activeKey"
-        accordion
-        @update:value="handleMenuSelect"
-      />
-
       <div class="sider-foot" :class="{ compact: collapsed }">
-        <div class="foot-chip">
+        <div class="foot-note">
           <span class="chip-dot" />
-          <span v-if="!collapsed">在线后台</span>
+          <span v-if="!collapsed">Admin Workspace</span>
         </div>
       </div>
     </aside>
@@ -369,57 +367,60 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: auto 1fr;
   min-height: 100vh;
-  gap: 18px;
-  padding: 18px;
+  gap: 12px;
+  padding: 12px;
 }
 
 .shell-sider {
-  width: 292px;
+  width: 264px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 18px;
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.12), transparent 28%),
-    linear-gradient(180deg, #251713 0%, #3a211a 48%, #221411 100%);
-  color: #fff7f0;
-  box-shadow: 0 20px 60px rgba(55, 27, 17, 0.24);
+  gap: 8px;
+  padding: 12px 10px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--admin-text);
+  border: 1px solid rgba(95, 68, 47, 0.06);
+  box-shadow: 0 8px 24px rgba(59, 32, 18, 0.04);
+  backdrop-filter: blur(16px);
   transition: width 0.25s ease, padding 0.25s ease;
+  overflow: hidden;
 }
 
 .shell-sider.collapsed {
-  width: 96px;
+  width: 78px;
   padding-inline: 10px;
 }
 
 .sider-top {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 2px 4px 10px;
 }
 
 .brand-mark {
-  width: 48px;
-  height: 48px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(246, 206, 176, 0.2), rgba(182, 64, 44, 0.42));
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  border: 1px solid rgba(95, 68, 47, 0.08);
   flex-shrink: 0;
+  color: var(--admin-accent);
 }
 
 .brand-glyph {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .logo-img {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 
@@ -427,82 +428,87 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .brand-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
+  color: var(--admin-text);
 }
 
 .brand-sub {
+  margin-top: 2px;
   font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(255, 247, 240, 0.56);
+  color: var(--admin-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .collapse-btn {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border: 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff7f0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text-soft);
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
 }
 
-.sider-panel {
-  padding: 16px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+.menu-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 2px;
 }
 
-.panel-label {
+.menu-label {
+  padding: 0 10px 8px;
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: rgba(255, 247, 240, 0.52);
-}
-
-.panel-value {
-  margin-top: 10px;
-  font-size: 13px;
-  line-height: 1.65;
-  color: rgba(255, 247, 240, 0.82);
+  color: var(--admin-muted);
 }
 
 .shell-menu {
   flex: 1;
   background: transparent;
+  padding: 0;
 }
 
 .sider-foot {
   display: flex;
   justify-content: flex-start;
+  padding-top: 6px;
 }
 
 .sider-foot.compact {
   justify-content: center;
 }
 
-.foot-chip {
+.foot-note {
+  width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.06);
-  font-size: 12px;
-  color: rgba(255,247,240,0.72);
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .chip-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #e4b95c;
-  box-shadow: 0 0 12px rgba(228, 185, 92, 0.7);
+  background: #3aa56d;
+  box-shadow: 0 0 8px rgba(58, 165, 109, 0.35);
 }
 
 .shell-main {
@@ -617,6 +623,62 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+:deep(.shell-menu .n-menu-item-content),
+:deep(.shell-menu .n-submenu .n-menu-item-content-header) {
+  margin: 1px 0;
+  border-radius: 10px;
+  min-height: 36px;
+}
+
+:deep(.shell-menu .n-menu-item-content::before),
+:deep(.shell-menu .n-submenu .n-menu-item-content-header::before) {
+  border-radius: 10px !important;
+}
+
+:deep(.shell-menu .n-menu-item-content-header),
+:deep(.shell-menu .n-menu-item-content__arrow),
+:deep(.shell-menu .n-menu-item-content-header a),
+:deep(.shell-menu .n-menu-item-content-header span) {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+:deep(.shell-menu .n-menu-item-content__icon) {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--admin-text-soft);
+}
+
+:deep(.shell-menu .n-submenu-children) {
+  margin-top: 2px;
+  padding-left: 10px;
+}
+
+:deep(.shell-menu .n-menu-item-content--selected),
+:deep(.shell-menu .n-submenu .n-menu-item-content-header.n-menu-item-content--selected),
+:deep(.shell-menu .n-menu-item-content--child-active) {
+  background: rgba(35, 23, 15, 0.06) !important;
+  color: var(--admin-text) !important;
+  box-shadow: none;
+}
+
+:deep(.shell-menu .n-menu-item-content--selected .n-menu-item-content__icon),
+:deep(.shell-menu .n-menu-item-content--child-active .n-menu-item-content__icon),
+:deep(.shell-menu .n-submenu .n-menu-item-content-header.n-menu-item-content--selected .n-menu-item-content__icon) {
+  color: var(--admin-text);
+}
+
+:deep(.shell-menu .n-menu-item-content--collapsed) {
+  justify-content: center;
+}
+
+:deep(.shell-menu .n-menu-item-content--collapsed .n-menu-item-content__icon) {
+  margin-right: 0 !important;
 }
 
 @media (max-width: 1180px) {

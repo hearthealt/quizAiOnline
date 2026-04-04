@@ -47,12 +47,13 @@ const themeOverrides: GlobalThemeOverrides = {
   },
   Menu: {
     borderRadius: '16px',
-    itemColorHover: 'rgba(255,255,255,0.06)',
-    itemColorActive: 'rgba(243, 215, 200, 0.22)',
-    itemTextColor: 'rgba(255,255,255,0.7)',
-    itemTextColorActive: '#fff7f0',
-    itemTextColorHover: '#fff7f0',
-    arrowColor: 'rgba(255,255,255,0.65)'
+    itemColorHover: 'rgba(182, 64, 44, 0.04)',
+    itemColorActive: 'rgba(182, 64, 44, 0.08)',
+    itemTextColor: '#6d5949',
+    itemTextColorActive: '#8e2a19',
+    itemTextColorHover: '#23170f',
+    groupTextColor: '#9f8c7c',
+    arrowColor: 'rgba(95, 68, 47, 0.55)'
   }
 }
 </script>

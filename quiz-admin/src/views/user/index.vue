@@ -355,10 +355,10 @@ function handleReset() {
   searchParams.keyword = ''
   searchParams.status = null
   pagination.page = 1
-  fetchData()
+  fetchData(searchParams)
 }
 
-onMounted(() => fetchData())
+onMounted(() => fetchData(searchParams))
 </script>
 
 <style scoped>

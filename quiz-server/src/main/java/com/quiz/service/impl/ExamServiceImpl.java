@@ -13,6 +13,7 @@ import com.quiz.dto.app.SubmitExamDTO;
 import com.quiz.entity.*;
 import com.quiz.mapper.*;
 import com.quiz.service.ExamService;
+import com.quiz.service.QuestionBankService;
 import com.quiz.util.AppViewMapper;
 import com.quiz.service.WrongQuestionService;
 import com.quiz.vo.app.ExamOngoingVO;
@@ -28,7 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.*;
+import java.util.function.Function;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.ExamAnswerTableDef.EXAM_ANSWER;
@@ -48,6 +52,7 @@ public class ExamServiceImpl implements ExamService {
     private final QuestionOptionMapper questionOptionMapper;
     private final QuestionBankMapper questionBankMapper;
     private final WrongQuestionService wrongQuestionService;
+    private final QuestionBankService questionBankService;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -125,6 +130,7 @@ public class ExamServiceImpl implements ExamService {
         Integer count = bank.getPracticeCount();
         bank.setPracticeCount(count == null ? 1 : count + 1);
         questionBankMapper.update(bank);
+        questionBankService.evictCache(bankId);
     }
 
     @Override
@@ -140,13 +146,18 @@ public class ExamServiceImpl implements ExamService {
 
         int correctCount = 0;
         int totalCount = record.getTotalCount();
+        Map<Long, Question> questionMap = batchQueryQuestions(
+                dto.getAnswers().stream()
+                        .map(SubmitExamDTO.Answer::getQuestionId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())
+        );
 
         for (SubmitExamDTO.Answer ans : dto.getAnswers()) {
-            Question question = questionMapper.selectOneById(ans.getQuestionId());
+            Question question = questionMap.get(ans.getQuestionId());
             if (question == null) continue;
 
-            boolean isCorrect = question.getAnswer().equalsIgnoreCase(
-                    ans.getAnswer() != null ? ans.getAnswer().trim() : "");
+            boolean isCorrect = isAnswerCorrect(question, ans.getAnswer());
 
             ExamAnswer examAnswer = new ExamAnswer();
             examAnswer.setExamId(examId);
@@ -330,11 +341,16 @@ public class ExamServiceImpl implements ExamService {
         session.setTotalCount(count);
         session.setExamTime(examTime);
 
+        Map<Long, List<QuestionOption>> optionsMap = batchQueryQuestionOptions(
+                questions.stream()
+                        .map(Question::getId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())
+        );
+
         List<ExamSessionVO.ExamQuestionVO> list = new ArrayList<>();
         for (Question q : questions) {
-            List<QuestionOption> options = questionOptionMapper.selectListByQuery(
-                    QueryWrapper.create().where(QUESTION_OPTION.QUESTION_ID.eq(q.getId()))
-                            .orderBy(QUESTION_OPTION.SORT, true));
+            List<QuestionOption> options = optionsMap.getOrDefault(q.getId(), Collections.emptyList());
             ExamSessionVO.ExamQuestionVO qvo = AppViewMapper.toExamQuestionVO(q, options);
             list.add(qvo);
         }
@@ -470,11 +486,73 @@ public class ExamServiceImpl implements ExamService {
 
         List<ExamAnswer> answers = examAnswerMapper.selectListByQuery(
                 QueryWrapper.create().where(EXAM_ANSWER.EXAM_ID.eq(record.getId())));
+        Map<Long, Question> questionMap = batchQueryQuestions(
+                answers.stream()
+                        .map(ExamAnswer::getQuestionId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())
+        );
         List<ExamResultVO.ExamAnswerDetail> details = answers.stream().map(a -> {
-            Question q = questionMapper.selectOneById(a.getQuestionId());
+            Question q = questionMap.get(a.getQuestionId());
             return AppViewMapper.toExamAnswerDetail(a, q);
         }).collect(Collectors.toList());
         vo.setDetails(details);
         return vo;
+    }
+
+    private Map<Long, Question> batchQueryQuestions(Set<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return questionMapper.selectListByIds(questionIds).stream()
+                .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+    }
+
+    private Map<Long, List<QuestionOption>> batchQueryQuestionOptions(Set<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<QuestionOption> options = questionOptionMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .where(QUESTION_OPTION.QUESTION_ID.in(questionIds))
+                        .orderBy(QUESTION_OPTION.QUESTION_ID.asc(), QUESTION_OPTION.SORT.asc())
+        );
+        return options.stream().collect(Collectors.groupingBy(
+                QuestionOption::getQuestionId,
+                LinkedHashMap::new,
+                Collectors.toList()
+        ));
+    }
+
+    private boolean isAnswerCorrect(Question question, String submittedAnswer) {
+        if (question == null || question.getAnswer() == null) {
+            return false;
+        }
+        Integer type = question.getType();
+        String correctAnswer = normalizeAnswer(question.getAnswer(), type);
+        String actualAnswer = normalizeAnswer(submittedAnswer, type);
+        if (type != null && (type == 1 || type == 3)) {
+            return correctAnswer.equalsIgnoreCase(actualAnswer);
+        }
+        return Objects.equals(correctAnswer, actualAnswer);
+    }
+
+    private String normalizeAnswer(String answer, Integer type) {
+        if (answer == null) {
+            return "";
+        }
+        if (type != null && type == 2) {
+            return Arrays.stream(answer.split(","))
+                    .map(String::trim)
+                    .filter(item -> !item.isEmpty())
+                    .map(item -> item.toUpperCase(Locale.ROOT))
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.joining(","));
+        }
+        if (type != null && (type == 1 || type == 3)) {
+            return answer.trim().toUpperCase(Locale.ROOT);
+        }
+        return answer.trim();
     }
 }
