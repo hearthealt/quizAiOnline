@@ -59,7 +59,10 @@ export type HomeVO = {
 export const getHomeIndex = () =>
   request<HomeVO>({
     url: "/api/app/home/index",
-    method: "GET"
+    method: "GET",
+    timeout: 30000,
+    retry: 1,
+    retryDelay: 800
   });
 
 export const getDailyQuestion = () =>

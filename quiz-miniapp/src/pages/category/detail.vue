@@ -63,10 +63,12 @@ const goDetail = (bankId: number) => {
 onLoad((query: any) => {
   id.value = Number(query.id || 0);
   name.value = String(query.name || "");
-  fetchBanks();
+  void fetchBanks().catch(() => null);
 });
 
-onReachBottom(fetchBanks);
+onReachBottom(() => {
+  void fetchBanks().catch(() => null);
+});
 </script>
 
 <style lang="scss" scoped>

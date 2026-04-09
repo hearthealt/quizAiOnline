@@ -1,7 +1,6 @@
 package com.quiz.controller.app;
 
 import com.quiz.common.result.R;
-import com.quiz.config.StpKit;
 import com.quiz.service.UploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +24,6 @@ public class AppUploadController {
     @Operation(summary = "上传图片")
     @PostMapping("/image")
     public R<String> uploadImage(@RequestParam("file") MultipartFile file) throws IOException {
-        StpKit.APP.checkLogin();
         String url = uploadService.uploadImage(file);
         return R.ok(url);
     }

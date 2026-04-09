@@ -1,8 +1,8 @@
 <template>
   <view class="page">
     <view class="card">
-      <text class="title">开通成功</text>
-      <text class="desc">感谢支持，解析已解锁</text>
+      <text class="title">提交成功</text>
+      <text class="desc">信息已提交，可返回继续使用。</text>
       <button class="primary-btn" @tap="backHome">返回首页</button>
     </view>
   </view>

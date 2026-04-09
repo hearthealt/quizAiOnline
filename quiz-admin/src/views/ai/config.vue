@@ -122,6 +122,7 @@
           <n-descriptions-item label="API Key">{{ testResult.apiKey }}</n-descriptions-item>
           <n-descriptions-item label="Base URL">{{ testResult.baseUrl }}</n-descriptions-item>
           <n-descriptions-item label="模型">{{ testResult.model }}</n-descriptions-item>
+          <n-descriptions-item v-if="testResult.mode" label="调用链路">{{ testResult.mode }}</n-descriptions-item>
           <n-descriptions-item v-if="testResult.reply" label="AI 回复">{{ testResult.reply }}</n-descriptions-item>
           <n-descriptions-item v-if="testResult.error" label="错误信息">
             <span class="error-text">{{ testResult.error }}</span>
@@ -188,6 +189,7 @@ const testResult = ref<{
   apiKey: string
   baseUrl: string
   model: string
+  mode?: string
   reply?: string
   error?: string
 } | null>(null)
@@ -342,14 +344,15 @@ async function handleTest() {
       temperature: formData.value.temperature
     }) as any
   } catch (e: any) {
-    testResult.value = {
-      success: false,
-      provider: formData.value.provider,
-      apiKey: '',
-      baseUrl: formData.value.baseUrl,
-      model: formData.value.model,
-      error: e.message || '请求异常'
-    }
+      testResult.value = {
+        success: false,
+        provider: formData.value.provider,
+        apiKey: '',
+        baseUrl: formData.value.baseUrl,
+        model: formData.value.model,
+        mode: '',
+        error: e.message || '请求异常'
+      }
   } finally {
     testing.value = false
     showTestModal.value = true

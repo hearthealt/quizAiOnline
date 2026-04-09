@@ -11,6 +11,7 @@ import com.quiz.mapper.PracticeDetailMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.SysConfigService;
 import com.quiz.service.UserService;
+import com.quiz.service.model.WxLoginResult;
 import com.quiz.util.SecurityUtils;
 import com.quiz.util.WxUtil;
 import com.quiz.vo.app.StudyStatsVO;
@@ -31,7 +32,6 @@ import static com.quiz.entity.table.UserTableDef.USER;
 @Service
 public class UserServiceImpl implements UserService {
 
-    private static final String DEFAULT_AVATAR = "/static/default-avatar.png";
     private static final String DEFAULT_NICKNAME = "微信用户";
     @Autowired
     private UserMapper userMapper;
@@ -50,7 +50,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public User wxLogin(WxLoginDTO dto) {
+    public WxLoginResult wxLogin(WxLoginDTO dto) {
+        log.info("wxLogin start - hasCode: {}, nickname: '{}', hasAvatar: {}, hasPhoneCode: {}",
+                dto.getCode() != null && !dto.getCode().isEmpty(),
+                normalize(dto.getNickname()),
+                dto.getAvatar() != null && !dto.getAvatar().trim().isEmpty(),
+                dto.getPhoneCode() != null && !dto.getPhoneCode().isEmpty());
+
         // 优先从系统配置读取，回退到application.yml配置
         String appId = sysConfigService.getValue("wxAppId", wxAppId);
         String appSecret = sysConfigService.getValue("wxAppSecret", wxAppSecret);
@@ -59,8 +65,11 @@ public class UserServiceImpl implements UserService {
         QueryWrapper query = QueryWrapper.create()
                 .where(USER.OPENID.eq(openid));
         User user = userMapper.selectOneByQuery(query);
+        boolean createdUser = user == null;
+        boolean needProfileCompletion;
+        log.info("wxLogin user lookup - existingUser: {}", user != null);
 
-        if (user == null) {
+        if (createdUser) {
             // 检查是否开放注册
             String registerEnabled = sysConfigService.getValue("registerEnabled", "1");
             if (!"1".equals(registerEnabled)) {
@@ -68,7 +77,6 @@ public class UserServiceImpl implements UserService {
             }
 
             // 新用户注册，使用微信传来的昵称和头像
-            String defaultAvatar = DEFAULT_AVATAR;
             String defaultNickname = DEFAULT_NICKNAME;
 
             user = new User();
@@ -76,10 +84,12 @@ public class UserServiceImpl implements UserService {
             String wxNickname = normalize(dto.getNickname());
             String wxAvatar = normalize(dto.getAvatar());
             user.setNickname(!wxNickname.isEmpty() ? wxNickname : defaultNickname);
-            user.setAvatar(!wxAvatar.isEmpty() ? wxAvatar : defaultAvatar);
+            user.setAvatar(wxAvatar);
             user.setStatus(1);
             user.setIsVip(0);
             user.setLastLoginTime(LocalDateTime.now());
+            log.info("wxLogin register user - nickname: '{}', avatar: '{}'",
+                    user.getNickname(), user.getAvatar());
 
             // 如果传了 phoneCode，通过微信接口获取手机号
             if (dto.getPhoneCode() != null && !dto.getPhoneCode().isEmpty()) {
@@ -90,27 +100,23 @@ public class UserServiceImpl implements UserService {
             }
 
             userMapper.insert(user);
+            log.info("wxLogin register insert success - userId: {}", user.getId());
+            needProfileCompletion = true;
         } else {
             String wxNickname = normalize(dto.getNickname());
             String wxAvatar = normalize(dto.getAvatar());
-            String defaultAvatar = DEFAULT_AVATAR;
-            String defaultNickname = DEFAULT_NICKNAME;
             // 老用户登录：仅当用户未自定义（默认值或空）时才用微信返回的昵称/头像更新
-            String currentNickname = user.getNickname();
-            String currentAvatar = user.getAvatar();
-            boolean nicknameIsDefault = currentNickname == null || currentNickname.trim().isEmpty() 
-                    || defaultNickname.equals(currentNickname.trim());
-            boolean avatarIsDefault = currentAvatar == null || currentAvatar.trim().isEmpty() 
-                    || defaultAvatar.equals(currentAvatar.trim());
+            boolean nicknameIsDefault = isDefaultNickname(user.getNickname());
+            boolean avatarIsDefault = isDefaultAvatar(user.getAvatar());
             if (nicknameIsDefault && !wxNickname.isEmpty()) {
                 user.setNickname(wxNickname);
             } else if (nicknameIsDefault) {
-                user.setNickname(defaultNickname);
+                user.setNickname(DEFAULT_NICKNAME);
             }
             if (avatarIsDefault && !wxAvatar.isEmpty()) {
                 user.setAvatar(wxAvatar);
             } else if (avatarIsDefault) {
-                user.setAvatar(defaultAvatar);
+                user.setAvatar("");
             }
             // 绑定手机号（之前没有且这次传了）
             if (user.getPhone() == null && dto.getPhoneCode() != null && !dto.getPhoneCode().isEmpty()) {
@@ -121,13 +127,35 @@ public class UserServiceImpl implements UserService {
             }
             user.setLastLoginTime(LocalDateTime.now());
             userMapper.update(user);
+            log.info("wxLogin update existing user - userId: {}, nickname: '{}', avatar: '{}'",
+                    user.getId(), user.getNickname(), user.getAvatar());
+            needProfileCompletion = !hasCompletedProfile(user);
         }
 
-        return user;
+        log.info("wxLogin finish - userId: {}, finalNickname: '{}', finalAvatar: '{}', needProfileCompletion: {}",
+                user.getId(), user.getNickname(), user.getAvatar(), needProfileCompletion);
+        return new WxLoginResult(user, needProfileCompletion);
     }
 
     private String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private boolean isDefaultNickname(String nickname) {
+        String value = normalize(nickname);
+        return value.isEmpty() || DEFAULT_NICKNAME.equals(value);
+    }
+
+    private boolean isDefaultAvatar(String avatar) {
+        return normalizeAvatar(avatar).isEmpty();
+    }
+
+    private boolean hasCompletedProfile(User user) {
+        return !isDefaultNickname(user.getNickname()) && !isDefaultAvatar(user.getAvatar());
+    }
+
+    private String normalizeAvatar(String avatar) {
+        return normalize(avatar);
     }
 
     @Override
@@ -170,7 +198,7 @@ public class UserServiceImpl implements UserService {
         UserInfoVO vo = new UserInfoVO();
         vo.setId(user.getId());
         vo.setNickname(user.getNickname());
-        vo.setAvatar(user.getAvatar());
+        vo.setAvatar(normalizeAvatar(user.getAvatar()));
         vo.setPhone(user.getPhone());
         vo.setIsVip(isVipActive ? 1 : 0);
         vo.setVipExpireTime(user.getVipExpireTime());
@@ -189,7 +217,7 @@ public class UserServiceImpl implements UserService {
             user.setNickname(dto.getNickname());
         }
         if (dto.getAvatar() != null) {
-            user.setAvatar(dto.getAvatar());
+            user.setAvatar(normalizeAvatar(dto.getAvatar()));
         }
         if (dto.getPhone() != null) {
             String phone = dto.getPhone().trim();

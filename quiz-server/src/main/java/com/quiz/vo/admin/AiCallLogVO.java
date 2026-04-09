@@ -18,6 +18,11 @@ public class AiCallLogVO {
 
     private String mode;
 
+    /**
+     * 实际调用链路: responses / chat / chat-minimal / chat-stream-fallback
+     */
+    private String route;
+
     private String prompt;
 
     private String result;

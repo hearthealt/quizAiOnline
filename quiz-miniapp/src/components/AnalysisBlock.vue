@@ -2,11 +2,10 @@
   <view class="analysis">
     <view class="analysis-header">
       <text class="analysis-title">题目解析</text>
-      <text v-if="isVip" class="analysis-tag">VIP</text>
     </view>
     <view v-if="!isVip" class="vip-tip">
-      <text class="vip-text">开通VIP解锁完整解析</text>
-      <button class="vip-btn" @tap="goVip">立即开通</button>
+      <text class="vip-text">查看完整解析请先阅读功能说明</text>
+      <button class="vip-btn" @tap="goVip">功能说明</button>
     </view>
     <view class="analysis-content" :class="{ blur: !isVip }">
       <text v-if="analysis">{{ analysis }}</text>
@@ -46,14 +45,6 @@ const goVip = () => {
 .analysis-title {
   font-size: 30rpx;
   font-weight: 600;
-}
-
-.analysis-tag {
-  font-size: 22rpx;
-  color: #d97706;
-  background: #fef3c7;
-  padding: 4rpx 12rpx;
-  border-radius: 999rpx;
 }
 
 .analysis-content {

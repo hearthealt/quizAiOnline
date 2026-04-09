@@ -81,7 +81,7 @@ export function useAuth() {
    */
   const requireLogin = (message = '请先登录'): boolean => {
     if (!isLogin.value) {
-      userStore.requestLogin(null, message);
+      uni.showToast({ title: message, icon: 'none' });
       return false;
     }
     return true;
@@ -90,13 +90,13 @@ export function useAuth() {
   /**
    * 检查VIP状态
    */
-  const requireVip = (message = '该功能需要VIP'): boolean => {
+  const requireVip = (message = '请先查看功能说明'): boolean => {
     if (!requireLogin()) return false;
     if (!isVip.value) {
       uni.showModal({
         title: '温馨提示',
         content: message,
-        confirmText: '开通VIP',
+        confirmText: '查看说明',
         success: (res) => {
           if (res.confirm) {
             uni.navigateTo({ url: '/pages/vip/index' });

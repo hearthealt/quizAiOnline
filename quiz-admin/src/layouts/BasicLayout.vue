@@ -52,7 +52,7 @@
 
           <n-dropdown :options="userMenuOptions" trigger="click" @select="handleUserMenuSelect">
             <div class="user-chip">
-              <n-avatar :src="adminInfo?.avatar" :size="38" round>
+              <n-avatar :src="resolveAssetUrl(adminInfo?.avatar)" :size="38" round>
                 <template #fallback>
                   <div class="avatar-fallback">{{ (adminInfo?.nickname || adminInfo?.username || "A").slice(0, 1) }}</div>
                 </template>
@@ -75,7 +75,7 @@
       <n-form label-placement="left" label-width="84">
         <n-form-item label="头像">
           <div class="avatar-upload">
-            <n-avatar :src="profileForm.avatar || adminInfo?.avatar" :size="68" round>
+            <n-avatar :src="resolveAssetUrl(profileForm.avatar || adminInfo?.avatar)" :size="68" round>
               <template #fallback>
                 <div class="avatar-fallback">{{ (adminInfo?.nickname || adminInfo?.username || "A").slice(0, 1) }}</div>
               </template>
@@ -141,6 +141,7 @@ import { useAppStore } from '@/stores/app'
 import { changePassword } from '@/api/auth'
 import { updateAdmin } from '@/api/admin'
 import { uploadImage } from '@/api/upload'
+import { resolveAssetUrl } from '@/utils/assets'
 import {
   BookOutline,
   BuildOutline,

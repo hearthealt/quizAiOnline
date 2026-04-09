@@ -60,11 +60,6 @@ public final class CommonConstant {
     public static final String ROLE_USER = "user";
 
     /**
-     * 默认头像
-     */
-    public static final String DEFAULT_AVATAR = "/static/default-avatar.png";
-
-    /**
      * 是
      */
     public static final int YES = 1;

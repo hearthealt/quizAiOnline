@@ -1,24 +1,24 @@
 <template>
   <view class="page">
     <view class="header">
-      <text class="title">订单列表</text>
-      <text class="sub">人工审核后会自动生效</text>
+      <text class="title">提交记录</text>
+      <text class="sub">可在这里查看处理状态</text>
     </view>
 
     <view v-if="orders.length" class="list">
       <view v-for="item in orders" :key="item.id" class="order-card">
         <view class="order-top">
-          <text class="order-name">{{ item.planName || "会员套餐" }}</text>
+          <text class="order-name">功能说明记录</text>
           <text class="order-status" :class="statusClass(item.status)">{{ statusText(item.status) }}</text>
         </view>
         <view class="order-meta">
-          <text>金额 ¥{{ item.amount }}</text>
-          <text>时长 {{ item.duration || 0 }} 天</text>
+          <text>记录编号 {{ item.orderNo || item.id }}</text>
+          <text>处理进度 {{ statusText(item.status) }}</text>
         </view>
-        <text class="order-time">下单时间 {{ item.createTime }}</text>
+        <text class="order-time">提交时间 {{ item.createTime }}</text>
       </view>
     </view>
-    <EmptyState v-else title="暂无订单" description="提交订单后会显示在这里" />
+    <EmptyState v-else title="暂无记录" description="提交后会显示在这里" />
 
     <LoadMore :status="loadStatus" />
   </view>
@@ -37,8 +37,8 @@ const total = ref(0);
 const loadStatus = ref<"more" | "loading" | "nomore">("more");
 
 const statusText = (status?: number) => {
-  if (status === 1) return "已开通";
-  return "待确认";
+  if (status === 1) return "已处理";
+  return "处理中";
 };
 
 const statusClass = (status?: number) => (status === 1 ? "success" : "pending");
@@ -46,15 +46,24 @@ const statusClass = (status?: number) => (status === 1 ? "success" : "pending");
 const fetchOrders = async () => {
   if (loadStatus.value === "loading" || loadStatus.value === "nomore") return;
   loadStatus.value = "loading";
-  const res = await getVipOrders(pageNum.value, 10);
-  orders.value = orders.value.concat(res.list || []);
-  total.value = res.total;
-  loadStatus.value = orders.value.length >= total.value ? "nomore" : "more";
-  pageNum.value += 1;
+  try {
+    const res = await getVipOrders(pageNum.value, 10);
+    orders.value = orders.value.concat(res.list || []);
+    total.value = res.total;
+    loadStatus.value = orders.value.length >= total.value ? "nomore" : "more";
+    pageNum.value += 1;
+  } catch (error) {
+    loadStatus.value = "more";
+    throw error;
+  }
 };
 
-onLoad(fetchOrders);
-onReachBottom(fetchOrders);
+onLoad(() => {
+  void fetchOrders().catch(() => null);
+});
+onReachBottom(() => {
+  void fetchOrders().catch(() => null);
+});
 </script>
 
 <style lang="scss" scoped>

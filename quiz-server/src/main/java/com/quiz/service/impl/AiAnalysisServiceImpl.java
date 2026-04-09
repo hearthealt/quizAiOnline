@@ -1,5 +1,6 @@
 package com.quiz.service.impl;
 
+import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
@@ -30,7 +31,7 @@ import cn.hutool.core.bean.BeanUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -57,6 +58,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private final AdminMapper adminMapper;
     private final SysConfigService sysConfigService;
     private final OkHttpClient okHttpClient;
+    private final ThreadPoolTaskExecutor aiTaskExecutor;
 
     @Override
     public AiConfig getConfig() {
@@ -115,9 +117,10 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         result.put("model", config.getModel());
 
         try {
-            String reply = callAi(config, "请回复：连接成功");
+            AiTextResult aiResult = callAiWithRoute(config, "请回复：连接成功");
             result.put("success", true);
-            result.put("reply", reply);
+            result.put("reply", aiResult.content());
+            result.put("mode", aiResult.route());
         } catch (Exception e) {
             log.error("AI连通测试失败", e);
             result.put("success", false);
@@ -213,9 +216,11 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         callLog.setCreateTime(LocalDateTime.now());
 
         try {
-            String result = callAi(config, prompt);
+            AiTextResult aiResult = callAiWithRoute(config, prompt);
+            String result = aiResult.content();
             long costMs = System.currentTimeMillis() - startTime;
             callLog.setResult(result);
+            callLog.setRoute(aiResult.route());
             callLog.setCostMs((int) costMs);
             callLog.setStatus(1);
 
@@ -240,14 +245,15 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         }
     }
 
-    @Async
     @Override
     public void generateAsync(Long questionId, String mode, Long operatorId) {
-        try {
-            generate(questionId, mode, operatorId);
-        } catch (Exception e) {
-            log.error("异步AI生成失败, questionId={}, mode={}", questionId, mode, e);
-        }
+        aiTaskExecutor.execute(() -> {
+            try {
+                generate(questionId, mode, operatorId);
+            } catch (Exception e) {
+                log.error("异步AI生成失败, questionId={}, mode={}", questionId, mode, e);
+            }
+        });
     }
 
     @Override
@@ -263,15 +269,70 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             throw new BizException("请指定题库或题目");
         }
 
-        // 异步执行每个题目的生成
-        for (Question q : questions) {
-            generateAsync(q.getId(), dto.getMode(), operatorId);
+        String mode = dto.getMode();
+        List<Question> eligibleQuestions = questions.stream()
+                .filter(Objects::nonNull)
+                .filter(question -> !shouldSkipForMode(question, mode))
+                .toList();
+
+        int skippedCount = questions.size() - eligibleQuestions.size();
+
+        List<Long> questionIds = eligibleQuestions.stream()
+                .map(Question::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (questionIds.isEmpty()) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("total", questions.size());
+            result.put("submitted", 0);
+            result.put("skipped", skippedCount);
+            result.put("message", skippedCount > 0
+                    ? "没有符合条件的题目，已跳过" + skippedCount + "道已有内容的题目"
+                    : "没有符合条件的题目");
+            return result;
         }
+
+        // 提交单个后台批处理任务，避免大量题目时瞬间塞满线程池和 AI 接口
+        aiTaskExecutor.execute(() -> runBatchGenerate(questionIds, mode, operatorId));
 
         Map<String, Object> result = new HashMap<>();
         result.put("total", questions.size());
-        result.put("message", "已提交" + questions.size() + "道题目的AI生成任务，后台处理中");
+        result.put("submitted", questionIds.size());
+        result.put("skipped", skippedCount);
+        result.put("message", "已提交" + questionIds.size() + "道题目的AI生成任务，后台排队处理中"
+                + (skippedCount > 0 ? "，并跳过" + skippedCount + "道已有内容的题目" : ""));
         return result;
+    }
+
+    private void runBatchGenerate(List<Long> questionIds, String mode, Long operatorId) {
+        int success = 0;
+        int failed = 0;
+        for (Long questionId : questionIds) {
+            try {
+                generate(questionId, mode, operatorId);
+                success++;
+            } catch (Exception e) {
+                failed++;
+                log.error("批量AI生成失败, questionId={}, mode={}", questionId, mode, e);
+            }
+        }
+        log.info("批量AI生成完成, mode={}, total={}, success={}, failed={}",
+                mode, questionIds.size(), success, failed);
+    }
+
+    private boolean shouldSkipForMode(Question question, String mode) {
+        return switch (mode) {
+            case "GENERATE_ANALYSIS" -> hasText(question.getAnalysis());
+            case "GENERATE_ANSWER" -> hasText(question.getAnswer());
+            case "GENERATE_BOTH" -> hasText(question.getAnswer()) || hasText(question.getAnalysis());
+            default -> false;
+        };
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     @Override
@@ -322,12 +383,35 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
 
     private String callAi(AiConfig config, String prompt) {
+        return callAiWithRoute(config, prompt).content();
+    }
+
+    private AiTextResult callAiWithRoute(AiConfig config, String prompt) {
         validateConfig(config);
-        String url = AiProviderUtil.buildChatCompletionsUrl(config.getProvider(), config.getBaseUrl());
         List<Map<String, String>> messages = List.of(Map.of("role", "user", "content", prompt));
+        String url = AiProviderUtil.buildChatCompletionsUrl(config.getProvider(), config.getBaseUrl());
+        return callAiByChatCompletions(config, url, messages);
+    }
+
+    private AiTextResult callAiByChatCompletions(AiConfig config, String url, List<Map<String, String>> messages) {
         JSONObject body = buildChatBody(config, messages, true);
         String responseBody = executeChatRequest(url, config.getApiKey(), body, true);
-        return parseChatContent(responseBody);
+        try {
+            String content = parseChatContent(responseBody);
+            log.info("AI调用链路 route=chat, model={}, baseUrl={}", config.getModel(), config.getBaseUrl());
+            return new AiTextResult(content, "chat");
+        } catch (BizException e) {
+            if (!shouldRetryWithMinimalBody(e, body)) {
+                throw e;
+            }
+            log.warn("AI Chat Completions 返回空内容，改用最小请求体重试一次，model={}, baseUrl={}",
+                    config.getModel(), config.getBaseUrl());
+            JSONObject minimalBody = buildChatBody(config, messages, false);
+            String retriedResponse = executeChatRequest(url, config.getApiKey(), minimalBody, false);
+            String content = parseChatContent(retriedResponse);
+            log.info("AI调用链路 route=chat, model={}, baseUrl={}", config.getModel(), config.getBaseUrl());
+            return new AiTextResult(content, "chat");
+        }
     }
 
     private JSONObject buildChatBody(AiConfig config, List<Map<String, String>> messages, boolean includeOptionalParams) {
@@ -354,6 +438,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 .url(url)
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "quiz-ai-online/1.0")
                 .post(RequestBody.create(
                         body.toString().getBytes(StandardCharsets.UTF_8),
                         MediaType.parse("application/json")
@@ -381,9 +466,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         log.debug("AI API响应: {}", responseBody);
         JSONObject json = JSONUtil.parseObj(responseBody);
 
-        if (json.containsKey("error")) {
-            JSONObject error = json.getJSONObject("error");
-            String errorMsg = error != null ? error.getStr("message", "Unknown error") : "Unknown error";
+        String errorMsg = extractApiErrorMessage(json);
+        if (errorMsg != null) {
             throw new BizException("AI API错误: " + errorMsg);
         }
 
@@ -395,15 +479,154 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         if (firstChoice == null) {
             throw new BizException("AI API返回数据异常: choice为空");
         }
-        JSONObject message = firstChoice.getJSONObject("message");
-        if (message == null) {
-            throw new BizException("AI API返回数据异常: message为空");
-        }
-        String content = message.getStr("content");
-        if (content == null || content.trim().isEmpty()) {
+        String content = extractChoiceContent(firstChoice);
+        if (!hasText(content)) {
+            String reasoningContent = extractReasoningContent(firstChoice);
+            if (hasText(reasoningContent)) {
+                throw new BizException("AI API未返回最终答复，只返回了推理内容");
+            }
+            log.warn("AI API返回内容为空，响应片段: {}", abbreviateResponse(responseBody));
             throw new BizException("AI API返回内容为空");
         }
-        return content;
+        return content.trim();
+    }
+
+    private String extractChoiceContent(JSONObject choice) {
+        if (choice == null) {
+            return null;
+        }
+        String directText = choice.getStr("text");
+        if (hasText(directText)) {
+            return directText;
+        }
+        JSONObject message = choice.getJSONObject("message");
+        if (message != null) {
+            String messageContent = extractContentValue(message.get("content"));
+            if (hasText(messageContent)) {
+                return messageContent;
+            }
+        }
+        JSONObject delta = choice.getJSONObject("delta");
+        if (delta != null) {
+            String deltaContent = extractContentValue(delta.get("content"));
+            if (hasText(deltaContent)) {
+                return deltaContent;
+            }
+        }
+        return null;
+    }
+
+    private String extractReasoningContent(JSONObject choice) {
+        if (choice == null) {
+            return null;
+        }
+        JSONObject message = choice.getJSONObject("message");
+        if (message != null) {
+            String reasoningContent = extractContentValue(message.get("reasoning_content"));
+            if (hasText(reasoningContent)) {
+                return reasoningContent;
+            }
+        }
+        return extractContentValue(choice.get("reasoning_content"));
+    }
+
+    private String extractContentValue(Object rawContent) {
+        if (rawContent == null) {
+            return null;
+        }
+        if (rawContent instanceof CharSequence sequence) {
+            return sequence.toString();
+        }
+        if (rawContent instanceof JSONArray array) {
+            List<String> parts = new ArrayList<>();
+            for (Object item : array) {
+                String part = extractContentValue(item);
+                if (hasText(part)) {
+                    parts.add(part.trim());
+                }
+            }
+            return parts.isEmpty() ? null : String.join("\n", parts);
+        }
+        if (rawContent instanceof JSONObject object) {
+            String text = firstNonBlank(
+                    extractContentValue(object.get("text")),
+                    extractContentValue(object.get("content")),
+                    object.getStr("value"),
+                    object.getStr("output_text")
+            );
+            if (hasText(text)) {
+                return text;
+            }
+            return null;
+        }
+        if (rawContent instanceof Number || rawContent instanceof Boolean) {
+            return String.valueOf(rawContent);
+        }
+        return null;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String abbreviateResponse(String responseBody) {
+        if (responseBody == null) {
+            return "";
+        }
+        String normalized = responseBody.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= 300) {
+            return normalized;
+        }
+        return normalized.substring(0, 300) + "...";
+    }
+
+    private String extractApiErrorMessage(JSONObject json) {
+        if (json == null || !json.containsKey("error")) {
+            return null;
+        }
+        Object rawError = json.get("error");
+        if (rawError == null) {
+            return null;
+        }
+        if (rawError instanceof JSONObject errorObject) {
+            String message = firstNonBlank(
+                    errorObject.getStr("message"),
+                    errorObject.getStr("code"),
+                    errorObject.toString()
+            );
+            return hasText(message) ? message : null;
+        }
+        if (rawError instanceof CharSequence sequence) {
+            String message = sequence.toString().trim();
+            return message.isEmpty() ? null : message;
+        }
+        String message = String.valueOf(rawError).trim();
+        return message.isEmpty() || "null".equalsIgnoreCase(message) ? null : message;
+    }
+
+    private boolean shouldRetryWithMinimalBody(BizException exception, JSONObject body) {
+        if (exception == null || body == null) {
+            return false;
+        }
+        boolean hasOptionalParams = body.containsKey("max_completion_tokens")
+                || body.containsKey("max_tokens")
+                || body.containsKey("temperature");
+        if (!hasOptionalParams) {
+            return false;
+        }
+        String message = exception.getMessage();
+        return message != null && message.contains("AI API返回内容为空");
+    }
+
+    private record AiTextResult(String content, String route) {
     }
 
     private boolean preferMaxCompletionTokens(String model) {

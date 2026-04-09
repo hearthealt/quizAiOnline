@@ -3,6 +3,7 @@ import { request } from "@/utils/request";
 export type LoginVO = {
   token: string;
   userInfo: UserInfo;
+  newUser: boolean;
 };
 
 export type UserInfo = {
@@ -28,10 +29,11 @@ export const phoneLogin = (phone: string, password: string) =>
     data: { phone, password }
   });
 
-export const logout = () =>
+export const logout = (silent = false) =>
   request<void>({
     url: "/api/app/auth/logout",
-    method: "POST"
+    method: "POST",
+    silent
   });
 
 export const getInfo = () =>

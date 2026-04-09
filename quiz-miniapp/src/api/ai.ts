@@ -21,7 +21,8 @@ export const aiChat = (message: string, history: ChatMessage[] = []) =>
   request<AiChatVO>({
     url: "/api/app/ai/chat",
     method: "POST",
-    data: { message, history }
+    data: { message, history },
+    timeout: 60000
   });
 
 export const getAiHistory = () =>

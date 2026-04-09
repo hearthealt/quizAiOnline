@@ -1,5 +1,6 @@
 package com.quiz.service.impl;
 
+import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.quiz.common.enums.BizCode;
@@ -81,7 +82,9 @@ public class AiChatServiceImpl implements AiChatService {
 
         try {
             AiChatResult result = callAi(config, messages);
+            log.info("AI对话链路 route={}, model={}, userId={}", result.route(), config.getModel(), userId);
             callLog.setResult(result.content());
+            callLog.setRoute(result.route());
             callLog.setTokensUsed(result.tokensUsed());
             callLog.setCostMs((int) (System.currentTimeMillis() - startTime));
             callLog.setStatus(1);
@@ -121,9 +124,24 @@ public class AiChatServiceImpl implements AiChatService {
     private AiChatResult callAi(AiConfig config, List<Map<String, String>> messages) {
         validateConfig(config);
         String url = AiProviderUtil.buildChatCompletionsUrl(config.getProvider(), config.getBaseUrl());
+        return callAiByChatCompletions(config, url, messages);
+    }
+
+    private AiChatResult callAiByChatCompletions(AiConfig config, String url, List<Map<String, String>> messages) {
         JSONObject body = buildChatBody(config, messages, true);
         String responseBody = executeChatRequest(url, config.getApiKey(), body, true);
-        return parseChatResult(responseBody);
+        try {
+            return parseChatResult(responseBody).withRoute("chat");
+        } catch (BizException e) {
+            if (!shouldRetryWithMinimalBody(e, body)) {
+                throw e;
+            }
+            log.warn("AI Chat Completions 返回空内容，改用最小请求体重试一次，model={}, baseUrl={}",
+                    config.getModel(), config.getBaseUrl());
+            JSONObject minimalBody = buildChatBody(config, messages, false);
+            String retriedResponse = executeChatRequest(url, config.getApiKey(), minimalBody, false);
+            return parseChatResult(retriedResponse).withRoute("chat");
+        }
     }
 
     private JSONObject buildChatBody(AiConfig config, List<Map<String, String>> messages, boolean includeOptionalParams) {
@@ -150,6 +168,7 @@ public class AiChatServiceImpl implements AiChatService {
                 .url(url)
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "quiz-ai-online/1.0")
                 .post(RequestBody.create(
                         body.toString().getBytes(StandardCharsets.UTF_8),
                         MediaType.parse("application/json")
@@ -175,9 +194,8 @@ public class AiChatServiceImpl implements AiChatService {
 
     private AiChatResult parseChatResult(String responseBody) {
         JSONObject json = JSONUtil.parseObj(responseBody);
-        if (json.containsKey("error")) {
-            JSONObject error = json.getJSONObject("error");
-            String errorMsg = error != null ? error.getStr("message", "Unknown error") : "Unknown error";
+        String errorMsg = extractApiErrorMessage(json);
+        if (errorMsg != null) {
             throw new BizException("AI API错误: " + errorMsg);
         }
         cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
@@ -188,12 +206,13 @@ public class AiChatServiceImpl implements AiChatService {
         if (firstChoice == null) {
             throw new BizException("AI API返回数据异常: choice为空");
         }
-        JSONObject message = firstChoice.getJSONObject("message");
-        if (message == null) {
-            throw new BizException("AI API返回数据异常: message为空");
-        }
-        String content = message.getStr("content");
-        if (content == null || content.trim().isEmpty()) {
+        String content = extractChoiceContent(firstChoice);
+        if (!hasText(content)) {
+            String reasoningContent = extractReasoningContent(firstChoice);
+            if (hasText(reasoningContent)) {
+                throw new BizException("AI API未返回最终答复，只返回了推理内容");
+            }
+            log.warn("AI API返回内容为空，响应片段: {}", abbreviateResponse(responseBody));
             throw new BizException("AI API返回内容为空");
         }
         Integer tokensUsed = null;
@@ -201,7 +220,146 @@ public class AiChatServiceImpl implements AiChatService {
             JSONObject usage = json.getJSONObject("usage");
             tokensUsed = usage.getInt("total_tokens");
         }
-        return new AiChatResult(content, tokensUsed);
+        return new AiChatResult(content.trim(), tokensUsed, null);
+    }
+
+    private String extractChoiceContent(JSONObject choice) {
+        if (choice == null) {
+            return null;
+        }
+        String directText = choice.getStr("text");
+        if (hasText(directText)) {
+            return directText;
+        }
+        JSONObject message = choice.getJSONObject("message");
+        if (message != null) {
+            String messageContent = extractContentValue(message.get("content"));
+            if (hasText(messageContent)) {
+                return messageContent;
+            }
+        }
+        JSONObject delta = choice.getJSONObject("delta");
+        if (delta != null) {
+            String deltaContent = extractContentValue(delta.get("content"));
+            if (hasText(deltaContent)) {
+                return deltaContent;
+            }
+        }
+        return null;
+    }
+
+    private String extractReasoningContent(JSONObject choice) {
+        if (choice == null) {
+            return null;
+        }
+        JSONObject message = choice.getJSONObject("message");
+        if (message != null) {
+            String reasoningContent = extractContentValue(message.get("reasoning_content"));
+            if (hasText(reasoningContent)) {
+                return reasoningContent;
+            }
+        }
+        return extractContentValue(choice.get("reasoning_content"));
+    }
+
+    private String extractContentValue(Object rawContent) {
+        if (rawContent == null) {
+            return null;
+        }
+        if (rawContent instanceof CharSequence sequence) {
+            return sequence.toString();
+        }
+        if (rawContent instanceof JSONArray array) {
+            List<String> parts = new ArrayList<>();
+            for (Object item : array) {
+                String part = extractContentValue(item);
+                if (hasText(part)) {
+                    parts.add(part.trim());
+                }
+            }
+            return parts.isEmpty() ? null : String.join("\n", parts);
+        }
+        if (rawContent instanceof JSONObject object) {
+            String text = firstNonBlank(
+                    extractContentValue(object.get("text")),
+                    extractContentValue(object.get("content")),
+                    object.getStr("value"),
+                    object.getStr("output_text")
+            );
+            if (hasText(text)) {
+                return text;
+            }
+            return null;
+        }
+        if (rawContent instanceof Number || rawContent instanceof Boolean) {
+            return String.valueOf(rawContent);
+        }
+        return null;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private String abbreviateResponse(String responseBody) {
+        if (responseBody == null) {
+            return "";
+        }
+        String normalized = responseBody.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= 300) {
+            return normalized;
+        }
+        return normalized.substring(0, 300) + "...";
+    }
+
+    private String extractApiErrorMessage(JSONObject json) {
+        if (json == null || !json.containsKey("error")) {
+            return null;
+        }
+        Object rawError = json.get("error");
+        if (rawError == null) {
+            return null;
+        }
+        if (rawError instanceof JSONObject errorObject) {
+            String message = firstNonBlank(
+                    errorObject.getStr("message"),
+                    errorObject.getStr("code"),
+                    errorObject.toString()
+            );
+            return hasText(message) ? message : null;
+        }
+        if (rawError instanceof CharSequence sequence) {
+            String message = sequence.toString().trim();
+            return message.isEmpty() ? null : message;
+        }
+        String message = String.valueOf(rawError).trim();
+        return message.isEmpty() || "null".equalsIgnoreCase(message) ? null : message;
+    }
+
+    private boolean shouldRetryWithMinimalBody(BizException exception, JSONObject body) {
+        if (exception == null || body == null) {
+            return false;
+        }
+        boolean hasOptionalParams = body.containsKey("max_completion_tokens")
+                || body.containsKey("max_tokens")
+                || body.containsKey("temperature");
+        if (!hasOptionalParams) {
+            return false;
+        }
+        String message = exception.getMessage();
+        return message != null && message.contains("AI API返回内容为空");
     }
 
     private boolean preferMaxCompletionTokens(String model) {
@@ -264,7 +422,11 @@ public class AiChatServiceImpl implements AiChatService {
         config.setBaseUrl(baseUrl);
     }
 
-    private record AiChatResult(String content, Integer tokensUsed) {}
+    private record AiChatResult(String content, Integer tokensUsed, String route) {
+        private AiChatResult withRoute(String value) {
+            return new AiChatResult(content, tokensUsed, value);
+        }
+    }
     
     private void saveMessage(Long userId, String role, String content) {
         AiChatMessage msg = new AiChatMessage();

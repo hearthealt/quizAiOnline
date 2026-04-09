@@ -6,6 +6,7 @@ import com.quiz.dto.app.WxLoginDTO;
 import com.quiz.entity.User;
 import com.quiz.service.UserService;
 import com.quiz.service.WxAuthService;
+import com.quiz.service.model.WxLoginResult;
 import com.quiz.vo.app.LoginVO;
 import com.quiz.vo.app.UserInfoVO;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +20,13 @@ public class WxAuthServiceImpl implements WxAuthService {
 
     @Override
     public LoginVO wxLogin(WxLoginDTO dto) {
-        User user = userService.wxLogin(dto);
+        WxLoginResult result = userService.wxLogin(dto);
+        User user = result.getUser();
         StpKit.APP.login(user.getId());
         LoginVO vo = new LoginVO();
         vo.setToken(StpKit.APP.getTokenValue());
         vo.setUserInfo(userService.getUserInfo(user.getId()));
+        vo.setNewUser(result.isNewUser());
         return vo;
     }
 
@@ -34,6 +37,7 @@ public class WxAuthServiceImpl implements WxAuthService {
         LoginVO vo = new LoginVO();
         vo.setToken(StpKit.APP.getTokenValue());
         vo.setUserInfo(userService.getUserInfo(user.getId()));
+        vo.setNewUser(false);
         return vo;
     }
 
