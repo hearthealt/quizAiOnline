@@ -1,9 +1,9 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:quiz_ai_online}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    url: jdbc:mysql://127.0.0.1:3306/quiz_ai_online?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=true
+    username: quiz_ai_online
+    password: change_me
     hikari:
       minimum-idle: 10
       maximum-pool-size: 30
@@ -13,10 +13,10 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: 0
+      host: 127.0.0.1
+      port: 6379
+      password:
+      database: 1
       lettuce:
         pool:
           max-active: 16
@@ -24,16 +24,13 @@ spring:
           min-idle: 2
           max-wait: -1ms
 
-# MyBatis-Flex 生产环境关闭SQL日志
 mybatis-flex:
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
 
-# 文件上传路径
 file:
-  upload-path: ${UPLOAD_PATH:/data/quiz/uploads/}
+  upload-path: /www/wwwroot/quizAiOnline/uploads/
 
-# 日志级别
 logging:
   level:
     com.quiz: info

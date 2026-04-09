@@ -82,8 +82,11 @@ mysql -u root -p < sql/quiz_ai_online.sql
 ```bash
 cd quiz-server
 
-# 修改配置文件
-# src/main/resources/application.yml
+# 复制生产配置模板并填写自己的数据库 / Redis / 上传目录
+# Windows:
+copy src\main\resources\application-prod.example.yml src\main\resources\application-prod.yml
+# macOS / Linux:
+cp src/main/resources/application-prod.example.yml src/main/resources/application-prod.yml
 
 # 启动服务
 ./mvnw spring-boot:run
@@ -95,6 +98,12 @@ cd quiz-server
 
 ```bash
 cd quiz-admin
+
+# 复制环境变量模板
+# Windows:
+copy .env.development.example .env.development
+# macOS / Linux:
+cp .env.development.example .env.development
 
 # 安装依赖
 npm install
@@ -109,6 +118,14 @@ npm run dev
 
 ```bash
 cd quiz-miniapp
+
+# 复制环境变量模板
+# Windows:
+copy .env.development.example .env.development
+copy .env.production.example .env.production
+# macOS / Linux:
+cp .env.development.example .env.development
+cp .env.production.example .env.production
 
 # 安装依赖
 npm install
@@ -147,8 +164,25 @@ upload:
 
 ### 前端配置
 
-管理后台 API 地址: `quiz-admin/vite.config.ts`
-小程序 API 地址: `quiz-miniapp/src/utils/request.ts`
+管理后台:
+- 先复制 `quiz-admin/.env.development.example` 或 `quiz-admin/.env.production.example`
+- 开发环境可将 `VITE_API_BASE_URL` 留空，走 `quiz-admin/vite.config.ts` 里的 Vite 代理
+- 生产环境建议让 Nginx 反向代理 `/api` 和 `/uploads`，`VITE_API_BASE_URL` 也可留空
+- 如果不是反向代理模式，再填写完整根地址，例如 `https://example.com`
+
+微信小程序:
+- 先复制 `quiz-miniapp/.env.development.example` 和 `quiz-miniapp/.env.production.example`
+- 开发环境地址写在 `quiz-miniapp/.env.development`
+- 生产环境地址写在 `quiz-miniapp/.env.production`
+- `VITE_API_BASE_URL` 必须填写服务器域名根地址，例如 `https://example.com`
+- 不要写成 `https://example.com/api`，因为代码里会自动请求 `/api/...`
+- 小程序真机和正式版不能使用 `127.0.0.1` 或 `localhost`，那只会指向用户手机/开发机自己
+- 微信公众平台里还要把该域名加入 `request`、`uploadFile`、`downloadFile` 合法域名
+
+后端生产配置:
+- 仓库内提供 `quiz-server/src/main/resources/application-prod.example.yml`
+- 本地或服务器请复制为 `application-prod.yml` 后再填写真实配置
+- `application-prod.yml` 已加入忽略规则，不建议提交真实密码
 
 ## API 接口
 

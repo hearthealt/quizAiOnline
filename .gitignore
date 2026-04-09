@@ -60,9 +60,11 @@ quiz-miniapp/node_modules/
 # Environment
 # ========================
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
 *.env
+quiz-server/src/main/resources/application-prod.yml
 
 # ========================
 # Upload Files
