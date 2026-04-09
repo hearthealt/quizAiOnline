@@ -190,7 +190,7 @@
           <div v-if="recentUsers.length === 0" class="empty-tip">暂无用户</div>
           <div v-else class="user-list">
             <div v-for="user in recentUsers" :key="user.id" class="user-item">
-              <n-avatar :src="user.avatar" :size="36" round />
+              <n-avatar :src="resolveAssetUrl(user.avatar)" :size="36" round />
               <div class="user-info">
                 <div class="user-name">{{ user.nickname }}</div>
                 <div class="user-time">{{ formatTime(user.createTime) }}</div>
@@ -232,6 +232,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { getOverview, getTrend, getRank, getVipStats, getAiStats, getPendingOrders, getRecentUsers } from '@/api/dashboard'
+import { resolveAssetUrl } from '@/utils/assets'
 import dayjs from 'dayjs'
 
 const overview = reactive({ totalUsers: 0, totalQuestions: 0, todayActive: 0, todayAnswers: 0 })

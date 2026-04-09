@@ -77,9 +77,9 @@
                 {{ isVip ? (item.analysis || item.question?.analysis || '暂无解析') : '内容已隐藏' }}
               </text>
               <view v-if="!isVip" class="analysis-mask" @tap="goVip">
-                <text class="mask-icon">👑</text>
-                <text class="mask-text">开通 VIP 查看完整解析</text>
-                <text class="mask-btn">立即开通</text>
+                <text class="mask-icon">说明</text>
+                <text class="mask-text">查看完整解析</text>
+                <text class="mask-btn">功能说明</text>
               </view>
             </view>
           </view>

@@ -53,11 +53,16 @@ const loadStatus = ref<"more" | "loading" | "nomore">("more");
 const fetchRecords = async () => {
   if (loadStatus.value === "loading" || loadStatus.value === "nomore") return;
   loadStatus.value = "loading";
-  const res = await getRecordList(type.value, pageNum.value, 10);
-  records.value = records.value.concat(res.list || []);
-  total.value = res.total;
-  loadStatus.value = records.value.length >= total.value ? "nomore" : "more";
-  pageNum.value += 1;
+  try {
+    const res = await getRecordList(type.value, pageNum.value, 10);
+    records.value = records.value.concat(res.list || []);
+    total.value = res.total;
+    loadStatus.value = records.value.length >= total.value ? "nomore" : "more";
+    pageNum.value += 1;
+  } catch (error) {
+    loadStatus.value = "more";
+    throw error;
+  }
 };
 
 const switchType = (next: "practice" | "exam") => {
@@ -66,7 +71,7 @@ const switchType = (next: "practice" | "exam") => {
   records.value = [];
   pageNum.value = 1;
   loadStatus.value = "more";
-  fetchRecords();
+  void fetchRecords().catch(() => null);
 };
 
 const goDetail = (item: RecordItem) => {
@@ -80,8 +85,12 @@ const formatTime = (value?: string) => {
   return value.replace("T", " ").slice(0, 16);
 };
 
-onLoad(fetchRecords);
-onReachBottom(fetchRecords);
+onLoad(() => {
+  void fetchRecords().catch(() => null);
+});
+onReachBottom(() => {
+  void fetchRecords().catch(() => null);
+});
 </script>
 
 <style lang="scss" scoped>

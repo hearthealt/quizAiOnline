@@ -1,14 +1,18 @@
 {
   "name": "quiz-miniapp",
   "appid": "_wx72619c6374e69606",
-  "description": "Quiz AI Miniapp",
+  "description": "Quiz Study Miniapp",
   "versionName": "0.1.0",
   "versionCode": 100,
   "transformPx": false,
   "mp-weixin": {
-    "appid": "",
+    "appid": "wx72619c6374e69606",
     "setting": {
-      "urlCheck": false
+      "urlCheck": false,
+      "minified": true,
+      "uploadWithSourceMap": false,
+      "uglifyFileName": true,
+      "bigPackageSizeSupport": true
     },
     "permission": {
       "scope.userLocation": {

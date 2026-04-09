@@ -88,7 +88,7 @@ const fetchCategories = async () => {
   categories.value = await getCategories();
   activeId.value = 0;
   activeName.value = "全部";
-  fetchBanks(0);
+  await fetchBanks(0);
 };
 
 const fetchBanks = async (categoryId: number) => {
@@ -107,14 +107,16 @@ const selectCategory = (id: number, name: string) => {
   if (activeId.value === id) return;
   activeId.value = id;
   activeName.value = name;
-  fetchBanks(id);
+  void fetchBanks(id).catch(() => null);
 };
 
 const goDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/bank/detail?id=${id}` });
 };
 
-onShow(fetchCategories);
+onShow(() => {
+  void fetchCategories().catch(() => null);
+});
 </script>
 
 <style lang="scss" scoped>

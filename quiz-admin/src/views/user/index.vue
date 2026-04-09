@@ -51,7 +51,7 @@
       <n-drawer-content title="用户详情" closable>
         <template v-if="detailUser">
           <div class="user-profile">
-            <n-avatar :src="detailUser.avatar" :size="72" round />
+            <n-avatar :src="resolveAssetUrl(detailUser.avatar)" :size="72" round />
             <div class="profile-info">
               <div class="profile-name">
                 {{ detailUser.nickname }}
@@ -168,6 +168,7 @@ import { NButton, NSwitch, NTag, NAvatar, NSpace, useMessage, useDialog, type Da
 import type { User } from '@/types'
 import * as userApi from '@/api/user'
 import { useTable } from '@/composables/useTable'
+import { resolveAssetUrl } from '@/utils/assets'
 import dayjs from 'dayjs'
 
 const message = useMessage()
@@ -198,7 +199,7 @@ const columns: DataTableColumns<User> = [
     width: 200,
     render(row) {
       return h('div', { style: 'display:flex;align-items:center;gap:8px' }, [
-        h(NAvatar, { src: row.avatar, size: 36, round: true }),
+        h(NAvatar, { src: resolveAssetUrl(row.avatar), size: 36, round: true }),
         h('div', null, [
           h('div', { style: 'font-weight:500' }, row.nickname),
           h('div', { style: 'font-size:12px;color:#999' }, row.phone),

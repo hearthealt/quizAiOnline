@@ -58,6 +58,7 @@
 import { ref, reactive, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, NPopconfirm, NAvatar, useMessage } from 'naive-ui'
 import { getAdminList, createAdmin, updateAdmin, deleteAdmin } from '@/api/admin'
+import { resolveAssetUrl } from '@/utils/assets'
 import dayjs from 'dayjs'
 import type { DataTableColumns, FormInst } from 'naive-ui'
 
@@ -100,7 +101,7 @@ const columns: DataTableColumns = [
     width: 200,
     render(row: any) {
       return h('div', { style: 'display:flex;align-items:center;gap:10px' }, [
-        h(NAvatar, { src: row.avatar || undefined, size: 36, round: true, style: 'background:#667eea;color:#fff' }, { fallback: () => (row.nickname || row.username || '').charAt(0).toUpperCase() }),
+        h(NAvatar, { src: resolveAssetUrl(row.avatar) || undefined, size: 36, round: true, style: 'background:#667eea;color:#fff' }, { fallback: () => (row.nickname || row.username || '').charAt(0).toUpperCase() }),
         h('div', null, [
           h('div', { style: 'font-weight:500' }, row.nickname || row.username),
           h('div', { style: 'font-size:12px;color:#999' }, row.username),

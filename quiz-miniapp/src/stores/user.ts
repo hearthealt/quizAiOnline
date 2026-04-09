@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { storage } from "@/utils/storage";
 import type { UserInfo } from "@/api/auth";
 import { getInfo } from "@/api/auth";
+import { normalizeAvatarPath } from "@/utils/assets";
 
 const TOKEN_KEY = "quiz_token";
 const USER_KEY = "quiz_user";
@@ -9,12 +10,18 @@ let pendingLoginAction: null | (() => void | Promise<void>) = null;
 let refreshUserPromise: null | Promise<UserInfo | null> = null;
 let lastRefreshAt = 0;
 
+const sanitizeUserInfo = (user?: UserInfo | null) => {
+  if (!user) return null;
+  return {
+    ...user,
+    avatar: normalizeAvatarPath(user.avatar)
+  };
+};
+
 export const useUserStore = defineStore("user", {
   state: () => ({
     token: storage.get<string>(TOKEN_KEY, "") || "",
-    userInfo: storage.get<UserInfo | null>(USER_KEY, null),
-    loginSheetVisible: false,
-    loginSheetMessage: ""
+    userInfo: sanitizeUserInfo(storage.get<UserInfo | null>(USER_KEY, null))
   }),
   getters: {
     isLogin: (state) => !!state.token
@@ -25,8 +32,9 @@ export const useUserStore = defineStore("user", {
       storage.set(TOKEN_KEY, token);
     },
     setUserInfo(user: UserInfo | null) {
-      this.userInfo = user;
-      storage.set(USER_KEY, user);
+      const nextUser = sanitizeUserInfo(user);
+      this.userInfo = nextUser;
+      storage.set(USER_KEY, nextUser);
     },
     async refreshUser(force = false) {
       if (!this.token) return null;
@@ -48,17 +56,11 @@ export const useUserStore = defineStore("user", {
         });
       return refreshUserPromise;
     },
-    openLoginSheet(message = "") {
-      this.loginSheetMessage = message;
-      this.loginSheetVisible = true;
-    },
-    requestLogin(action?: null | (() => void | Promise<void>), message = "请先登录") {
+    requestLogin(action?: null | (() => void | Promise<void>), _message = "请先登录") {
       pendingLoginAction = action || null;
-      this.openLoginSheet(message);
     },
-    closeLoginSheet() {
-      this.loginSheetVisible = false;
-      this.loginSheetMessage = "";
+    cancelPendingLoginAction() {
+      pendingLoginAction = null;
     },
     async runPendingLoginAction() {
       const action = pendingLoginAction;
@@ -70,7 +72,6 @@ export const useUserStore = defineStore("user", {
     handleSessionExpired(message = "登录已过期，请重新登录") {
       pendingLoginAction = null;
       this.logout();
-      this.openLoginSheet(message);
     },
     logout() {
       this.token = "";

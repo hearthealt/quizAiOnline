@@ -1,6 +1,6 @@
 import { useUserStore } from "@/stores/user";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+import { buildRemoteUrl, ensureApiBaseUrl, missingBaseUrlMessage } from "@/utils/baseUrl";
+import { traceRuntime } from "@/utils/runtimeTrace";
 
 type ApiResponse<T> = {
   code: number;
@@ -10,7 +10,7 @@ type ApiResponse<T> = {
 };
 
 interface RequestConfig extends UniApp.RequestOptions {
-  /** 请求超时时间，默认10秒 */
+  /** 请求超时时间，默认20秒 */
   timeout?: number;
   /** 重试次数，默认1次 */
   retry?: number;
@@ -25,11 +25,26 @@ interface RequestConfig extends UniApp.RequestOptions {
 }
 
 const DEFAULT_CONFIG: Partial<RequestConfig> = {
-  timeout: 10000,
+  timeout: 20000,
   retry: 0,
   retryDelay: 1000,
   showLoading: false,
   silent: false
+};
+
+const getRequestLabel = (url: string, method?: string) => {
+  try {
+    const parsed = /^https?:\/\//i.test(url) ? new URL(url) : null;
+    const path = parsed ? `${parsed.pathname}${parsed.search}` : url;
+    return `${(method || "GET").toUpperCase()} ${path}`;
+  } catch {
+    return `${(method || "GET").toUpperCase()} ${url}`;
+  }
+};
+
+const isSafeRetryMethod = (method?: string) => {
+  const normalized = (method || "GET").toUpperCase();
+  return normalized === "GET" || normalized === "HEAD";
 };
 
 const sanitizeData = (value: any): any => {
@@ -111,13 +126,36 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
   const config = { ...DEFAULT_CONFIG, ...options, data: sanitizeData(options.data) };
   const requestKey = generateRequestKey(config);
   const requestId = generateRequestId();
+  const baseUrlCheck = ensureApiBaseUrl();
+  const requestUrl = buildRemoteUrl(config.url || "");
+  const startedAt = Date.now();
 
   return new Promise((resolve, reject) => {
+    if (!baseUrlCheck.ok) {
+      if (!config.silent) {
+        uni.showToast({ title: "请配置小程序接口域名", icon: "none" });
+      }
+      reject(new ApiError(-1, missingBaseUrlMessage));
+      return;
+    }
+
     // 取消相同的进行中请求
     if (pendingRequests.has(requestKey)) {
+      traceRuntime("request:abort-duplicate", {
+        requestId,
+        url: requestUrl,
+        method: config.method || "GET"
+      });
       pendingRequests.get(requestKey)?.abort();
       pendingRequests.delete(requestKey);
     }
+
+    traceRuntime("request:start", {
+      requestId,
+      url: requestUrl,
+      method: config.method || "GET",
+      timeout: config.timeout
+    });
 
     // 显示loading
     if (config.showLoading) {
@@ -127,9 +165,20 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
     const userStore = useUserStore();
 
     const doRequest = (retryCount: number) => {
+      let finished = false;
+      let manualTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const finishRequest = () => {
+        finished = true;
+        if (manualTimeoutTimer) {
+          clearTimeout(manualTimeoutTimer);
+          manualTimeoutTimer = null;
+        }
+      };
+
       const task = uni.request({
         ...config,
-        url: BASE_URL + config.url,
+        url: requestUrl,
         timeout: config.timeout,
         header: {
           ...(config.header || {}),
@@ -137,11 +186,21 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
           "X-Request-Id": requestId
         },
         success: (res) => {
+          finishRequest();
           pendingRequests.delete(requestKey);
           if (config.showLoading) uni.hideLoading();
+          const duration = Date.now() - startedAt;
 
           if (res.statusCode === 200) {
             const payload = res.data as ApiResponse<T>;
+            traceRuntime("request:success", {
+              requestId,
+              url: requestUrl,
+              method: config.method || "GET",
+              statusCode: res.statusCode,
+              businessCode: payload?.code,
+              duration
+            });
             if (payload.code === 200) {
               resolve(payload.data);
               return;
@@ -160,6 +219,14 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
           }
 
           const payload = (res.data || {}) as Partial<ApiResponse<T>>;
+          traceRuntime("request:http-error", {
+            requestId,
+            url: requestUrl,
+            method: config.method || "GET",
+            statusCode: res.statusCode,
+            businessCode: payload?.code,
+            duration
+          });
           if (res.statusCode === 401 || payload.code === 401) {
             const message = payload.message || payload.msg || "登录已过期";
             handleUnauthorized(message);
@@ -179,23 +246,52 @@ export const request = <T = any>(options: RequestConfig): Promise<T> => {
           reject(new ApiError(res.statusCode, payload.message || payload.msg || `HTTP Error: ${res.statusCode}`));
         },
         fail: (err) => {
+          finishRequest();
           pendingRequests.delete(requestKey);
           if (config.showLoading) uni.hideLoading();
 
-          // 网络错误重试
-          if (retryCount < (config.retry || 0)) {
+          const errMsg = err.errMsg || "网络异常";
+          const isTimeout = /timeout/i.test(errMsg);
+          const duration = Date.now() - startedAt;
+          const requestLabel = getRequestLabel(requestUrl, config.method);
+
+          // 仅对幂等请求做网络重试，避免重复提交
+          if (isSafeRetryMethod(config.method) && retryCount < (config.retry || 0)) {
             setTimeout(() => doRequest(retryCount + 1), config.retryDelay);
             return;
           }
 
+          traceRuntime("request:fail", {
+            requestId,
+            url: requestUrl,
+            method: config.method || "GET",
+            timeout: config.timeout,
+            errMsg,
+            duration,
+            retryCount
+          });
+
           if (!config.silent) {
-            uni.showToast({ title: "网络异常", icon: "none" });
+            uni.showToast({ title: isTimeout ? "请求超时，请稍后重试" : "网络异常", icon: "none" });
           }
-          reject(new ApiError(-1, err.errMsg || "网络异常"));
+          reject(new ApiError(-1, isTimeout ? `${errMsg} [${requestLabel}]` : errMsg));
         }
       });
 
       pendingRequests.set(requestKey, task);
+
+      if ((config.timeout || 0) > 0) {
+        manualTimeoutTimer = setTimeout(() => {
+          if (finished) return;
+          traceRuntime("request:manual-timeout", {
+            requestId,
+            url: requestUrl,
+            method: config.method || "GET",
+            timeout: config.timeout
+          });
+          task.abort();
+        }, (config.timeout || 0) + 200);
+      }
     };
 
     doRequest(0);

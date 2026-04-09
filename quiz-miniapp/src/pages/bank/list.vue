@@ -51,19 +51,28 @@ const loadStatus = ref<"more" | "loading" | "nomore">("more");
 const fetchBanks = async () => {
   if (loadStatus.value === "loading" || loadStatus.value === "nomore") return;
   loadStatus.value = "loading";
-  const res = await getBankList(undefined, pageNum.value, 10);
-  banks.value = banks.value.concat(res.list || []);
-  total.value = res.total;
-  loadStatus.value = banks.value.length >= total.value ? "nomore" : "more";
-  pageNum.value += 1;
+  try {
+    const res = await getBankList(undefined, pageNum.value, 10);
+    banks.value = banks.value.concat(res.list || []);
+    total.value = res.total;
+    loadStatus.value = banks.value.length >= total.value ? "nomore" : "more";
+    pageNum.value += 1;
+  } catch (error) {
+    loadStatus.value = "more";
+    throw error;
+  }
 };
 
 const goDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/bank/detail?id=${id}` });
 };
 
-onLoad(fetchBanks);
-onReachBottom(fetchBanks);
+onLoad(() => {
+  void fetchBanks().catch(() => null);
+});
+onReachBottom(() => {
+  void fetchBanks().catch(() => null);
+});
 </script>
 
 <style lang="scss" scoped>

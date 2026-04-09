@@ -70,7 +70,7 @@ const fetchMore = async () => {
 
 const selectHot = (word: string) => {
   keyword.value = word;
-  doSearch();
+  void doSearch().catch(() => null);
 };
 
 const goQuestion = (_id: number, bankId?: number) => {
@@ -85,8 +85,12 @@ const loadHot = async () => {
   hotKeywords.value = await getHotKeywords();
 };
 
-onLoad(loadHot);
-onReachBottom(fetchMore);
+onLoad(() => {
+  void loadHot().catch(() => null);
+});
+onReachBottom(() => {
+  void fetchMore().catch(() => null);
+});
 </script>
 
 <style lang="scss" scoped>

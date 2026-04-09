@@ -1,6 +1,7 @@
 import { ref, readonly } from 'vue';
 import { getHomeIndex, type HomeVO } from '@/api/home';
 import { storage } from '@/utils/storage';
+import { traceRuntime } from '@/utils/runtimeTrace';
 
 const HOME_CACHE_KEY = 'home_data_cache';
 const HOME_CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
@@ -53,6 +54,7 @@ export function useHomeCache() {
    */
   const loadHomeData = async (forceRefresh = false): Promise<HomeVO | null> => {
     error.value = null;
+    traceRuntime("home:load:start", { forceRefresh });
 
     // 先尝试从缓存读取（非强制刷新时）
     if (!forceRefresh) {
@@ -60,8 +62,11 @@ export function useHomeCache() {
       if (cached) {
         homeData.value = cached;
         isFromCache.value = true;
+        traceRuntime("home:load:cache-hit", {
+          forceRefresh
+        });
         // 后台静默刷新
-        silentRefresh();
+        void silentRefresh();
         return cached;
       }
     }
@@ -73,9 +78,17 @@ export function useHomeCache() {
       const data = await getHomeIndex();
       homeData.value = data;
       writeCache(data);
+      traceRuntime("home:load:success", {
+        forceRefresh,
+        fromCache: false
+      });
       return data;
     } catch (e: any) {
       error.value = e.message || '加载失败';
+      traceRuntime("home:load:fail", {
+        forceRefresh,
+        message: e?.message || '加载失败'
+      });
       // 如果请求失败，尝试使用过期缓存
       const staleCache = storage.get<CacheData<HomeVO> | null>(HOME_CACHE_KEY, null);
       if (staleCache) {
@@ -101,9 +114,13 @@ export function useHomeCache() {
         homeData.value = data;
         writeCache(data);
         isFromCache.value = false;
+        traceRuntime("home:silent-refresh:updated");
       }
     } catch (e) {
       // 静默刷新失败时不做任何处理
+      traceRuntime("home:silent-refresh:fail", {
+        message: e instanceof Error ? e.message : String(e || "")
+      });
     }
   };
 
@@ -129,9 +146,9 @@ export function useHomeCache() {
     if (cached) {
       homeData.value = cached;
       isFromCache.value = true;
-      silentRefresh();
+      void silentRefresh();
     } else {
-      loadHomeData();
+      void loadHomeData();
     }
   };
 

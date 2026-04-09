@@ -1,34 +1,18 @@
 <template>
   <view class="app-root">
     <slot />
-    <LoginSheet
-      :show="loginSheetVisible"
-      :reason-text="loginSheetMessage"
-      @close="userStore.closeLoginSheet()"
-      @success="handleGlobalLoginSuccess"
-    />
   </view>
 </template>
 
 <script setup lang="ts">
 import { onShow } from "@dcloudio/uni-app";
-import { storeToRefs } from "pinia";
-import LoginSheet from "@/components/LoginSheet.vue";
 import { useUserStore } from "@/stores/user";
 
 const userStore = useUserStore();
-const { loginSheetVisible, loginSheetMessage } = storeToRefs(userStore);
-
-const handleGlobalLoginSuccess = async () => {
-  userStore.closeLoginSheet();
-  await userStore.runPendingLoginAction();
-};
 
 onShow(() => {
   if (!userStore.token) return;
-  userStore.refreshUser().catch(() => {
-    // request.ts will handle 401 and logout
-  });
+  void userStore.refreshUser().catch(() => null);
 });
 </script>
 

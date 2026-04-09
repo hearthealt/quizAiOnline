@@ -11,7 +11,10 @@ export type SiteConfig = {
   siteLogo?: string;
   copyright?: string;
   icpNumber?: string;
+  practiceManagerContact?: string;
 };
+
+let siteConfigPromise: Promise<void> | null = null;
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -31,14 +34,25 @@ export const useAppStore = defineStore("app", {
     },
     async loadSiteConfig(force = false) {
       if (this.configLoaded && !force) return;
-      const data = (await getAppConfig()) as AppConfig;
-      this.setSiteConfig({
-        siteName: data?.siteName,
-        siteDescription: data?.siteDescription,
-        siteLogo: data?.siteLogo,
-        copyright: data?.copyright,
-        icpNumber: data?.icpNumber
-      });
+      if (siteConfigPromise) return siteConfigPromise;
+
+      siteConfigPromise = getAppConfig()
+        .then((data) => {
+          const config = data as AppConfig;
+          this.setSiteConfig({
+            siteName: config?.siteName,
+            siteDescription: config?.siteDescription,
+            siteLogo: config?.siteLogo,
+            copyright: config?.copyright,
+            icpNumber: config?.icpNumber,
+            practiceManagerContact: config?.practiceManagerContact
+          });
+        })
+        .finally(() => {
+          siteConfigPromise = null;
+        });
+
+      return siteConfigPromise;
     }
   }
 });

@@ -49,6 +49,14 @@
             <n-form-item label="备案号">
               <n-input v-model:value="formData.icpNumber" placeholder="京ICP备xxxxxxxx号" />
             </n-form-item>
+            <n-form-item label="练习管理员">
+              <n-input
+                v-model:value="formData.practiceManagerContact"
+                type="textarea"
+                :rows="2"
+                placeholder="例如：微信号 quiz_admin / 手机 138xxxx / 其它联系说明"
+              />
+            </n-form-item>
             <n-form-item label=" ">
               <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
             </n-form-item>
@@ -145,6 +153,7 @@ const formData = ref<Record<string, string>>({
   siteLogo: '',
   copyright: '',
   icpNumber: '',
+  practiceManagerContact: '',
   wxAppId: '',
   wxAppSecret: '',
   registerEnabled: '1',

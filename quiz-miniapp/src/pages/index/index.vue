@@ -9,10 +9,10 @@
             :src="resolveAssetUrl(userStore.userInfo.avatar)"
             mode="aspectFill"
           />
-          <view v-else class="avatar avatar-fallback">Q</view>
+          <view v-else class="avatar avatar-fallback">{{ userInitial }}</view>
           <view class="user-copy">
             <text class="user-greeting">{{ greeting }}，{{ nickname }}</text>
-            <text class="user-tip">{{ isLogin ? "学习状态已同步到云端" : "登录后同步学习进度与AI记录" }}</text>
+            <text class="user-tip">{{ isLogin ? "学习状态已同步到云端" : "登录后同步学习进度与答疑记录" }}</text>
           </view>
         </view>
         <view class="search-btn" @tap="goSearch">检索</view>
@@ -77,8 +77,15 @@
 
     <view class="bank-stack">
       <view class="bank-card glass-card" v-for="bank in homeData?.hotBanks || []" :key="bank.id" @tap="goBankDetail(bank.id)">
-        <image v-if="bank.cover" class="bank-cover" :src="resolveAssetUrl(bank.cover)" mode="aspectFill" />
-        <view v-else class="bank-cover placeholder">题库</view>
+        <image
+          v-if="bank.cover"
+          class="bank-cover"
+          :src="resolveAssetUrl(bank.cover)"
+          mode="aspectFill"
+        />
+        <view v-else class="bank-cover placeholder">
+          <text class="bank-cover-label">{{ getBankCoverLabel(bank.name) }}</text>
+        </view>
         <view class="bank-copy">
           <text class="bank-name">{{ bank.name }}</text>
           <text class="bank-meta">{{ bank.questionCount || 0 }}题 · {{ formatCount(bank.practiceCount) }}人练习</text>
@@ -91,19 +98,20 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useSharedHomeCache } from "@/composables/useHomeCache";
 import { useUserStore } from "@/stores/user";
-import { useAppStore } from "@/stores/app";
 import { resolveAssetUrl } from "@/utils/assets";
 import { formatCount } from "@/utils/format";
 
 const { homeData, loadHomeData } = useSharedHomeCache();
 const userStore = useUserStore();
-const appStore = useAppStore();
-
 const isLogin = computed(() => userStore.isLogin);
 const nickname = computed(() => isLogin.value ? userStore.userInfo?.nickname || "同学" : "同学");
+const userInitial = computed(() => {
+  const value = nickname.value.trim();
+  return value ? value.slice(0, 1).toUpperCase() : "Q";
+});
 const greeting = ref("你好");
 
 const updateGreeting = () => {
@@ -116,7 +124,7 @@ const updateGreeting = () => {
 
 const goSearch = () => uni.navigateTo({ url: "/pages/search/index" });
 const goBankList = () => uni.navigateTo({ url: "/pages/bank/list" });
-const goMine = () => uni.switchTab({ url: "/pages/mine/index" });
+const goMine = () => uni.switchTab({ url: "/tab-pages/mine/index" });
 const goWrong = () => uni.navigateTo({ url: "/pages/wrong/index" });
 const goFavorite = () => uni.navigateTo({ url: "/pages/favorite/index" });
 const goRecord = () => uni.navigateTo({ url: "/pages/record/index" });
@@ -126,10 +134,18 @@ const goPracticeDaily = () => {
   uni.navigateTo({ url: `/pages/bank/detail?id=${homeData.value.dailyQuestion.bankId}` });
 };
 
-onShow(async () => {
-  await appStore.loadSiteConfig();
-  await loadHomeData();
+const getBankCoverLabel = (name?: string) => {
+  const value = (name || "").trim();
+  return value ? value.slice(0, 2) : "题库";
+};
+
+onLoad(() => {
   updateGreeting();
+});
+
+onShow(() => {
+  updateGreeting();
+  void loadHomeData().catch(() => null);
 });
 </script>
 
@@ -363,6 +379,11 @@ onShow(async () => {
   color: var(--primary-dark);
   font-size: 22rpx;
   font-weight: 700;
+}
+
+.bank-cover-label {
+  padding: 0 8rpx;
+  text-align: center;
 }
 
 .bank-copy {

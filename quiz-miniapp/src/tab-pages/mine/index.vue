@@ -7,17 +7,17 @@
         <view class="profile-copy">
           <text class="profile-name">{{ user?.nickname || "点击登录" }}</text>
           <text class="profile-desc" v-if="isLogin">{{ user?.phone || "已登录，资料可在这里维护" }}</text>
-          <text class="profile-desc" v-else>登录后同步学习进度、收藏与 AI 对话记录</text>
+          <text class="profile-desc" v-else>登录后同步学习进度、收藏与答疑记录</text>
         </view>
         <view class="profile-arrow">›</view>
       </view>
 
       <view class="vip-ribbon" :class="{ active: user?.isVip === 1 }" @tap.stop="goVip">
         <view class="ribbon-copy">
-          <text class="ribbon-title">{{ user?.isVip === 1 ? "VIP 会员进行中" : "开通 VIP 会员" }}</text>
-          <text class="ribbon-desc">{{ user?.isVip === 1 && user?.vipExpireTime ? "到期 " + user.vipExpireTime : "畅享全部题库与 AI 解析" }}</text>
+          <text class="ribbon-title">功能说明</text>
+          <text class="ribbon-desc">查看完整解析、学习记录与学习助手的页面说明</text>
         </view>
-        <text class="ribbon-action">{{ user?.isVip === 1 ? "续费" : "开通" }}</text>
+        <text class="ribbon-action">查看</text>
       </view>
     </view>
 
@@ -82,8 +82,13 @@
       </view>
     </view>
 
-    <view class="footer" v-if="siteName">
-      <text class="footer-name">{{ siteName }}</text>
+    <view class="footer">
+      <view class="footer-links">
+        <text class="footer-link" @tap="openServiceAgreement">《用户服务协议》</text>
+        <text class="footer-divider">|</text>
+        <text class="footer-link" @tap="openPrivacyPolicy">《隐私政策》</text>
+      </view>
+      <text class="footer-name" v-if="siteName">{{ siteName }}</text>
       <text class="footer-meta" v-if="icpNumber">{{ icpNumber }}</text>
     </view>
 
@@ -104,6 +109,7 @@ import { getStudyStats } from "@/api/user";
 import LoginSheet from "@/components/LoginSheet.vue";
 import { useLoginSheet } from "@/composables/useLoginSheet";
 import { resolveAssetUrl } from "@/utils/assets";
+import { openAgreementPage } from "@/utils/privacy";
 
 const userStore = useUserStore();
 const appStore = useAppStore();
@@ -124,7 +130,11 @@ const requireLogin = (action: () => void) => {
 };
 
 const openLogin = () => {
-  if (!userStore.isLogin) requestLogin(null, "请先登录");
+  if (!userStore.token || !userStore.userInfo?.id) {
+    requestLogin(null, "请先登录");
+    return;
+  }
+  uni.navigateTo({ url: "/pages/mine/profile" });
 };
 const goProfile = () => requireLogin(() => uni.navigateTo({ url: "/pages/mine/profile" }));
 const goRecord = () => requireLogin(() => uni.navigateTo({ url: "/pages/record/index" }));
@@ -132,13 +142,15 @@ const goFavorite = () => requireLogin(() => uni.navigateTo({ url: "/pages/favori
 const goWrong = () => requireLogin(() => uni.navigateTo({ url: "/pages/wrong/index" }));
 const goVip = () => requireLogin(() => uni.navigateTo({ url: "/pages/vip/index" }));
 const goSettings = () => uni.navigateTo({ url: "/pages/mine/settings" });
+const openServiceAgreement = () => openAgreementPage("service");
+const openPrivacyPolicy = () => openAgreementPage("privacy");
 
 onShow(() => {
   if (userStore.isLogin) {
     void userStore.refreshUser().catch(() => null);
   }
-  appStore.loadSiteConfig();
-  fetchStats();
+  void appStore.loadSiteConfig().catch(() => null);
+  void fetchStats().catch(() => null);
 });
 </script>
 
@@ -327,6 +339,24 @@ onShow(() => {
 .footer {
   text-align: center;
   padding: 24rpx 0 32rpx;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.footer-link,
+.footer-divider {
+  font-size: 22rpx;
+  color: var(--primary);
+}
+
+.footer-divider {
+  color: var(--muted);
 }
 
 .footer-name {

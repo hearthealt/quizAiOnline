@@ -27,6 +27,7 @@ public class AdminSystemController {
     /** 后台系统设置允许管理的配置项 */
     private static final Set<String> ADMIN_KEYS = Set.copyOf(Arrays.asList(
             "siteName", "siteDescription", "siteLogo", "copyright", "icpNumber",
+            "practiceManagerContact",
             "wxAppId", "wxAppSecret",
             "registerEnabled",
             "aiChatPersona", "aiChatGreeting",

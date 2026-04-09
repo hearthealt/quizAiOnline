@@ -36,6 +36,10 @@
         <div class="detail-title">Prompt</div>
         <n-code :code="currentRow?.prompt || ''" language="text" word-wrap />
       </div>
+      <div class="detail-section" v-if="currentRow?.route">
+        <div class="detail-title">调用链路</div>
+        <n-code :code="currentRow.route" language="text" word-wrap />
+      </div>
       <div class="detail-section">
         <div class="detail-title">Result</div>
         <n-code :code="currentRow?.result || ''" language="text" word-wrap />
@@ -93,6 +97,13 @@ const modeOptions = [
   { label: '生成答案+解析', value: 'GENERATE_BOTH' }
 ]
 
+const routeMap: Record<string, string> = {
+  responses: 'Responses',
+  chat: 'Chat',
+  'chat-minimal': 'Chat 最小请求',
+  'chat-stream-fallback': 'Chat 流式回退'
+}
+
 const columns: DataTableColumns = [
   { title: 'ID', key: 'id', width: 60 },
   {
@@ -111,6 +122,16 @@ const columns: DataTableColumns = [
     key: 'mode',
     width: 130,
     render(row: any) { return h(NTag, { size: 'small', bordered: false }, () => modeMap[row.mode] || row.mode) }
+  },
+  {
+    title: '链路',
+    key: 'route',
+    width: 140,
+    render(row: any) {
+      return row.route
+        ? h(NTag, { size: 'small', bordered: false, type: 'warning' }, () => routeMap[row.route] || row.route)
+        : '-'
+    }
   },
   {
     title: '状态',

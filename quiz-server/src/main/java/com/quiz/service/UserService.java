@@ -4,12 +4,13 @@ import com.quiz.common.result.PageResult;
 import com.quiz.dto.app.UpdateProfileDTO;
 import com.quiz.dto.app.WxLoginDTO;
 import com.quiz.entity.User;
+import com.quiz.service.model.WxLoginResult;
 import com.quiz.vo.app.StudyStatsVO;
 import com.quiz.vo.app.UserInfoVO;
 
 public interface UserService {
 
-    User wxLogin(WxLoginDTO dto);
+    WxLoginResult wxLogin(WxLoginDTO dto);
 
     User phoneLogin(String phone, String password);
 

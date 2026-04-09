@@ -25,6 +25,7 @@ public class AppConfigController {
     /** 允许小程序读取的配置项（不含敏感信息） */
     private static final List<String> PUBLIC_KEYS = Arrays.asList(
             "siteName", "siteDescription", "siteLogo", "copyright", "icpNumber",
+            "practiceManagerContact",
             "registerEnabled",
             "aiChatGreeting"
     );

@@ -1,11 +1,11 @@
 <template>
   <view v-if="show" class="vip-mask" @tap="close">
     <view class="vip-card" @tap.stop>
-      <text class="vip-title">VIP专享内容</text>
-      <text class="vip-desc">开通VIP解锁完整解析、错题加速练习等权益</text>
+      <text class="vip-title">功能说明</text>
+      <text class="vip-desc">查看完整解析、错题练习和学习记录等内容前，可先阅读页面说明。</text>
       <view class="vip-actions">
         <button class="vip-btn ghost" @tap="close">稍后</button>
-        <button class="vip-btn" @tap="goVip">立即开通</button>
+        <button class="vip-btn" @tap="goVip">查看说明</button>
       </view>
     </view>
   </view>

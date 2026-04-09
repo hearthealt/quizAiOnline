@@ -14,124 +14,199 @@
       }
     },
     {
-      "path": "pages/category/index",
+      "path": "tab-pages/category/index",
       "style": {
         "navigationBarTitleText": "题库分类"
       }
     },
     {
-      "path": "pages/category/detail",
-      "style": {
-        "navigationBarTitleText": "分类题库"
-      }
-    },
-    {
-      "path": "pages/bank/list",
-      "style": {
-        "navigationBarTitleText": "题库列表"
-      }
-    },
-    {
-      "path": "pages/bank/detail",
-      "style": {
-        "navigationBarTitleText": "题库详情"
-      }
-    },
-    {
-      "path": "pages/practice/index",
-      "style": {
-        "navigationBarTitleText": "练习"
-      }
-    },
-    {
-      "path": "pages/exam/index",
-      "style": {
-        "navigationBarTitleText": "模拟考试"
-      }
-    },
-    {
-      "path": "pages/exam/result",
-      "style": {
-        "navigationBarTitleText": "考试结果"
-      }
-    },
-    {
-      "path": "pages/exam/list",
-      "style": {
-        "navigationBarTitleText": "考试记录"
-      }
-    },
-    {
-      "path": "pages/search/index",
-      "style": {
-        "navigationBarTitleText": "搜索"
-      }
-    },
-    {
-      "path": "pages/favorite/index",
-      "style": {
-        "navigationBarTitleText": "收藏"
-      }
-    },
-    {
       "path": "pages/ai/index",
       "style": {
-        "navigationBarTitleText": "AI辅导"
+        "navigationBarTitleText": "学习助手"
       }
     },
     {
-      "path": "pages/wrong/index",
-      "style": {
-        "navigationBarTitleText": "错题本"
-      }
-    },
-    {
-      "path": "pages/record/index",
-      "style": {
-        "navigationBarTitleText": "做题记录"
-      }
-    },
-    {
-      "path": "pages/record/detail",
-      "style": {
-        "navigationBarTitleText": "记录详情"
-      }
-    },
-    {
-      "path": "pages/vip/index",
-      "style": {
-        "navigationBarTitleText": "VIP会员"
-      }
-    },
-    {
-      "path": "pages/vip/orders",
-      "style": {
-        "navigationBarTitleText": "订单列表"
-      }
-    },
-    {
-      "path": "pages/vip/success",
-      "style": {
-        "navigationBarTitleText": "开通成功"
-      }
-    },
-    {
-      "path": "pages/mine/index",
+      "path": "tab-pages/mine/index",
       "style": {
         "navigationBarTitleText": "我的"
       }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/category",
+      "pages": [
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "分类题库"
+          }
+        }
+      ]
     },
     {
-      "path": "pages/mine/profile",
-      "style": {
-        "navigationBarTitleText": "编辑资料"
-      }
+      "root": "pages/bank",
+      "pages": [
+        {
+          "path": "list",
+          "style": {
+            "navigationBarTitleText": "题库列表"
+          }
+        },
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "题库详情"
+          }
+        }
+      ]
     },
     {
-      "path": "pages/mine/settings",
-      "style": {
-        "navigationBarTitleText": "设置"
-      }
+      "root": "pages/practice",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "练习"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/exam",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "模拟考试"
+          }
+        },
+        {
+          "path": "result",
+          "style": {
+            "navigationBarTitleText": "考试结果"
+          }
+        },
+        {
+          "path": "list",
+          "style": {
+            "navigationBarTitleText": "考试记录"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/search",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "搜索"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/favorite",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "收藏"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/wrong",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "错题本"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/record",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "做题记录"
+          }
+        },
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "记录详情"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/vip",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "功能说明"
+          }
+        },
+        {
+          "path": "orders",
+          "style": {
+            "navigationBarTitleText": "提交记录"
+          }
+        },
+        {
+          "path": "success",
+          "style": {
+            "navigationBarTitleText": "提交成功"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/mine",
+      "pages": [
+        {
+          "path": "profile",
+          "style": {
+            "navigationBarTitleText": "编辑资料"
+          }
+        },
+        {
+          "path": "settings",
+          "style": {
+            "navigationBarTitleText": "设置"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/auth",
+      "pages": [
+        {
+          "path": "complete-profile",
+          "style": {
+            "navigationBarTitleText": "完善资料"
+          }
+        },
+        {
+          "path": "service-agreement",
+          "style": {
+            "navigationBarTitleText": "用户服务协议"
+          }
+        },
+        {
+          "path": "privacy-policy",
+          "style": {
+            "navigationBarTitleText": "隐私政策"
+          }
+        }
+      ]
     }
   ],
   "tabBar": {
@@ -147,19 +222,19 @@
         "selectedIconPath": "static/tabbar/home_active.png"
       },
       {
-        "pagePath": "pages/category/index",
+        "pagePath": "tab-pages/category/index",
         "text": "题库",
         "iconPath": "static/tabbar/category.png",
         "selectedIconPath": "static/tabbar/category_active.png"
       },
       {
         "pagePath": "pages/ai/index",
-        "text": "AI辅导",
+        "text": "学习助手",
         "iconPath": "static/tabbar/ai.png",
         "selectedIconPath": "static/tabbar/ai_active.png"
       },
       {
-        "pagePath": "pages/mine/index",
+        "pagePath": "tab-pages/mine/index",
         "text": "我的",
         "iconPath": "static/tabbar/mine.png",
         "selectedIconPath": "static/tabbar/mine_active.png"

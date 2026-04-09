@@ -92,6 +92,15 @@
                 </n-space>
               </n-checkbox-group>
             </template>
+            <template v-else-if="formValue.type === 1 || formValue.type === 3">
+              <n-radio-group v-model:value="formValue.answer">
+                <n-space>
+                  <n-radio v-for="opt in formOptions" :key="opt.label" :value="opt.label">
+                    {{ opt.label }}
+                  </n-radio>
+                </n-space>
+              </n-radio-group>
+            </template>
             <template v-else>
               <n-input v-model:value="formValue.answer" placeholder="请输入答案" />
             </template>
@@ -148,7 +157,7 @@
     </n-modal>
 
     <!-- AI生成弹窗 -->
-    <n-modal v-model:show="showAiModal" preset="card" title="AI批量生成解析" style="width: 480px">
+    <n-modal v-model:show="showAiModal" preset="card" title="AI批量生成" style="width: 480px">
       <n-form label-placement="left" label-width="80">
         <n-form-item label="生成模式">
           <n-radio-group v-model:value="aiMode">
@@ -162,11 +171,16 @@
         <n-form-item label="题库范围">
           <n-select v-model:value="aiBankId" :options="bankOptions" placeholder="全部题库" clearable />
         </n-form-item>
+        <n-form-item label="执行规则">
+          <n-alert type="info" :show-icon="false">
+            {{ aiBatchRuleText }}
+          </n-alert>
+        </n-form-item>
       </n-form>
       <template #footer>
         <n-space justify="end">
           <n-button @click="showAiModal = false">取消</n-button>
-          <n-button type="primary" :loading="aiLoading" @click="handleAiGenerate">开始生成</n-button>
+          <n-button type="primary" :loading="aiLoading" @click="handleAiGenerate">提交任务</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -174,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, reactive, onMounted, watch } from 'vue'
+import { computed, h, ref, reactive, onMounted, watch } from 'vue'
 import { NButton, NPopconfirm, NSpace, NTag, NPagination, useMessage, useDialog, type DataTableColumns, type FormRules } from 'naive-ui'
 import type { Question } from '@/types'
 import * as questionApi from '@/api/question'
@@ -225,6 +239,13 @@ const formRules: FormRules = {
   bankId: { required: true, type: 'number', message: '请选择题库', trigger: 'change' },
   type: { required: true, type: 'number', message: '请选择题型', trigger: 'change' },
   content: { required: true, message: '请输入题目内容', trigger: 'blur' },
+  answer: {
+    validator: () => {
+      const answer = serializeAnswerForSubmit(formValue.value.type)
+      return answer ? true : new Error('请选择或输入答案')
+    },
+    trigger: ['change', 'blur'],
+  },
 }
 
 const showImportModal = ref(false)
@@ -236,12 +257,63 @@ const showAiModal = ref(false)
 const aiMode = ref('GENERATE_ANALYSIS')
 const aiBankId = ref<number | null>(null)
 const aiLoading = ref(false)
+const aiBatchRuleText = computed(() => {
+  if (aiMode.value === 'GENERATE_ANALYSIS') {
+    return '仅处理还没有解析的题目，已有解析会自动跳过。'
+  }
+  if (aiMode.value === 'GENERATE_ANSWER') {
+    return '仅处理还没有答案的题目，已有答案会自动跳过。'
+  }
+  return '仅处理答案和解析都为空的题目，只要已有答案或解析就会自动跳过。'
+})
 
 const labels = 'ABCDEFGH'.split('')
+const judgeTrueValues = new Set(['A', '对', '正确', 'TRUE', 'T', 'YES', 'Y', '√', '是'])
+const judgeFalseValues = new Set(['B', '错', '错误', 'FALSE', 'F', 'NO', 'N', '×', '否'])
 
 function getOptionTagType(label: string) {
   const types = ['success', 'info', 'warning', 'error'] as const
   return types[labels.indexOf(label) % 4]
+}
+
+function parseMultipleAnswer(answer?: string) {
+  const matched = (answer || '').toUpperCase().match(/[A-Z]/g) || []
+  return Array.from(new Set(matched.filter((item) => labels.includes(item)))).sort()
+}
+
+function parseSingleChoiceAnswer(answer?: string) {
+  const matched = (answer || '').trim().toUpperCase().match(/[A-Z]/)
+  return matched?.[0] && labels.includes(matched[0]) ? matched[0] : (answer || '').trim()
+}
+
+function parseJudgeAnswer(answer?: string) {
+  const raw = (answer || '').trim()
+  if (!raw) return ''
+  const normalized = raw.toUpperCase()
+  if (judgeTrueValues.has(normalized) || raw === '对' || raw === '正确' || raw === '是' || raw === '√') return 'A'
+  if (judgeFalseValues.has(normalized) || raw === '错' || raw === '错误' || raw === '否' || raw === '×') return 'B'
+  const matched = normalized.match(/[AB]/)
+  return matched?.[0] || ''
+}
+
+function normalizeAnswerForEdit(type: number, answer?: string) {
+  if (type === 2) return parseMultipleAnswer(answer)
+  if (type === 3) return parseJudgeAnswer(answer)
+  if (type === 1) return parseSingleChoiceAnswer(answer)
+  return (answer || '').trim()
+}
+
+function serializeAnswerForSubmit(type: number) {
+  if (type === 2) {
+    return parseMultipleAnswer(multiAnswer.value.join(',')).join(',')
+  }
+  if (type === 3) {
+    return parseJudgeAnswer(formValue.value.answer)
+  }
+  if (type === 1) {
+    return parseSingleChoiceAnswer(formValue.value.answer)
+  }
+  return (formValue.value.answer || '').trim()
 }
 
 function initOptions(type: number) {
@@ -331,7 +403,9 @@ async function openDrawer(row?: Question) {
         bankId: detail.bankId,
         type: detail.type,
         content: detail.content,
-        answer: detail.answer,
+        answer: typeof normalizeAnswerForEdit(detail.type, detail.answer) === 'string'
+          ? String(normalizeAnswerForEdit(detail.type, detail.answer))
+          : '',
         analysis: detail.analysis || '',
         difficulty: detail.difficulty,
         sort: detail.sort,
@@ -342,7 +416,7 @@ async function openDrawer(row?: Question) {
         initOptions(detail.type)
       }
       if (detail.type === 2 && detail.answer) {
-        multiAnswer.value = detail.answer.split(',').map((s: string) => s.trim())
+        multiAnswer.value = normalizeAnswerForEdit(detail.type, detail.answer) as string[]
       }
     } catch {
       message.error('获取题目详情失败')
@@ -360,9 +434,7 @@ async function handleSubmit() {
   submitLoading.value = true
   try {
     const payload: Record<string, any> = { ...formValue.value }
-    if (formValue.value.type === 2) {
-      payload.answer = multiAnswer.value.sort().join(',')
-    }
+    payload.answer = serializeAnswerForSubmit(formValue.value.type)
     if (formOptions.value.length > 0) {
       payload.options = formOptions.value
     }
@@ -454,8 +526,8 @@ async function handleAiSingle(questionId: number) {
 async function handleAiGenerate() {
   aiLoading.value = true
   try {
-    await aiApi.batchGenerate({ mode: aiMode.value, bankId: aiBankId.value })
-    message.success('AI批量生成任务已提交')
+    const res = await aiApi.batchGenerate({ mode: aiMode.value, bankId: aiBankId.value }) as any
+    message.success(res?.message || 'AI批量生成任务已提交')
     showAiModal.value = false
   } catch (e: any) {
     message.error(e.message || '生成失败')
