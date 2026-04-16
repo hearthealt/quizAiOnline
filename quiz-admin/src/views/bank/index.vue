@@ -138,7 +138,6 @@ const formRules: FormRules = {
 }
 
 const columns: DataTableColumns<QuestionBank> = [
-  { title: 'ID', key: 'id', width: 70 },
   {
     title: '分类',
     key: 'categoryId',
@@ -148,7 +147,7 @@ const columns: DataTableColumns<QuestionBank> = [
       return h(NTag, { size: 'small', bordered: false, type: 'info' }, () => opt?.label || '-')
     },
   },
-  { title: '名称', key: 'name', width: 160, ellipsis: { tooltip: true } },
+  { title: '名称', key: 'name', width: 460, ellipsis: { tooltip: true } },
   {
     title: '封面',
     key: 'cover',

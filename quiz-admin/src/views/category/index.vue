@@ -106,7 +106,6 @@ const formRules: FormRules = {
 }
 
 const columns: DataTableColumns<Category> = [
-  { title: 'ID', key: 'id', width: 70 },
   { title: '名称', key: 'name', ellipsis: { tooltip: true } },
   { title: '图标', key: 'icon', width: 80, render(row) { return row.icon ? h('img', { src: row.icon, style: 'width:40px;height:40px;object-fit:contain;border-radius:6px;background:#f5f5f5;padding:4px' }) : h(NTag, { size: 'small', bordered: false }, () => '无') } },
   { title: '排序', key: 'sort', width: 80 },
@@ -126,7 +125,7 @@ const columns: DataTableColumns<Category> = [
   {
     title: '创建时间',
     key: 'createTime',
-    width: 170,
+    width: 200,
     render(row) { return dayjs(row.createTime).format('YYYY-MM-DD HH:mm:ss') },
   },
   {

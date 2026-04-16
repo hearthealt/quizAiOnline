@@ -94,7 +94,6 @@ const rules: Record<string, any> = {
 }
 
 const columns: DataTableColumns = [
-  { title: 'ID', key: 'id', width: 60 },
   {
     title: '管理员',
     key: 'username',

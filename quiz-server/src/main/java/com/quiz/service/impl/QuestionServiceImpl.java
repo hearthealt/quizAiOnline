@@ -6,9 +6,11 @@ import static com.mybatisflex.core.query.QueryMethods.max;
 import com.quiz.common.exception.BizException;
 import com.quiz.common.result.PageResult;
 import com.quiz.dto.admin.QuestionDTO;
+import com.quiz.entity.Category;
 import com.quiz.entity.Question;
 import com.quiz.entity.QuestionBank;
 import com.quiz.entity.QuestionOption;
+import com.quiz.mapper.CategoryMapper;
 import com.quiz.mapper.FavoriteMapper;
 import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.mapper.QuestionMapper;
@@ -46,6 +48,7 @@ public class QuestionServiceImpl implements QuestionService {
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final QuestionBankMapper questionBankMapper;
+    private final CategoryMapper categoryMapper;
     private final FavoriteMapper favoriteMapper;
     private final QuestionBankService questionBankService;
 
@@ -55,7 +58,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .where(QUESTION.BANK_ID.eq(bankId).when(bankId != null))
                 .and(QUESTION.TYPE.eq(type).when(type != null))
                 .and(QUESTION.CONTENT.like(keyword).when(keyword != null && !keyword.isEmpty()))
-                .orderBy(QUESTION.SORT.asc(), QUESTION.CREATE_TIME.desc());
+                .orderBy(QUESTION.ID.desc());
         Page<Question> page = questionMapper.paginate(pageNum, pageSize, query);
         return PageResult.of(page.getRecords(), page.getTotalRow(), pageNum, pageSize);
     }
@@ -277,12 +280,8 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
-    public QuestionImportResult importFromExcel(Long bankId, InputStream inputStream) {
-        QuestionBank bank = questionBankMapper.selectOneById(bankId);
-        if (bank == null) {
-            throw new BizException("题库不存在");
-        }
-
+    public QuestionImportResult importFromExcel(Long bankId, Long categoryId, String originalFilename, InputStream inputStream) {
+        Long targetBankId = resolveImportBankId(bankId, categoryId, originalFilename);
         List<ExcelUtil.QuestionExcelData> dataList = ExcelUtil.readQuestions(inputStream);
         int successCount = 0;
         int failCount = 0;
@@ -311,7 +310,7 @@ public class QuestionServiceImpl implements QuestionService {
                 int difficulty = parseDifficulty(data.getDifficulty());
 
                 Question question = new Question();
-                question.setBankId(bankId);
+                question.setBankId(targetBankId);
                 question.setType(type);
                 question.setContent(data.getContent().trim());
                 question.setAnswer(data.getAnswer().trim());
@@ -340,7 +339,7 @@ public class QuestionServiceImpl implements QuestionService {
         }
 
         // 更新题库题目数量
-        updateBankQuestionCount(bankId);
+        updateBankQuestionCount(targetBankId);
 
         return new QuestionImportResult(successCount, failCount, errors);
     }
@@ -427,6 +426,66 @@ public class QuestionServiceImpl implements QuestionService {
                 .and(QUESTION.STATUS.eq(1))
                 .orderBy(QUESTION.SORT.asc(), QUESTION.CREATE_TIME.asc());
         return questionMapper.selectListByQuery(query);
+    }
+
+    private Long resolveImportBankId(Long bankId, Long categoryId, String originalFilename) {
+        if (bankId != null) {
+            QuestionBank bank = questionBankMapper.selectOneById(bankId);
+            if (bank == null) {
+                throw new BizException("题库不存在");
+            }
+            return bankId;
+        }
+
+        String bankName = extractBankName(originalFilename);
+        List<QuestionBank> matchedBanks = questionBankMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .where(QUESTION_BANK.NAME.eq(bankName))
+                        .orderBy(QUESTION_BANK.ID.asc())
+                        .limit(1)
+        );
+        if (!matchedBanks.isEmpty()) {
+            return matchedBanks.get(0).getId();
+        }
+
+        if (categoryId == null) {
+            throw new BizException("未选择题库时，请先选择分类");
+        }
+        Category category = categoryMapper.selectOneById(categoryId);
+        if (category == null) {
+            throw new BizException("分类不存在");
+        }
+
+        QuestionBank newBank = new QuestionBank();
+        newBank.setCategoryId(categoryId);
+        newBank.setName(bankName);
+        newBank.setDescription("由批量导入自动创建");
+        newBank.setCover("");
+        newBank.setQuestionCount(0);
+        newBank.setPracticeCount(0);
+        newBank.setPassScore(60);
+        Integer maxSort = questionBankMapper.selectObjectByQueryAs(
+                QueryWrapper.create().select(max(QUESTION_BANK.SORT)), Integer.class);
+        newBank.setSort(maxSort != null ? maxSort + 1 : 1);
+        newBank.setStatus(1);
+        questionBankMapper.insert(newBank);
+        questionBankService.evictCache(newBank.getId());
+        return newBank.getId();
+    }
+
+    private String extractBankName(String originalFilename) {
+        String filename = originalFilename == null ? "" : originalFilename.trim();
+        int slashIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+        if (slashIndex >= 0) {
+            filename = filename.substring(slashIndex + 1);
+        }
+        int dotIndex = filename.lastIndexOf('.');
+        String bankName = dotIndex > 0 ? filename.substring(0, dotIndex) : filename;
+        bankName = bankName.trim();
+        if (bankName.isEmpty()) {
+            throw new BizException("未选择题库时，无法从文件名识别题库名称，请手动选择题库");
+        }
+        return bankName.length() > 100 ? bankName.substring(0, 100) : bankName;
     }
 
     private void updateBankQuestionCount(Long bankId) {
