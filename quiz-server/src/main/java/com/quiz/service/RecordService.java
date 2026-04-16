@@ -14,4 +14,8 @@ public interface RecordService {
     PageResult<Map<String, Object>> adminPracticeRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize);
 
     PageResult<Map<String, Object>> adminExamRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize);
+
+    Map<String, Object> adminPracticeRecordDetail(Long id, String keyword, String result, Integer pageNum, Integer pageSize);
+
+    Map<String, Object> adminExamRecordDetail(Long id, String keyword, String result, Integer pageNum, Integer pageSize);
 }

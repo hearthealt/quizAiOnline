@@ -129,22 +129,61 @@
     </n-drawer>
 
     <!-- 导入弹窗 -->
-    <n-modal v-model:show="showImportModal" preset="card" title="批量导入题目" style="width: 480px">
-      <n-form label-placement="left" label-width="80">
-        <n-form-item label="所属题库">
-          <n-select v-model:value="importBankId" :options="bankOptions" placeholder="请选择题库" />
-        </n-form-item>
-        <n-form-item label="Excel文件">
-          <n-upload :max="1" accept=".xlsx,.xls" :default-upload="false" @change="(opt: any) => (importFile = opt.file?.file || null)">
-            <n-upload-dragger>
-              <div style="padding: 20px 0">
-                <n-icon size="32" color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16h6v-6h4l-7-7l-7 7h4zm-4 2h14v2H5z"/></svg></n-icon>
-                <div style="color: #666; margin-top: 8px">点击或拖拽文件到此处</div>
+    <n-modal v-model:show="showImportModal" preset="card" title="批量导入题目" style="width: min(720px, calc(100vw - 32px))">
+      <div class="import-shell">
+        <div class="import-banner">
+          <div class="import-banner-head">
+            <span class="import-banner-title">导入规则</span>
+            <n-tag :bordered="false" size="small" :type="importBankId ? 'info' : 'warning'">
+              {{ importBankId ? '手动指定题库' : '按文件名自动处理' }}
+            </n-tag>
+          </div>
+          <div class="import-banner-text">{{ importTargetText }}</div>
+          <div class="import-banner-sub">支持 `.xlsx` / `.xls`。未选题库时，将以文件名作为题库名；若同名题库不存在，会按所选分类自动新建。</div>
+        </div>
+
+        <n-form class="import-form" label-placement="top">
+          <div class="import-grid">
+            <n-form-item label="所属题库">
+              <div class="import-field">
+                <n-select
+                  v-model:value="importBankId"
+                  :options="bankOptions"
+                  placeholder="可不选，不选则按文件名自动匹配或创建"
+                  clearable
+                />
+                <div class="import-tip">选择题库时直接导入；不选择时，将按文件名判断是否已有同名题库，不存在则自动新建。</div>
               </div>
-            </n-upload-dragger>
-          </n-upload>
-        </n-form-item>
-      </n-form>
+            </n-form-item>
+            <n-form-item v-if="!importBankId" label="所属分类">
+              <div class="import-field">
+                <n-select
+                  v-model:value="importCategoryId"
+                  :options="categoryOptions"
+                  placeholder="未选题库时必须选择分类"
+                />
+                <div class="import-tip">仅在需要自动新建题库时使用该分类；如果文件名已匹配到同名题库，将直接导入现有题库。</div>
+              </div>
+            </n-form-item>
+          </div>
+          <n-form-item label="Excel文件">
+            <div class="import-field">
+              <n-upload class="import-upload" :max="1" accept=".xlsx,.xls" :default-upload="false" @change="(opt: any) => (importFile = opt.file?.file || null)">
+                <n-upload-dragger>
+                  <div style="padding: 20px 0">
+                    <n-icon size="32" color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16h6v-6h4l-7-7l-7 7h4zm-4 2h14v2H5z"/></svg></n-icon>
+                    <div style="color: #666; margin-top: 8px">点击或拖拽文件到此处</div>
+                  </div>
+                </n-upload-dragger>
+              </n-upload>
+              <div class="import-file-meta">
+                <span class="import-file-label">当前文件</span>
+                <span class="import-file-name">{{ importFileName }}</span>
+              </div>
+            </div>
+          </n-form-item>
+        </n-form>
+      </div>
       <template #footer>
         <n-space justify="space-between" style="width: 100%">
           <n-button text type="primary" @click="handleDownloadTemplate">下载模板</n-button>
@@ -193,6 +232,7 @@ import { NButton, NPopconfirm, NSpace, NTag, NPagination, useMessage, useDialog,
 import type { Question } from '@/types'
 import * as questionApi from '@/api/question'
 import * as bankApi from '@/api/bank'
+import * as categoryApi from '@/api/category'
 import * as aiApi from '@/api/ai'
 import { useTable } from '@/composables/useTable'
 import { useForm } from '@/composables/useForm'
@@ -220,6 +260,7 @@ const difficultyMap: Record<number, { label: string; type: 'success' | 'warning'
 
 const searchParams = reactive({ bankId: null as number | null, type: null as number | null, keyword: '' })
 const bankOptions = ref<{ label: string; value: number }[]>([])
+const categoryOptions = ref<{ label: string; value: number }[]>([])
 const checkedKeys = ref<number[]>([])
 
 const { loading, data, pagination, fetchData, handlePageChange, handlePageSizeChange } = useTable<Question>(
@@ -250,8 +291,21 @@ const formRules: FormRules = {
 
 const showImportModal = ref(false)
 const importBankId = ref<number | null>(null)
+const importCategoryId = ref<number | null>(null)
 const importFile = ref<File | null>(null)
 const importLoading = ref(false)
+const importFileName = computed(() => importFile.value?.name || '未选择文件')
+const importTargetText = computed(() => {
+  const currentBank = bankOptions.value.find((item) => item.value === importBankId.value)
+  if (currentBank) {
+    return `当前将直接导入到题库「${currentBank.label}」中。`
+  }
+  const currentCategory = categoryOptions.value.find((item) => item.value === importCategoryId.value)
+  if (currentCategory) {
+    return `当前未指定题库，系统会先按文件名匹配同名题库；如果不存在，将在分类「${currentCategory.label}」下自动新建后导入。`
+  }
+  return '当前未指定题库，请先选择分类。系统会按文件名匹配同名题库；如果不存在，则在所选分类下自动新建后导入。'
+})
 
 const showAiModal = ref(false)
 const aiMode = ref('GENERATE_ANALYSIS')
@@ -337,31 +391,32 @@ watch(() => formValue.value.type, (t) => {
 
 const columns: DataTableColumns<Question> = [
   { type: 'selection' },
-  { title: 'ID', key: 'id', width: 70 },
   {
     title: '题库',
     key: 'bankId',
-    width: 140,
+    width: 240,
+    ellipsis: { tooltip: true },
     render(row) {
       const opt = bankOptions.value.find((b) => b.value === row.bankId)
-      return h(NTag, { size: 'small', bordered: false, type: 'info' }, () => opt?.label || '-')
+      const bankName = opt?.label || '-'
+      return h('div', { class: 'bank-name-ellipsis', title: bankName }, bankName)
     },
   },
   {
     title: '题型',
     key: 'type',
-    width: 80,
+    width: 60,
     render(row) {
       const t = typeMap[row.type]
       return t ? h(NTag, { type: t.type, size: 'small', bordered: false }, () => t.label) : row.type
     },
   },
-  { title: '题目内容', key: 'content', ellipsis: { tooltip: true } },
+  { title: '题目内容', key: 'content', width: 400, ellipsis: { tooltip: true } },
   { title: '答案', key: 'answer', width: 100, ellipsis: { tooltip: true } },
   {
     title: '难度',
     key: 'difficulty',
-    width: 80,
+    width: 60,
     render(row) {
       const d = difficultyMap[row.difficulty]
       return d ? h(NTag, { type: d.type, size: 'small', bordered: false }, () => d.label) : row.difficulty
@@ -370,7 +425,7 @@ const columns: DataTableColumns<Question> = [
   {
     title: '状态',
     key: 'status',
-    width: 80,
+    width: 60,
     render(row) {
       return h(NTag, { type: row.status === 1 ? 'success' : 'error', size: 'small', bordered: false }, () => row.status === 1 ? '启用' : '禁用')
     },
@@ -378,7 +433,7 @@ const columns: DataTableColumns<Question> = [
   {
     title: '操作',
     key: 'actions',
-    width: 180,
+    width: 100,
     render(row) {
       return h(NSpace, { size: 4 }, () => [
         h(NButton, { text: true, type: 'primary', onClick: () => openDrawer(row) }, () => '编辑'),
@@ -484,13 +539,17 @@ function handleBatchDelete() {
 }
 
 async function handleImport() {
-  if (!importBankId.value) { message.warning('请选择题库'); return }
   if (!importFile.value) { message.warning('请选择文件'); return }
+  if (!importBankId.value && !importCategoryId.value) { message.warning('未选择题库时，请选择分类'); return }
   importLoading.value = true
   try {
-    await questionApi.importExcel(importBankId.value, importFile.value)
+    await questionApi.importExcel(importBankId.value, importCategoryId.value, importFile.value)
+    await loadBanks()
     message.success('导入成功')
     showImportModal.value = false
+    importBankId.value = null
+    importCategoryId.value = null
+    importFile.value = null
     fetchData(searchParams)
   } catch (e: any) {
     message.error(e.message || '导入失败')
@@ -550,7 +609,13 @@ async function loadBanks() {
   bankOptions.value = (res?.list || []).map((b: any) => ({ label: b.name, value: b.id }))
 }
 
+async function loadCategories() {
+  const res = (await categoryApi.getAll()) as any
+  categoryOptions.value = (res || []).map((c: any) => ({ label: c.name, value: c.id }))
+}
+
 onMounted(() => {
+  loadCategories()
   loadBanks()
   fetchData(searchParams)
 })
@@ -580,6 +645,138 @@ onMounted(() => {
 .card-title {
   font-size: 15px;
   font-weight: 600;
+}
+
+.import-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.import-banner {
+  padding: 16px 18px;
+  border: 1px solid #e6eef8;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+}
+
+.import-banner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.import-banner-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.import-banner-text {
+  color: #334155;
+  line-height: 1.6;
+}
+
+.import-banner-sub {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-form :deep(.n-form-item) {
+  margin-bottom: 0;
+}
+
+.import-form :deep(.n-form-item-label) {
+  padding-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.import-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.import-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.import-upload {
+  width: 100%;
+}
+
+.import-upload :deep(.n-upload),
+.import-upload :deep(.n-upload-trigger),
+.import-upload :deep(.n-upload-dragger) {
+  width: 100%;
+}
+
+.import-upload :deep(.n-upload-dragger) {
+  border-radius: 14px;
+  padding: 6px 0;
+}
+
+.import-tip {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-file-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #edf2f7;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.import-file-label {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.import-file-name {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+}
+
+.bank-name-ellipsis {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .import-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .import-file-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .import-file-name {
+    text-align: left;
+  }
 }
 
 .pagination-wrap {

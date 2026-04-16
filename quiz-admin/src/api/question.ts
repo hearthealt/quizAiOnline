@@ -25,10 +25,15 @@ export function batchDelete(ids: number[]) {
   return request.delete('/api/admin/question/batch', { data: ids })
 }
 
-export function importExcel(bankId: number, file: File) {
+export function importExcel(bankId: number | null | undefined, categoryId: number | null | undefined, file: File) {
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('bankId', String(bankId))
+  if (bankId != null) {
+    formData.append('bankId', String(bankId))
+  }
+  if (categoryId != null) {
+    formData.append('categoryId', String(categoryId))
+  }
   return request.post('/api/admin/question/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })

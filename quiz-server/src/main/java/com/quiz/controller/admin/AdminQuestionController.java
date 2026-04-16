@@ -73,8 +73,9 @@ public class AdminQuestionController {
     @Operation(summary = "导入题目")
     @PostMapping("/import")
     public R<?> importQuestions(@RequestParam("file") MultipartFile file,
-                                @RequestParam Long bankId) throws IOException {
-        return R.ok(questionService.importFromExcel(bankId, file.getInputStream()));
+                                @RequestParam(required = false) Long bankId,
+                                @RequestParam(required = false) Long categoryId) throws IOException {
+        return R.ok(questionService.importFromExcel(bankId, categoryId, file.getOriginalFilename(), file.getInputStream()));
     }
 
     @Operation(summary = "下载导入模板")

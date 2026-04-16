@@ -102,7 +102,6 @@ const rules = {
 }
 
 const columns: DataTableColumns = [
-  { title: 'ID', key: 'id', width: 60 },
   { title: '套餐名称', key: 'name', width: 120 },
   { title: '时长', key: 'duration', width: 80, render: (row: any) => `${row.duration}天` },
   {

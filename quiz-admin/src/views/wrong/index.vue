@@ -55,7 +55,6 @@ const query = reactive({
 })
 
 const columns: DataTableColumns = [
-  { title: 'ID', key: 'id', width: 60 },
   {
     title: '用户',
     key: 'user',

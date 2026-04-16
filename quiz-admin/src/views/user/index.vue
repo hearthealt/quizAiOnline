@@ -192,7 +192,6 @@ const vipForm = ref({ days: 30 })
 const currentUserId = ref<number>(0)
 
 const columns: DataTableColumns<User> = [
-  { title: 'ID', key: 'id', width: 70 },
   {
     title: '用户',
     key: 'nickname',

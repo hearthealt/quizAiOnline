@@ -17,6 +17,13 @@
         <n-button @click="handleReset">重置</n-button>
       </n-space>
 
+      <div class="answer-legend">
+        <span class="legend-dot is-correct"></span><span>答对</span>
+        <span class="legend-dot is-wrong"></span><span>答错</span>
+        <span class="legend-dot is-unanswered"></span><span>未答</span>
+        <span class="legend-dot is-total"></span><span>总题数</span>
+      </div>
+
       <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
 
       <div class="pagination-wrap">
@@ -33,15 +40,67 @@
     </n-card>
 
     <!-- 详情弹窗 -->
-    <n-modal v-model:show="showDetail" preset="card" title="答题详情" style="width: 750px">
-      <n-data-table :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="400" />
+    <n-modal v-model:show="showDetail" preset="card" title="答题详情" style="width: min(960px, calc(100vw - 32px))">
+      <div class="detail-shell">
+        <n-space class="detail-tools">
+          <n-input
+            v-model:value="detailQuery.keyword"
+            placeholder="搜索题目内容或题目ID"
+            clearable
+            style="width: 260px"
+            @keyup.enter="handleDetailSearch"
+          />
+          <n-select
+            v-model:value="detailQuery.result"
+            :options="detailResultOptions"
+            placeholder="结果筛选"
+            clearable
+            style="width: 160px"
+          />
+          <n-button type="primary" @click="handleDetailSearch">搜索</n-button>
+          <n-button @click="handleDetailReset">重置</n-button>
+        </n-space>
+
+        <div class="detail-summary">
+          <div class="summary-item is-correct">
+            <span class="summary-label">答对</span>
+            <span class="summary-value">{{ detailSummary.correctCount }}</span>
+          </div>
+          <div class="summary-item is-wrong">
+            <span class="summary-label">答错</span>
+            <span class="summary-value">{{ detailSummary.wrongCount }}</span>
+          </div>
+          <div class="summary-item is-unanswered">
+            <span class="summary-label">未答</span>
+            <span class="summary-value">{{ detailSummary.unansweredCount }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">总题数</span>
+            <span class="summary-value">{{ detailSummary.totalCount }}</span>
+          </div>
+        </div>
+
+        <n-data-table :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="420" />
+
+        <div class="detail-pagination">
+          <n-pagination
+            :page="detailQuery.pageNum"
+            :page-size="detailQuery.pageSize"
+            :item-count="detailTotal"
+            show-size-picker
+            :page-sizes="[10, 20, 50]"
+            @update:page="handleDetailPageChange"
+            @update:page-size="handleDetailPageSizeChange"
+          />
+        </div>
+      </div>
     </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NProgress } from 'naive-ui'
+import { NButton, NTag } from 'naive-ui'
 import { getPracticeList, getPracticeDetail } from '@/api/record'
 import { getList as getBankList } from '@/api/bank'
 import dayjs from 'dayjs'
@@ -60,11 +119,30 @@ const query = reactive({
 })
 
 const showDetail = ref(false)
+const currentDetailId = ref<number | null>(null)
 const detailData = ref<any[]>([])
 const detailLoading = ref(false)
+const detailTotal = ref(0)
+const detailSummary = ref({
+  totalCount: 0,
+  answerCount: 0,
+  correctCount: 0,
+  wrongCount: 0,
+  unansweredCount: 0,
+})
+const detailQuery = reactive({
+  keyword: '',
+  result: null as string | null,
+  pageNum: 1,
+  pageSize: 10,
+})
+const detailResultOptions = [
+  { label: '答对', value: 'CORRECT' },
+  { label: '答错', value: 'WRONG' },
+  { label: '未答', value: 'UNANSWERED' },
+]
 
 const columns: DataTableColumns = [
-  { title: 'ID', key: 'id', width: 60 },
   {
     title: '用户',
     key: 'user',
@@ -81,13 +159,9 @@ const columns: DataTableColumns = [
   {
     title: '答题情况',
     key: 'progress',
-    width: 150,
+    width: 320,
     render(row: any) {
-      const rate = row.totalCount ? Math.round((row.correctCount / row.totalCount) * 100) : 0
-      return h('div', { style: 'display:flex;align-items:center;gap:8px' }, [
-        h(NProgress, { type: 'line', percentage: rate, showIndicator: false, style: 'width:80px' }),
-        h('span', { style: 'font-size:12px;color:#666' }, `${row.correctCount}/${row.totalCount}`),
-      ])
+      return renderAnswerStats(row)
     }
   },
   {
@@ -107,7 +181,7 @@ const columns: DataTableColumns = [
   {
     title: '时间',
     key: 'createTime',
-    width: 160,
+    width: 260,
     render(row: any) { return row.createTime ? dayjs(row.createTime).format('YYYY-MM-DD HH:mm') : '-' }
   },
   {
@@ -121,19 +195,37 @@ const columns: DataTableColumns = [
 ]
 
 const detailColumns: DataTableColumns = [
-  { title: '题目ID', key: 'questionId', width: 70 },
   { title: '题目内容', key: 'content', ellipsis: { tooltip: true } },
-  { title: '用户答案', key: 'userAnswer', width: 100 },
-  { title: '正确答案', key: 'correctAnswer', width: 100 },
+  {
+    title: '用户答案',
+    key: 'userAnswer',
+    width: 120,
+    render(row: any) {
+      return row.userAnswer || '-'
+    }
+  },
+  { title: '正确答案', key: 'correctAnswer', width: 120, render(row: any) { return row.correctAnswer || '-' } },
   {
     title: '结果',
     key: 'isCorrect',
-    width: 80,
+    width: 100,
     render(row: any) {
+      if (row.isCorrect === null || row.isCorrect === undefined) {
+        return h(NTag, { type: 'warning', size: 'small', bordered: false }, () => '未答')
+      }
       return h(NTag, { type: row.isCorrect ? 'success' : 'error', size: 'small', bordered: false }, () => row.isCorrect ? '正确' : '错误')
     }
   }
 ]
+
+function renderAnswerStats(row: any) {
+  return h('div', { style: 'display:flex;flex-wrap:wrap;gap:6px' }, [
+    h(NTag, { size: 'small', bordered: false, type: 'success', title: `答对 ${row.correctCount || 0}` }, () => `${row.correctCount || 0}`),
+    h(NTag, { size: 'small', bordered: false, type: 'error', title: `答错 ${row.wrongCount || 0}` }, () => `${row.wrongCount || 0}`),
+    h(NTag, { size: 'small', bordered: false, type: 'warning', title: `未答 ${row.unansweredCount || 0}` }, () => `${row.unansweredCount || 0}`),
+    h(NTag, { size: 'small', bordered: false, type: 'info', title: `总题数 ${row.totalCount || 0}` }, () => `${row.totalCount || 0}`),
+  ])
+}
 
 async function fetchData() {
   loading.value = true
@@ -165,14 +257,54 @@ function handleReset() {
 }
 
 async function viewDetail(id: number) {
+  currentDetailId.value = id
+  detailQuery.keyword = ''
+  detailQuery.result = null
+  detailQuery.pageNum = 1
   showDetail.value = true
+  await fetchDetail()
+}
+
+async function fetchDetail() {
+  if (!currentDetailId.value) return
   detailLoading.value = true
   try {
-    const res = await getPracticeDetail(id) as any
-    detailData.value = res?.answers || res?.details || []
+    const res = await getPracticeDetail(currentDetailId.value, detailQuery) as any
+    detailData.value = res?.details?.list || []
+    detailTotal.value = res?.details?.total || 0
+    detailSummary.value = {
+      totalCount: res?.summary?.totalCount || 0,
+      answerCount: res?.summary?.answerCount || 0,
+      correctCount: res?.summary?.correctCount || 0,
+      wrongCount: res?.summary?.wrongCount || 0,
+      unansweredCount: res?.summary?.unansweredCount || 0,
+    }
   } finally {
     detailLoading.value = false
   }
+}
+
+function handleDetailPageChange(page: number) {
+  detailQuery.pageNum = page
+  fetchDetail()
+}
+
+function handleDetailPageSizeChange(size: number) {
+  detailQuery.pageSize = size
+  detailQuery.pageNum = 1
+  fetchDetail()
+}
+
+function handleDetailSearch() {
+  detailQuery.pageNum = 1
+  fetchDetail()
+}
+
+function handleDetailReset() {
+  detailQuery.keyword = ''
+  detailQuery.result = null
+  detailQuery.pageNum = 1
+  fetchDetail()
 }
 
 async function loadBanks() {
@@ -203,6 +335,39 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+.answer-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.legend-dot.is-correct {
+  background: #18a058;
+}
+
+.legend-dot.is-wrong {
+  background: #d03050;
+}
+
+.legend-dot.is-unanswered {
+  background: #f0a020;
+}
+
+.legend-dot.is-total {
+  background: #2080f0;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -220,5 +385,68 @@ onMounted(() => {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid #f0f0f0;
+}
+
+.summary-item.is-correct {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.summary-item.is-wrong {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.summary-item.is-unanswered {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.detail-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-tools {
+  align-items: center;
+}
+
+.detail-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.summary-label {
+  display: block;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.summary-value {
+  display: block;
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.detail-pagination {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

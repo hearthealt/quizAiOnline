@@ -26,8 +26,12 @@ public class AdminRecordController {
 
     @Operation(summary = "练习记录详情")
     @GetMapping("/practice/{id}")
-    public R<?> practiceDetail(@PathVariable Long id) {
-        return R.ok(recordService.appRecordDetail(id, "practice", null));
+    public R<?> practiceDetail(@PathVariable Long id,
+                               @RequestParam(required = false) String keyword,
+                               @RequestParam(required = false) String result,
+                               @RequestParam(defaultValue = "1") Integer pageNum,
+                               @RequestParam(defaultValue = "10") Integer pageSize) {
+        return R.ok(recordService.adminPracticeRecordDetail(id, keyword, result, pageNum, pageSize));
     }
 
     @Operation(summary = "考试记录列表")
@@ -41,7 +45,11 @@ public class AdminRecordController {
 
     @Operation(summary = "考试记录详情")
     @GetMapping("/exam/{id}")
-    public R<?> examDetail(@PathVariable Long id) {
-        return R.ok(recordService.appRecordDetail(id, "exam", null));
+    public R<?> examDetail(@PathVariable Long id,
+                           @RequestParam(required = false) String keyword,
+                           @RequestParam(required = false) String result,
+                           @RequestParam(defaultValue = "1") Integer pageNum,
+                           @RequestParam(defaultValue = "10") Integer pageSize) {
+        return R.ok(recordService.adminExamRecordDetail(id, keyword, result, pageNum, pageSize));
     }
 }

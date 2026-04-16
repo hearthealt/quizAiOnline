@@ -31,7 +31,7 @@ public interface QuestionService {
 
     void batchDelete(List<Long> ids);
 
-    QuestionImportResult importFromExcel(Long bankId, InputStream inputStream);
+    QuestionImportResult importFromExcel(Long bankId, Long categoryId, String originalFilename, InputStream inputStream);
 
     QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions);
 
