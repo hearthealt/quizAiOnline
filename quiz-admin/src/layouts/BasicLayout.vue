@@ -370,10 +370,15 @@ onMounted(async () => {
   min-height: 100vh;
   gap: 12px;
   padding: 12px;
+  align-items: start;
 }
 
 .shell-sider {
+  position: sticky;
+  top: 12px;
+  align-self: start;
   width: 264px;
+  height: calc(100vh - 24px);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -465,6 +470,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   padding-top: 2px;
+  overflow: hidden;
 }
 
 .menu-label {
@@ -480,6 +486,8 @@ onMounted(async () => {
   flex: 1;
   background: transparent;
   padding: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .sider-foot {
@@ -689,7 +697,11 @@ onMounted(async () => {
 
   .shell-sider,
   .shell-sider.collapsed {
+    position: static;
+    top: auto;
+    align-self: stretch;
     width: 100%;
+    height: auto;
   }
 }
 </style>
