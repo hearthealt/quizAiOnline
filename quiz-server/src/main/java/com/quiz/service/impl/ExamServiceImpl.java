@@ -1,5 +1,6 @@
 package com.quiz.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
@@ -14,8 +15,9 @@ import com.quiz.entity.*;
 import com.quiz.mapper.*;
 import com.quiz.service.ExamService;
 import com.quiz.service.QuestionBankService;
-import com.quiz.util.AppViewMapper;
+import com.quiz.service.UserActivityService;
 import com.quiz.service.WrongQuestionService;
+import com.quiz.util.AppViewMapper;
 import com.quiz.vo.app.ExamOngoingVO;
 import com.quiz.vo.app.ExamResultVO;
 import com.quiz.vo.app.ExamSessionVO;
@@ -53,6 +55,7 @@ public class ExamServiceImpl implements ExamService {
     private final QuestionBankMapper questionBankMapper;
     private final WrongQuestionService wrongQuestionService;
     private final QuestionBankService questionBankService;
+    private final UserActivityService userActivityService;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -70,7 +73,7 @@ public class ExamServiceImpl implements ExamService {
                         .orderBy(EXAM_RECORD.CREATE_TIME, false)
         );
         if (ongoing != null) {
-            ExamSessionVO session = loadExamSession(ongoing.getId());
+            ExamSessionVO session = loadExamSession(ongoing);
             if (session != null && session.getExamTime() != null) {
                 int leftSeconds = calcLeftSeconds(ongoing.getStartTime(), session.getExamTime());
                 if (leftSeconds > 0) {
@@ -95,7 +98,11 @@ public class ExamServiceImpl implements ExamService {
                         .orderBy(QUESTION.SORT.asc()));
 
         int count = allQuestions.size();
+        if (count <= 0) {
+            throw new BizException("该题库暂无题目");
+        }
         List<Question> examQuestions = allQuestions;
+        String questionIdsJson = serializeQuestionIds(examQuestions);
 
         ExamRecord record = new ExamRecord();
         record.setUserId(userId);
@@ -109,8 +116,10 @@ public class ExamServiceImpl implements ExamService {
         record.setStatus(0);
         record.setStartTime(LocalDateTime.now());
         record.setCreateTime(LocalDateTime.now());
+        record.setQuestionIds(questionIdsJson);
         examRecordMapper.insert(record);
         incrementPracticeCount(dto.getBankId());
+        userActivityService.recordExamStart(userId, dto.getBankId(), record.getId(), count);
 
         int examTime = resolveExamTime(bank, count);
         ExamSessionVO session = buildExamSession(record.getId(), count, examTime, examQuestions);
@@ -144,27 +153,35 @@ public class ExamServiceImpl implements ExamService {
             throw new BizException("已交卷，不能重复提交");
         }
 
+        List<SubmitExamDTO.Answer> submittedAnswers = dto != null && dto.getAnswers() != null
+                ? dto.getAnswers().stream().filter(Objects::nonNull).toList()
+                : Collections.emptyList();
         int correctCount = 0;
         int totalCount = record.getTotalCount();
         Map<Long, Question> questionMap = batchQueryQuestions(
-                dto.getAnswers().stream()
+                submittedAnswers.stream()
                         .map(SubmitExamDTO.Answer::getQuestionId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet())
         );
+        int answerTime = calcAnswerTime(record.getStartTime());
 
-        for (SubmitExamDTO.Answer ans : dto.getAnswers()) {
+        for (SubmitExamDTO.Answer ans : submittedAnswers) {
             Question question = questionMap.get(ans.getQuestionId());
             if (question == null) continue;
 
             boolean isCorrect = isAnswerCorrect(question, ans.getAnswer());
-
-            ExamAnswer examAnswer = new ExamAnswer();
-            examAnswer.setExamId(examId);
-            examAnswer.setQuestionId(ans.getQuestionId());
-            examAnswer.setUserAnswer(ans.getAnswer());
-            examAnswer.setIsCorrect(isCorrect ? 1 : 0);
-            examAnswerMapper.insert(examAnswer);
+            boolean answerChanged = upsertSubmittedExamAnswer(record, ans, isCorrect ? 1 : 0, answerTime);
+            if (answerChanged) {
+                userActivityService.recordExamAnswer(
+                        userId,
+                        record.getBankId(),
+                        examId,
+                        ans.getQuestionId(),
+                        ans.getAnswer(),
+                        answerTime
+                );
+            }
 
             if (isCorrect) {
                 correctCount++;
@@ -184,6 +201,7 @@ public class ExamServiceImpl implements ExamService {
         record.setStatus(1);
         record.setEndTime(LocalDateTime.now());
         examRecordMapper.update(record);
+        userActivityService.recordExamSubmit(userId, record.getBankId(), examId, totalCount, correctCount, score);
         clearExamSession(record.getId());
         clearExamAnswers(record.getId());
 
@@ -251,7 +269,7 @@ public class ExamServiceImpl implements ExamService {
             vo.setExists(false);
             return vo;
         }
-        ExamSessionVO session = loadExamSession(record.getId());
+        ExamSessionVO session = loadExamSession(record);
         if (session == null || session.getExamTime() == null) {
             closeExamRecord(record);
             vo.setExists(true);
@@ -283,7 +301,7 @@ public class ExamServiceImpl implements ExamService {
         if (record.getStatus() != null && record.getStatus() == 1) {
             throw new BizException("考试已结束");
         }
-        ExamSessionVO session = loadExamSession(record.getId());
+        ExamSessionVO session = loadExamSession(record);
         if (session == null || session.getExamTime() == null) {
             closeExamRecord(record);
             throw new BizException("考试已过期");
@@ -310,7 +328,7 @@ public class ExamServiceImpl implements ExamService {
         if (record.getStatus() != null && record.getStatus() == 1) {
             throw new BizException("考试已结束");
         }
-        ExamSessionVO session = loadExamSession(record.getId());
+        ExamSessionVO session = loadExamSession(record);
         if (session == null || session.getExamTime() == null) {
             closeExamRecord(record);
             throw new BizException("考试已过期");
@@ -320,15 +338,26 @@ public class ExamServiceImpl implements ExamService {
             closeExamRecord(record);
             throw new BizException("考试已过期");
         }
-        String key = examAnswerKey(record.getId());
         String answer = dto.getAnswer() == null ? "" : dto.getAnswer();
         if (answer.trim().isEmpty()) {
-            stringRedisTemplate.opsForHash().delete(key, String.valueOf(dto.getQuestionId()));
-            stringRedisTemplate.expire(key, Duration.ofSeconds(leftSeconds));
+            deleteExamAnswer(record.getId(), dto.getQuestionId());
+            stringRedisTemplate.opsForHash().delete(examAnswerKey(record.getId()), String.valueOf(dto.getQuestionId()));
+            stringRedisTemplate.expire(examAnswerKey(record.getId()), Duration.ofSeconds(leftSeconds));
             return;
         }
-        stringRedisTemplate.opsForHash().put(key, String.valueOf(dto.getQuestionId()), answer);
-        stringRedisTemplate.expire(key, Duration.ofSeconds(leftSeconds));
+        boolean changed = upsertDraftExamAnswer(record, dto.getQuestionId(), answer);
+        if (changed) {
+            userActivityService.recordExamAnswer(
+                    userId,
+                    record.getBankId(),
+                    examId,
+                    dto.getQuestionId(),
+                    answer,
+                    calcAnswerTime(record.getStartTime())
+            );
+        }
+        stringRedisTemplate.opsForHash().put(examAnswerKey(record.getId()), String.valueOf(dto.getQuestionId()), answer);
+        stringRedisTemplate.expire(examAnswerKey(record.getId()), Duration.ofSeconds(leftSeconds));
     }
 
     private int resolveExamTime(QuestionBank bank, int count) {
@@ -379,6 +408,19 @@ public class ExamServiceImpl implements ExamService {
         if (examId == null) {
             return Collections.emptyList();
         }
+        List<ExamAnswer> savedAnswers = examAnswerMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .where(EXAM_ANSWER.EXAM_ID.eq(examId))
+                        .orderBy(EXAM_ANSWER.ID.asc())
+        );
+        if (!savedAnswers.isEmpty()) {
+            return savedAnswers.stream().map(answer -> {
+                ExamSessionVO.ExamAnswerVO vo = new ExamSessionVO.ExamAnswerVO();
+                vo.setQuestionId(answer.getQuestionId());
+                vo.setAnswer(answer.getUserAnswer());
+                return vo;
+            }).toList();
+        }
         Map<Object, Object> map = stringRedisTemplate.opsForHash().entries(examAnswerKey(examId));
         if (map == null || map.isEmpty()) {
             return Collections.emptyList();
@@ -398,19 +440,23 @@ public class ExamServiceImpl implements ExamService {
         return list;
     }
 
-    private ExamSessionVO loadExamSession(Long examId) {
-        if (examId == null) {
+    private ExamSessionVO loadExamSession(ExamRecord record) {
+        if (record == null || record.getId() == null) {
             return null;
         }
-        String json = stringRedisTemplate.opsForValue().get(examSessionKey(examId));
+        String json = stringRedisTemplate.opsForValue().get(examSessionKey(record.getId()));
         if (json == null || json.isEmpty()) {
-            return null;
+            ExamSessionVO rebuilt = rebuildExamSession(record);
+            if (rebuilt != null && rebuilt.getExamTime() != null) {
+                cacheExamSession(rebuilt, rebuilt.getExamTime());
+            }
+            return rebuilt;
         }
         try {
             return objectMapper.readValue(json, ExamSessionVO.class);
         } catch (JsonProcessingException e) {
             log.warn("解析考试会话失败", e);
-            return null;
+            return rebuildExamSession(record);
         }
     }
 
@@ -434,6 +480,13 @@ public class ExamServiceImpl implements ExamService {
 
     private String examAnswerKey(Long examId) {
         return RedisKey.EXAM_ANSWER + examId;
+    }
+
+    private int calcAnswerTime(LocalDateTime startTime) {
+        if (startTime == null) {
+            return 0;
+        }
+        return Math.max((int) ChronoUnit.SECONDS.between(startTime, LocalDateTime.now()), 0);
     }
 
     private int calcLeftSeconds(LocalDateTime startTime, Integer examTime) {
@@ -522,6 +575,139 @@ public class ExamServiceImpl implements ExamService {
                 LinkedHashMap::new,
                 Collectors.toList()
         ));
+    }
+
+    private String serializeQuestionIds(List<Question> questions) {
+        if (questions == null || questions.isEmpty()) {
+            return "[]";
+        }
+        try {
+            return objectMapper.writeValueAsString(
+                    questions.stream()
+                            .map(Question::getId)
+                            .filter(Objects::nonNull)
+                            .toList()
+            );
+        } catch (JsonProcessingException e) {
+            throw new BizException("序列化考试题目列表失败");
+        }
+    }
+
+    private List<Long> parseQuestionIds(String questionIdsJson) {
+        if (questionIdsJson == null || questionIdsJson.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            List<Long> ids = objectMapper.readValue(questionIdsJson, new TypeReference<List<Long>>() {});
+            return ids == null ? Collections.emptyList() : ids.stream().filter(Objects::nonNull).toList();
+        } catch (JsonProcessingException e) {
+            log.warn("解析考试题目列表失败", e);
+            return Collections.emptyList();
+        }
+    }
+
+    private ExamSessionVO rebuildExamSession(ExamRecord record) {
+        if (record == null || record.getId() == null) {
+            return null;
+        }
+        List<Long> questionIds = parseQuestionIds(record.getQuestionIds());
+        if (questionIds.isEmpty()) {
+            return null;
+        }
+        QuestionBank bank = questionBankMapper.selectOneById(record.getBankId());
+        if (bank == null) {
+            return null;
+        }
+        List<Question> questions = loadQuestionsByIds(questionIds);
+        if (questions.isEmpty()) {
+            return null;
+        }
+        int examTime = resolveExamTime(bank, Math.max(record.getTotalCount() == null ? 0 : record.getTotalCount(), questions.size()));
+        return buildExamSession(record.getId(), record.getTotalCount() != null ? record.getTotalCount() : questions.size(), examTime, questions);
+    }
+
+    private List<Question> loadQuestionsByIds(List<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<Long, Question> questionMap = questionMapper.selectListByIds(questionIds).stream()
+                .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+        List<Question> ordered = new ArrayList<>();
+        for (Long questionId : questionIds) {
+            Question question = questionMap.get(questionId);
+            if (question != null) {
+                ordered.add(question);
+            }
+        }
+        return ordered;
+    }
+
+    private boolean upsertDraftExamAnswer(ExamRecord record, Long questionId, String answer) {
+        ExamAnswer existing = getExamAnswer(record.getId(), questionId);
+        int answerTime = calcAnswerTime(record.getStartTime());
+        if (existing == null) {
+            ExamAnswer draft = new ExamAnswer();
+            draft.setExamId(record.getId());
+            draft.setQuestionId(questionId);
+            draft.setUserAnswer(answer);
+            draft.setAnswerTime(answerTime);
+            draft.setCreateTime(LocalDateTime.now());
+            examAnswerMapper.insert(draft);
+            return true;
+        }
+        if (Objects.equals(existing.getUserAnswer(), answer)) {
+            return false;
+        }
+        existing.setUserAnswer(answer);
+        existing.setAnswerTime(answerTime);
+        existing.setCreateTime(LocalDateTime.now());
+        examAnswerMapper.update(existing, false);
+        return true;
+    }
+
+    private boolean upsertSubmittedExamAnswer(ExamRecord record, SubmitExamDTO.Answer answer, Integer isCorrect, int answerTime) {
+        ExamAnswer existing = getExamAnswer(record.getId(), answer.getQuestionId());
+        boolean changed = existing == null || !Objects.equals(existing.getUserAnswer(), answer.getAnswer());
+        if (existing == null) {
+            ExamAnswer created = new ExamAnswer();
+            created.setExamId(record.getId());
+            created.setQuestionId(answer.getQuestionId());
+            created.setUserAnswer(answer.getAnswer());
+            created.setIsCorrect(isCorrect);
+            created.setAnswerTime(answerTime);
+            created.setCreateTime(LocalDateTime.now());
+            examAnswerMapper.insert(created);
+            return true;
+        }
+        existing.setUserAnswer(answer.getAnswer());
+        existing.setIsCorrect(isCorrect);
+        if (changed) {
+            existing.setAnswerTime(answerTime);
+            existing.setCreateTime(LocalDateTime.now());
+        } else if (existing.getAnswerTime() == null) {
+            existing.setAnswerTime(answerTime);
+        }
+        examAnswerMapper.update(existing, false);
+        return changed;
+    }
+
+    private ExamAnswer getExamAnswer(Long examId, Long questionId) {
+        return examAnswerMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .where(EXAM_ANSWER.EXAM_ID.eq(examId))
+                        .and(EXAM_ANSWER.QUESTION_ID.eq(questionId))
+        );
+    }
+
+    private void deleteExamAnswer(Long examId, Long questionId) {
+        if (examId == null || questionId == null) {
+            return;
+        }
+        examAnswerMapper.deleteByQuery(
+                QueryWrapper.create()
+                        .where(EXAM_ANSWER.EXAM_ID.eq(examId))
+                        .and(EXAM_ANSWER.QUESTION_ID.eq(questionId))
+        );
     }
 
     private boolean isAnswerCorrect(Question question, String submittedAnswer) {

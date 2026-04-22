@@ -298,6 +298,7 @@ const menuOptions = [
     icon: renderIcon(PeopleOutline),
     children: [
       { label: '用户列表', key: '/user', icon: renderIcon(PeopleOutline) },
+      { label: '活跃分析', key: '/activity/users', icon: renderIcon(StatsChartOutline) },
     ],
   },
   {
@@ -307,6 +308,7 @@ const menuOptions = [
     children: [
       { label: '练习记录', key: '/record/practice', icon: renderIcon(CreateOutline) },
       { label: '考试记录', key: '/record/exam', icon: renderIcon(ListOutline) },
+      { label: '今日答题', key: '/activity/answers', icon: renderIcon(DocumentTextOutline) },
     ],
   },
   {

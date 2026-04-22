@@ -16,6 +16,7 @@ import com.quiz.mapper.AiConfigMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.AiChatService;
 import com.quiz.service.SysConfigService;
+import com.quiz.service.UserActivityService;
 import com.quiz.util.AiProviderUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final SysConfigService sysConfigService;
     private final OkHttpClient okHttpClient;
     private final UserMapper userMapper;
+    private final UserActivityService userActivityService;
 
     @Override
     public String chat(AiChatDTO dto, Long userId) {
@@ -89,6 +91,7 @@ public class AiChatServiceImpl implements AiChatService {
             callLog.setCostMs((int) (System.currentTimeMillis() - startTime));
             callLog.setStatus(1);
             aiCallLogMapper.insert(callLog);
+            userActivityService.recordAiChat(userId, dto.getMessage().trim());
             
             // 保存用户消息和AI回复到对话历史
             saveMessage(userId, "user", dto.getMessage().trim());

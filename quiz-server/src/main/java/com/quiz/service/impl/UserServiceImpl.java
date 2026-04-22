@@ -10,6 +10,7 @@ import com.quiz.entity.User;
 import com.quiz.mapper.PracticeDetailMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.SysConfigService;
+import com.quiz.service.UserActivityService;
 import com.quiz.service.UserService;
 import com.quiz.service.model.WxLoginResult;
 import com.quiz.util.SecurityUtils;
@@ -41,6 +42,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private SysConfigService sysConfigService;
+
+    @Autowired
+    private UserActivityService userActivityService;
 
     @Value("${wx.appid:}")
     private String wxAppId;
@@ -100,6 +104,7 @@ public class UserServiceImpl implements UserService {
             }
 
             userMapper.insert(user);
+            userActivityService.recordLogin(user.getId());
             log.info("wxLogin register insert success - userId: {}", user.getId());
             needProfileCompletion = true;
         } else {
@@ -127,6 +132,7 @@ public class UserServiceImpl implements UserService {
             }
             user.setLastLoginTime(LocalDateTime.now());
             userMapper.update(user);
+            userActivityService.recordLogin(user.getId());
             log.info("wxLogin update existing user - userId: {}, nickname: '{}', avatar: '{}'",
                     user.getId(), user.getNickname(), user.getAvatar());
             needProfileCompletion = !hasCompletedProfile(user);
@@ -176,6 +182,7 @@ public class UserServiceImpl implements UserService {
 
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.update(user);
+        userActivityService.recordLogin(user.getId());
 
         return user;
     }

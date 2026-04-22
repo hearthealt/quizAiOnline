@@ -86,6 +86,9 @@
             <n-descriptions-item v-if="detailUser.isVip === 1" label="VIP到期">
               {{ isPermVip(detailUser.vipExpireTime) ? '永久有效' : dayjs(detailUser.vipExpireTime).format('YYYY-MM-DD HH:mm') }}
             </n-descriptions-item>
+            <n-descriptions-item label="最后登录">
+              {{ detailUser.lastLoginTime ? dayjs(detailUser.lastLoginTime).format('YYYY-MM-DD HH:mm') : '-' }}
+            </n-descriptions-item>
             <n-descriptions-item label="注册时间">
               {{ dayjs(detailUser.createTime).format('YYYY-MM-DD HH:mm') }}
             </n-descriptions-item>

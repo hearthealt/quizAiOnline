@@ -9,11 +9,11 @@
       </template>
 
       <n-space class="search-bar">
-        <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="fetchData">
+        <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="handleSearch">
           <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
         </n-input>
         <n-select v-model:value="query.bankId" placeholder="选择题库" clearable :options="bankOptions" style="width: 180px" />
-        <n-button type="primary" @click="fetchData">搜索</n-button>
+        <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
       </n-space>
 
@@ -66,8 +66,20 @@ const columns: DataTableColumns = [
       ])
     }
   },
+  {
+    title: '题库',
+    key: 'bankName',
+    width: 240,
+    render(row: any) {
+      const text = row.bankName || '-'
+      return h(NTag, { size: 'small', bordered: false, type: 'info', title: text }, () =>
+          h('span', {
+            style: 'display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;'
+          }, text)
+      )
+    }
+  },
   { title: '题目内容', key: 'questionContent', ellipsis: { tooltip: true } },
-  { title: '题库', key: 'bankName', width: 140, render(row: any) { return h(NTag, { size: 'small', bordered: false, type: 'info' }, () => row.bankName || '-') } },
   {
     title: '错误次数',
     key: 'wrongCount',
@@ -93,6 +105,11 @@ async function fetchData() {
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch() {
+  query.pageNum = 1
+  fetchData()
 }
 
 function handlePageChange(page: number) {

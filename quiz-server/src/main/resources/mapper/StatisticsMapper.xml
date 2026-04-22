@@ -12,15 +12,40 @@
 
     <select id="countTodayActiveUsers" resultType="int">
         SELECT COUNT(DISTINCT user_id) FROM (
+            SELECT u.id AS user_id
+            FROM user u
+            WHERE u.deleted = 0
+              AND u.last_login_time IS NOT NULL
+              AND DATE(u.last_login_time) = CURDATE()
+            UNION
+            SELECT pr.user_id
+            FROM practice_record pr
+            WHERE DATE(pr.create_time) = CURDATE()
+            UNION
             SELECT pr.user_id
             FROM practice_detail pd
             JOIN practice_record pr ON pd.record_id = pr.id
             WHERE DATE(pd.create_time) = CURDATE()
             UNION
             SELECT er.user_id
+            FROM exam_record er
+            WHERE DATE(er.create_time) = CURDATE()
+               OR DATE(er.end_time) = CURDATE()
+            UNION
+            SELECT er.user_id
             FROM exam_answer ea
             JOIN exam_record er ON ea.exam_id = er.id
-            WHERE DATE(er.create_time) = CURDATE()
+            WHERE DATE(ea.create_time) = CURDATE()
+            UNION
+            SELECT acl.user_id
+            FROM ai_call_log acl
+            WHERE acl.call_type = 'USER'
+              AND acl.user_id IS NOT NULL
+              AND DATE(acl.create_time) = CURDATE()
+            UNION
+            SELECT f.user_id
+            FROM favorite f
+            WHERE DATE(f.create_time) = CURDATE()
         ) t
     </select>
 
@@ -28,7 +53,7 @@
         SELECT (
             (SELECT COUNT(*) FROM practice_detail WHERE DATE(create_time) = CURDATE())
             +
-            (SELECT COUNT(*) FROM exam_answer ea JOIN exam_record er ON ea.exam_id = er.id WHERE DATE(er.create_time) = CURDATE())
+            (SELECT COUNT(*) FROM exam_answer WHERE DATE(create_time) = CURDATE())
         )
     </select>
 
@@ -48,11 +73,10 @@
             WHERE DATE(create_time) BETWEEN #{startDate} AND #{endDate}
             GROUP BY DATE(create_time)
             UNION ALL
-            SELECT DATE(er.create_time) AS date, COUNT(*) AS cnt
+            SELECT DATE(ea.create_time) AS date, COUNT(*) AS cnt
             FROM exam_answer ea
-            JOIN exam_record er ON ea.exam_id = er.id
-            WHERE DATE(er.create_time) BETWEEN #{startDate} AND #{endDate}
-            GROUP BY DATE(er.create_time)
+            WHERE DATE(ea.create_time) BETWEEN #{startDate} AND #{endDate}
+            GROUP BY DATE(ea.create_time)
         ) t
         GROUP BY date
         ORDER BY date ASC

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
+import com.mybatisflex.core.query.QueryColumn;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.quiz.common.exception.BizException;
 import com.quiz.common.result.PageResult;
@@ -15,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -175,12 +178,10 @@ public class RecordServiceImpl implements RecordService {
         }
 
         int totalCount = firstNonNegative(record.getTotalCount(), questionIds.size());
-        int answerCount = firstNonNegative(record.getAnswerCount(), answeredDetails.size());
-        int correctCount = firstNonNegative(record.getCorrectCount(), 0);
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("record", record);
-        payload.put("summary", buildAnswerSummary(totalCount, answerCount, correctCount));
+        payload.put("summary", buildPracticeAnswerSummary(totalCount, answeredDetails));
         payload.put("details", paginateList(filterDetailItems(allDetails, keyword, result), pageNum, pageSize));
         return payload;
     }
@@ -198,39 +199,51 @@ public class RecordServiceImpl implements RecordService {
                         .orderBy(EXAM_ANSWER.ID.asc())
         );
 
-        Map<Long, Question> questionMap = batchQueryQuestions(answers.stream()
-                .map(ExamAnswer::getQuestionId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList());
-        Map<Long, List<Map<String, String>>> optionsMap = batchQueryQuestionOptions(questionMap.keySet());
+        Map<Long, ExamAnswer> answerMap = answers.stream()
+                .filter(answer -> answer.getQuestionId() != null)
+                .collect(Collectors.toMap(
+                        ExamAnswer::getQuestionId,
+                        Function.identity(),
+                        (first, second) -> first,
+                        LinkedHashMap::new
+                ));
+
+        List<Long> questionIds = parseQuestionIds(record.getQuestionIds());
+        if (questionIds.isEmpty()) {
+            questionIds = answers.stream()
+                    .map(ExamAnswer::getQuestionId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+        }
+
+        Map<Long, Question> questionMap = batchQueryQuestions(questionIds);
+        Map<Long, List<Map<String, String>>> optionsMap = batchQueryQuestionOptions(new LinkedHashSet<>(questionIds));
 
         List<Map<String, Object>> detailList = new ArrayList<>();
-        for (int i = 0; i < answers.size(); i++) {
-            ExamAnswer answer = answers.get(i);
-            Question question = questionMap.get(answer.getQuestionId());
+        for (int i = 0; i < questionIds.size(); i++) {
+            Long questionId = questionIds.get(i);
+            ExamAnswer answer = answerMap.get(questionId);
+            Question question = questionMap.get(questionId);
 
             Map<String, Object> item = new HashMap<>();
             item.put("seq", i + 1);
-            item.put("questionId", answer.getQuestionId());
-            item.put("userAnswer", answer.getUserAnswer());
-            item.put("isCorrect", answer.getIsCorrect());
+            item.put("questionId", questionId);
+            item.put("userAnswer", answer != null ? answer.getUserAnswer() : null);
+            item.put("isCorrect", answer != null ? answer.getIsCorrect() : null);
             if (question != null) {
                 item.put("content", question.getContent());
                 item.put("correctAnswer", question.getAnswer());
                 item.put("analysis", question.getAnalysis());
-                item.put("options", optionsMap.getOrDefault(answer.getQuestionId(), Collections.emptyList()));
+                item.put("options", optionsMap.getOrDefault(questionId, Collections.emptyList()));
             }
             detailList.add(item);
         }
 
-        int totalCount = firstNonNegative(record.getTotalCount(), 0);
-        int answerCount = answers.size();
-        int correctCount = firstNonNegative(record.getCorrectCount(), 0);
-
+        int totalCount = firstNonNegative(record.getTotalCount(), questionIds.size());
         Map<String, Object> payload = new HashMap<>();
         payload.put("record", record);
-        payload.put("summary", buildAnswerSummary(totalCount, answerCount, correctCount));
+        payload.put("summary", buildExamAnswerSummary(totalCount, answers));
         payload.put("details", paginateList(filterDetailItems(detailList, keyword, result), pageNum, pageSize));
         return payload;
     }
@@ -328,7 +341,8 @@ public class RecordServiceImpl implements RecordService {
     }
 
     @Override
-    public PageResult<Map<String, Object>> adminPracticeRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize) {
+    public PageResult<Map<String, Object>> adminPracticeRecords(String keyword, Long bankId, String startDate, String endDate,
+                                                                Integer pageNum, Integer pageSize) {
         // 关键词搜索用户
         List<Long> matchedUserIds = null;
         if (StringUtils.hasText(keyword)) {
@@ -345,6 +359,7 @@ public class RecordServiceImpl implements RecordService {
         QueryWrapper qw = QueryWrapper.create();
         if (matchedUserIds != null) qw.and(PRACTICE_RECORD.USER_ID.in(matchedUserIds));
         if (bankId != null) qw.and(PRACTICE_RECORD.BANK_ID.eq(bankId));
+        applyDateRange(qw, PRACTICE_RECORD.CREATE_TIME, startDate, endDate);
         qw.orderBy(PRACTICE_RECORD.CREATE_TIME, false);
         Page<PracticeRecord> page = practiceRecordMapper.paginate(Page.of(pageNum, pageSize), qw);
 
@@ -361,11 +376,14 @@ public class RecordServiceImpl implements RecordService {
         Map<Long, QuestionBank> bankMap = bankIds.isEmpty() ? Collections.emptyMap() :
                 questionBankMapper.selectListByIds(bankIds).stream().collect(Collectors.toMap(QuestionBank::getId, Function.identity(), (a, b) -> a));
 
+        Map<Long, List<PracticeDetail>> detailMap = loadPracticeDetailMap(page.getRecords().stream().map(PracticeRecord::getId).toList());
+
         List<Map<String, Object>> resultList = page.getRecords().stream().map(record -> {
-            int totalCount = firstNonNegative(record.getTotalCount(), 0);
-            int answerCount = firstNonNegative(record.getAnswerCount(), 0);
-            int correctCount = firstNonNegative(record.getCorrectCount(), 0);
-            Map<String, Object> summary = buildAnswerSummary(totalCount, answerCount, correctCount);
+            int totalCount = resolveTotalCount(record.getTotalCount(), record.getQuestionIds());
+            Map<String, Object> summary = buildPracticeAnswerSummary(
+                    totalCount,
+                    detailMap.getOrDefault(record.getId(), Collections.emptyList())
+            );
             Map<String, Object> map = new HashMap<>();
             map.put("id", record.getId());
             map.put("userId", record.getUserId());
@@ -384,7 +402,8 @@ public class RecordServiceImpl implements RecordService {
     }
 
     @Override
-    public PageResult<Map<String, Object>> adminExamRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize) {
+    public PageResult<Map<String, Object>> adminExamRecords(String keyword, Long bankId, String startDate, String endDate,
+                                                            Integer pageNum, Integer pageSize) {
         // 关键词搜索用户
         List<Long> matchedUserIds = null;
         if (StringUtils.hasText(keyword)) {
@@ -401,6 +420,7 @@ public class RecordServiceImpl implements RecordService {
         QueryWrapper qw = QueryWrapper.create();
         if (matchedUserIds != null) qw.and(EXAM_RECORD.USER_ID.in(matchedUserIds));
         if (bankId != null) qw.and(EXAM_RECORD.BANK_ID.eq(bankId));
+        applyDateRange(qw, EXAM_RECORD.CREATE_TIME, startDate, endDate);
         qw.orderBy(EXAM_RECORD.CREATE_TIME, false);
         Page<ExamRecord> page = examRecordMapper.paginate(Page.of(pageNum, pageSize), qw);
 
@@ -416,13 +436,11 @@ public class RecordServiceImpl implements RecordService {
                 userMapper.selectListByIds(userIds).stream().collect(Collectors.toMap(User::getId, Function.identity(), (a, b) -> a));
         Map<Long, QuestionBank> bankMap = bankIds.isEmpty() ? Collections.emptyMap() :
                 questionBankMapper.selectListByIds(bankIds).stream().collect(Collectors.toMap(QuestionBank::getId, Function.identity(), (a, b) -> a));
-        Map<Long, Long> answerCountMap = loadExamAnswerCountMap(page.getRecords().stream().map(ExamRecord::getId).toList());
+        Map<Long, List<ExamAnswer>> answerMap = loadExamAnswerMap(page.getRecords().stream().map(ExamRecord::getId).toList());
 
         List<Map<String, Object>> resultList = page.getRecords().stream().map(record -> {
             int totalCount = firstNonNegative(record.getTotalCount(), 0);
-            int answerCount = answerCountMap.getOrDefault(record.getId(), 0L).intValue();
-            int correctCount = firstNonNegative(record.getCorrectCount(), 0);
-            Map<String, Object> summary = buildAnswerSummary(totalCount, answerCount, correctCount);
+            Map<String, Object> summary = buildExamAnswerSummary(totalCount, answerMap.getOrDefault(record.getId(), Collections.emptyList()));
             Map<String, Object> map = new HashMap<>();
             map.put("id", record.getId());
             map.put("userId", record.getUserId());
@@ -445,10 +463,11 @@ public class RecordServiceImpl implements RecordService {
         return new PageResult<>(resultList, page.getTotalRow(), pageNum, pageSize);
     }
 
-    private Map<String, Object> buildAnswerSummary(int totalCount, int answerCount, int correctCount) {
+    private Map<String, Object> buildPracticeAnswerSummary(int totalCount, List<PracticeDetail> details) {
         int total = Math.max(totalCount, 0);
-        int answered = Math.max(Math.min(answerCount, total), 0);
-        int correct = Math.max(Math.min(correctCount, answered), 0);
+        List<PracticeDetail> safeDetails = details == null ? Collections.emptyList() : details;
+        int answered = Math.max(Math.min((int) safeDetails.stream().filter(this::hasAnswer).count(), total), 0);
+        int correct = Math.max(Math.min((int) safeDetails.stream().filter(this::hasAnswer).filter(detail -> Integer.valueOf(1).equals(detail.getIsCorrect())).count(), answered), 0);
         int wrong = Math.max(answered - correct, 0);
         int unanswered = Math.max(total - answered, 0);
 
@@ -457,6 +476,25 @@ public class RecordServiceImpl implements RecordService {
         summary.put("answerCount", answered);
         summary.put("correctCount", correct);
         summary.put("wrongCount", wrong);
+        summary.put("unansweredCount", unanswered);
+        return summary;
+    }
+
+    private Map<String, Object> buildExamAnswerSummary(int totalCount, List<ExamAnswer> answers) {
+        int total = Math.max(totalCount, 0);
+        List<ExamAnswer> safeAnswers = answers == null ? Collections.emptyList() : answers;
+        int answered = Math.max(Math.min((int) safeAnswers.stream().filter(this::hasAnswer).count(), total), 0);
+        int correct = Math.max(Math.min((int) safeAnswers.stream().filter(this::hasAnswer).filter(answer -> Integer.valueOf(1).equals(answer.getIsCorrect())).count(), answered), 0);
+        int wrong = Math.max(Math.min((int) safeAnswers.stream().filter(this::hasAnswer).filter(answer -> Integer.valueOf(0).equals(answer.getIsCorrect())).count(), answered), 0);
+        int pending = Math.max(answered - correct - wrong, 0);
+        int unanswered = Math.max(total - answered, 0);
+
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("totalCount", total);
+        summary.put("answerCount", answered);
+        summary.put("correctCount", correct);
+        summary.put("wrongCount", wrong);
+        summary.put("pendingCount", pending);
         summary.put("unansweredCount", unanswered);
         return summary;
     }
@@ -491,12 +529,26 @@ public class RecordServiceImpl implements RecordService {
             return true;
         }
         Integer isCorrect = asInteger(item.get("isCorrect"));
+        boolean answered = hasAnswer(item.get("userAnswer"));
         return switch (result) {
             case "CORRECT" -> Integer.valueOf(1).equals(isCorrect);
             case "WRONG" -> Integer.valueOf(0).equals(isCorrect);
-            case "UNANSWERED" -> isCorrect == null;
+            case "PENDING" -> isCorrect == null && answered;
+            case "UNANSWERED" -> !answered;
             default -> true;
         };
+    }
+
+    private boolean hasAnswer(Object value) {
+        return value != null && StringUtils.hasText(value.toString());
+    }
+
+    private boolean hasAnswer(ExamAnswer answer) {
+        return answer != null && hasAnswer(answer.getUserAnswer());
+    }
+
+    private boolean hasAnswer(PracticeDetail detail) {
+        return detail != null && hasAnswer(detail.getUserAnswer());
     }
 
     private Integer asInteger(Object value) {
@@ -523,6 +575,13 @@ public class RecordServiceImpl implements RecordService {
         return Math.max(fallback, 0);
     }
 
+    private int resolveTotalCount(Integer totalCount, String questionIdsJson) {
+        if (totalCount != null && totalCount >= 0) {
+            return totalCount;
+        }
+        return parseQuestionIds(questionIdsJson).size();
+    }
+
     private List<Long> parseQuestionIds(String questionIdsJson) {
         if (!StringUtils.hasText(questionIdsJson)) {
             return Collections.emptyList();
@@ -531,22 +590,67 @@ public class RecordServiceImpl implements RecordService {
             List<Long> ids = objectMapper.readValue(questionIdsJson, new TypeReference<List<Long>>() {});
             return ids == null ? Collections.emptyList() : ids.stream().filter(Objects::nonNull).toList();
         } catch (JsonProcessingException e) {
-            throw new BizException("解析练习题目列表失败");
+            throw new BizException("解析题目列表失败");
         }
     }
 
-    private Map<Long, Long> loadExamAnswerCountMap(List<Long> examIds) {
+    private Map<Long, List<ExamAnswer>> loadExamAnswerMap(List<Long> examIds) {
         if (examIds == null || examIds.isEmpty()) {
             return Collections.emptyMap();
         }
         List<ExamAnswer> answers = examAnswerMapper.selectListByQuery(
                 QueryWrapper.create()
-                        .select(EXAM_ANSWER.EXAM_ID)
                         .where(EXAM_ANSWER.EXAM_ID.in(examIds))
         );
         return answers.stream()
                 .filter(answer -> answer.getExamId() != null)
-                .collect(Collectors.groupingBy(ExamAnswer::getExamId, Collectors.counting()));
+                .collect(Collectors.groupingBy(ExamAnswer::getExamId));
+    }
+
+    private Map<Long, List<PracticeDetail>> loadPracticeDetailMap(List<Long> recordIds) {
+        if (recordIds == null || recordIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<PracticeDetail> details = practiceDetailMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .where(PRACTICE_DETAIL.RECORD_ID.in(recordIds))
+        );
+        return details.stream()
+                .filter(detail -> detail.getRecordId() != null)
+                .collect(Collectors.groupingBy(PracticeDetail::getRecordId));
+    }
+
+    private void applyDateRange(QueryWrapper queryWrapper, QueryColumn queryColumn, String startDate, String endDate) {
+        LocalDateTime startDateTime = parseStartDate(startDate);
+        LocalDateTime endDateTime = parseEndDate(endDate);
+        if (startDateTime != null) {
+            queryWrapper.and(queryColumn.ge(startDateTime));
+        }
+        if (endDateTime != null) {
+            queryWrapper.and(queryColumn.lt(endDateTime));
+        }
+    }
+
+    private LocalDateTime parseStartDate(String date) {
+        if (!StringUtils.hasText(date)) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(date.trim()).atStartOfDay();
+        } catch (Exception e) {
+            throw new BizException("日期格式不正确");
+        }
+    }
+
+    private LocalDateTime parseEndDate(String date) {
+        if (!StringUtils.hasText(date)) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(date.trim()).plusDays(1).atStartOfDay();
+        } catch (Exception e) {
+            throw new BizException("日期格式不正确");
+        }
     }
 
     private <T> PageResult<T> paginateList(List<T> source, Integer pageNum, Integer pageSize) {

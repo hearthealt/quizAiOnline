@@ -19,9 +19,11 @@ public class AdminRecordController {
     @GetMapping("/practice/list")
     public R<?> practiceList(@RequestParam(required = false) String keyword,
                              @RequestParam(required = false) Long bankId,
+                             @RequestParam(required = false) String startDate,
+                             @RequestParam(required = false) String endDate,
                              @RequestParam(defaultValue = "1") Integer pageNum,
                              @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(recordService.adminPracticeRecords(keyword, bankId, pageNum, pageSize));
+        return R.ok(recordService.adminPracticeRecords(keyword, bankId, startDate, endDate, pageNum, pageSize));
     }
 
     @Operation(summary = "练习记录详情")
@@ -38,9 +40,11 @@ public class AdminRecordController {
     @GetMapping("/exam/list")
     public R<?> examList(@RequestParam(required = false) String keyword,
                          @RequestParam(required = false) Long bankId,
+                         @RequestParam(required = false) String startDate,
+                         @RequestParam(required = false) String endDate,
                          @RequestParam(defaultValue = "1") Integer pageNum,
                          @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(recordService.adminExamRecords(keyword, bankId, pageNum, pageSize));
+        return R.ok(recordService.adminExamRecords(keyword, bankId, startDate, endDate, pageNum, pageSize));
     }
 
     @Operation(summary = "考试记录详情")

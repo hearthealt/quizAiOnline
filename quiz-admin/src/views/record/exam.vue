@@ -9,17 +9,19 @@
       </template>
 
       <n-space class="search-bar">
-        <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="fetchData">
+        <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="handleSearch">
           <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
         </n-input>
         <n-select v-model:value="query.bankId" placeholder="选择题库" clearable :options="bankOptions" style="width: 180px" />
-        <n-button type="primary" @click="fetchData">搜索</n-button>
+        <n-date-picker v-model:value="query.dateRange" type="daterange" clearable style="width: 260px" />
+        <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
       </n-space>
 
       <div class="answer-legend">
         <span class="legend-dot is-correct"></span><span>答对</span>
         <span class="legend-dot is-wrong"></span><span>答错</span>
+        <span class="legend-dot is-pending"></span><span>待判定</span>
         <span class="legend-dot is-unanswered"></span><span>未答</span>
         <span class="legend-dot is-total"></span><span>总题数</span>
       </div>
@@ -70,6 +72,10 @@
             <span class="summary-label">答错</span>
             <span class="summary-value">{{ detailSummary.wrongCount }}</span>
           </div>
+          <div class="summary-item is-pending">
+            <span class="summary-label">待判定</span>
+            <span class="summary-value">{{ detailSummary.pendingCount }}</span>
+          </div>
           <div class="summary-item is-unanswered">
             <span class="summary-label">未答</span>
             <span class="summary-value">{{ detailSummary.unansweredCount }}</span>
@@ -80,8 +86,10 @@
           </div>
         </div>
 
-        <div v-if="detailSummary.unansweredCount > 0" class="detail-tip">
-          未答题已计入统计。当前详情列表展示的是已保存答案的题目。
+        <div v-if="detailSummary.pendingCount > 0 || detailSummary.unansweredCount > 0" class="detail-tip">
+          <span v-if="detailSummary.pendingCount > 0">已作答但未交卷的题目显示为“待判定”。</span>
+          <span v-if="detailSummary.pendingCount > 0 && detailSummary.unansweredCount > 0"> </span>
+          <span v-if="detailSummary.unansweredCount > 0">未作答题目显示为“未答”。</span>
         </div>
 
         <n-data-table :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="420" />
@@ -118,6 +126,7 @@ const bankOptions = ref<{ label: string; value: number }[]>([])
 const query = reactive({
   keyword: '',
   bankId: null as number | null,
+  dateRange: null as [number, number] | null,
   pageNum: 1,
   pageSize: 10
 })
@@ -132,6 +141,7 @@ const detailSummary = ref({
   answerCount: 0,
   correctCount: 0,
   wrongCount: 0,
+  pendingCount: 0,
   unansweredCount: 0,
 })
 const detailQuery = reactive({
@@ -143,6 +153,8 @@ const detailQuery = reactive({
 const detailResultOptions = [
   { label: '答对', value: 'CORRECT' },
   { label: '答错', value: 'WRONG' },
+  { label: '待判定', value: 'PENDING' },
+  { label: '未答', value: 'UNANSWERED' },
 ]
 
 const columns: DataTableColumns = [
@@ -224,7 +236,11 @@ const detailColumns: DataTableColumns = [
     width: 100,
     render(row: any) {
       if (row.isCorrect === null || row.isCorrect === undefined) {
-        return h(NTag, { type: 'warning', size: 'small', bordered: false }, () => '未答')
+        return h(
+          NTag,
+          { type: row.userAnswer ? 'info' : 'warning', size: 'small', bordered: false },
+          () => row.userAnswer ? '待判定' : '未答'
+        )
       }
       return h(NTag, { type: row.isCorrect ? 'success' : 'error', size: 'small', bordered: false }, () => row.isCorrect ? '正确' : '错误')
     }
@@ -235,20 +251,30 @@ function renderAnswerStats(row: any) {
   return h('div', { style: 'display:flex;flex-wrap:wrap;gap:6px' }, [
     h(NTag, { size: 'small', bordered: false, type: 'success', title: `答对 ${row.correctCount || 0}` }, () => `${row.correctCount || 0}`),
     h(NTag, { size: 'small', bordered: false, type: 'error', title: `答错 ${row.wrongCount || 0}` }, () => `${row.wrongCount || 0}`),
+    h(NTag, { size: 'small', bordered: false, type: 'info', title: `待判定 ${row.pendingCount || 0}` }, () => `${row.pendingCount || 0}`),
     h(NTag, { size: 'small', bordered: false, type: 'warning', title: `未答 ${row.unansweredCount || 0}` }, () => `${row.unansweredCount || 0}`),
-    h(NTag, { size: 'small', bordered: false, type: 'info', title: `总题数 ${row.totalCount || 0}` }, () => `${row.totalCount || 0}`),
+    h(NTag, { size: 'small', bordered: false, title: `总题数 ${row.totalCount || 0}` }, () => `${row.totalCount || 0}`),
   ])
 }
 
 async function fetchData() {
   loading.value = true
   try {
-    const res = await getExamList(query) as any
+    const res = await getExamList({
+      ...query,
+      startDate: query.dateRange ? dayjs(query.dateRange[0]).format('YYYY-MM-DD') : undefined,
+      endDate: query.dateRange ? dayjs(query.dateRange[1]).format('YYYY-MM-DD') : undefined
+    }) as any
     tableData.value = res?.list || []
     total.value = res?.total || 0
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch() {
+  query.pageNum = 1
+  fetchData()
 }
 
 function handlePageChange(page: number) {
@@ -265,6 +291,7 @@ function handlePageSizeChange(size: number) {
 function handleReset() {
   query.keyword = ''
   query.bankId = null
+  query.dateRange = null
   query.pageNum = 1
   fetchData()
 }
@@ -290,6 +317,7 @@ async function fetchDetail() {
       answerCount: res?.summary?.answerCount || 0,
       correctCount: res?.summary?.correctCount || 0,
       wrongCount: res?.summary?.wrongCount || 0,
+      pendingCount: res?.summary?.pendingCount || 0,
       unansweredCount: res?.summary?.unansweredCount || 0,
     }
   } finally {
@@ -373,12 +401,16 @@ onMounted(() => {
   background: #d03050;
 }
 
+.legend-dot.is-pending {
+  background: #2080f0;
+}
+
 .legend-dot.is-unanswered {
   background: #f0a020;
 }
 
 .legend-dot.is-total {
-  background: #2080f0;
+  background: #94a3b8;
 }
 
 .card-header {
@@ -410,6 +442,11 @@ onMounted(() => {
   color: #b42318;
 }
 
+.summary-item.is-pending {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .summary-item.is-unanswered {
   background: #fffaeb;
   color: #b54708;
@@ -427,7 +464,7 @@ onMounted(() => {
 
 .detail-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 

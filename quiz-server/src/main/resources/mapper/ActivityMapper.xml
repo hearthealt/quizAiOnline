@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quiz.mapper.ActivityMapper">
+
+    <sql id="ActiveUserCte">
+        WITH
+        login_agg AS (
+            SELECT u.id AS user_id,
+                   COUNT(*) AS login_count,
+                   MAX(u.last_login_time) AS last_active_time
+            FROM user u
+            WHERE u.deleted = 0
+              AND u.last_login_time IS NOT NULL
+              AND u.last_login_time <![CDATA[ >= ]]> #{startDateTime}
+              AND u.last_login_time <![CDATA[ < ]]> #{endDateTime}
+            GROUP BY u.id
+        ),
+        practice_agg AS (
+            SELECT pr.user_id,
+                   COUNT(DISTINCT pr.id) AS practice_record_count,
+                   COUNT(pd.id) AS practice_answer_count,
+                   MAX(COALESCE(pd.create_time, pr.update_time, pr.create_time)) AS last_active_time
+            FROM practice_record pr
+            LEFT JOIN practice_detail pd
+                   ON pd.record_id = pr.id
+                  AND pd.create_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND pd.create_time <![CDATA[ < ]]> #{endDateTime}
+            WHERE (pr.create_time <![CDATA[ >= ]]> #{startDateTime} AND pr.create_time <![CDATA[ < ]]> #{endDateTime})
+               OR pd.id IS NOT NULL
+            GROUP BY pr.user_id
+        ),
+        exam_agg AS (
+            SELECT er.user_id,
+                   COUNT(DISTINCT er.id) AS exam_record_count,
+                   COUNT(ea.id) AS exam_answer_count,
+                   MAX(
+                       CASE
+                           WHEN ea.create_time IS NOT NULL AND ea.create_time > COALESCE(er.end_time, er.create_time)
+                               THEN ea.create_time
+                           ELSE COALESCE(er.end_time, er.create_time)
+                       END
+                   ) AS last_active_time
+            FROM exam_record er
+            LEFT JOIN exam_answer ea
+                   ON ea.exam_id = er.id
+                  AND ea.create_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND ea.create_time <![CDATA[ < ]]> #{endDateTime}
+            WHERE (er.create_time <![CDATA[ >= ]]> #{startDateTime} AND er.create_time <![CDATA[ < ]]> #{endDateTime})
+               OR (er.end_time IS NOT NULL AND er.end_time <![CDATA[ >= ]]> #{startDateTime} AND er.end_time <![CDATA[ < ]]> #{endDateTime})
+               OR ea.id IS NOT NULL
+            GROUP BY er.user_id
+        ),
+        ai_agg AS (
+            SELECT acl.user_id,
+                   COUNT(*) AS ai_call_count,
+                   MAX(acl.create_time) AS last_active_time
+            FROM ai_call_log acl
+            WHERE acl.call_type = 'USER'
+              AND acl.user_id IS NOT NULL
+              AND acl.create_time <![CDATA[ >= ]]> #{startDateTime}
+              AND acl.create_time <![CDATA[ < ]]> #{endDateTime}
+            GROUP BY acl.user_id
+        ),
+        favorite_agg AS (
+            SELECT f.user_id,
+                   COUNT(*) AS favorite_count,
+                   MAX(f.create_time) AS last_active_time
+            FROM favorite f
+            WHERE f.create_time <![CDATA[ >= ]]> #{startDateTime}
+              AND f.create_time <![CDATA[ < ]]> #{endDateTime}
+            GROUP BY f.user_id
+        ),
+        active_user_ids AS (
+            SELECT user_id FROM login_agg
+            UNION
+            SELECT user_id FROM practice_agg
+            UNION
+            SELECT user_id FROM exam_agg
+            UNION
+            SELECT user_id FROM ai_agg
+            UNION
+            SELECT user_id FROM favorite_agg
+        )
+    </sql>
+
+    <sql id="AnswerUnionCte">
+        WITH answer_union AS (
+            SELECT pd.create_time AS answer_time,
+                   'PRACTICE' AS source,
+                   pr.id AS record_id,
+                   pr.user_id AS user_id,
+                   u.nickname AS user_nickname,
+                   u.phone AS user_phone,
+                   pr.bank_id AS bank_id,
+                   qb.name AS bank_name,
+                   q.id AS question_id,
+                   q.content AS question_content,
+                   pd.user_answer AS user_answer,
+                   q.answer AS correct_answer,
+                   pd.is_correct AS is_correct
+            FROM practice_detail pd
+            JOIN practice_record pr ON pd.record_id = pr.id
+            JOIN user u ON pr.user_id = u.id AND u.deleted = 0
+            JOIN question q ON pd.question_id = q.id AND q.deleted = 0
+            LEFT JOIN question_bank qb ON pr.bank_id = qb.id AND qb.deleted = 0
+            WHERE pd.create_time <![CDATA[ >= ]]> #{startDateTime}
+              AND pd.create_time <![CDATA[ < ]]> #{endDateTime}
+
+            UNION ALL
+
+            SELECT ea.create_time AS answer_time,
+                   'EXAM' AS source,
+                   er.id AS record_id,
+                   er.user_id AS user_id,
+                   u.nickname AS user_nickname,
+                   u.phone AS user_phone,
+                   er.bank_id AS bank_id,
+                   qb.name AS bank_name,
+                   q.id AS question_id,
+                   q.content AS question_content,
+                   ea.user_answer AS user_answer,
+                   q.answer AS correct_answer,
+                   ea.is_correct AS is_correct
+            FROM exam_answer ea
+            JOIN exam_record er ON ea.exam_id = er.id
+            JOIN user u ON er.user_id = u.id AND u.deleted = 0
+            JOIN question q ON ea.question_id = q.id AND q.deleted = 0
+            LEFT JOIN question_bank qb ON er.bank_id = qb.id AND qb.deleted = 0
+            WHERE ea.create_time <![CDATA[ >= ]]> #{startDateTime}
+              AND ea.create_time <![CDATA[ < ]]> #{endDateTime}
+        )
+    </sql>
+
+    <select id="getActivityOverview" resultType="java.util.Map">
+        SELECT
+            (
+                SELECT COUNT(DISTINCT user_id) FROM (
+                    SELECT u.id AS user_id
+                    FROM user u
+                    WHERE u.deleted = 0
+                      AND u.last_login_time IS NOT NULL
+                      AND u.last_login_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND u.last_login_time <![CDATA[ < ]]> #{endDateTime}
+                    UNION
+                    SELECT pr.user_id
+                    FROM practice_record pr
+                    WHERE pr.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND pr.create_time <![CDATA[ < ]]> #{endDateTime}
+                    UNION
+                    SELECT pr.user_id
+                    FROM practice_detail pd
+                    JOIN practice_record pr ON pd.record_id = pr.id
+                    WHERE pd.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND pd.create_time <![CDATA[ < ]]> #{endDateTime}
+                    UNION
+                    SELECT er.user_id
+                    FROM exam_record er
+                    WHERE (er.create_time <![CDATA[ >= ]]> #{startDateTime} AND er.create_time <![CDATA[ < ]]> #{endDateTime})
+                       OR (er.end_time IS NOT NULL AND er.end_time <![CDATA[ >= ]]> #{startDateTime} AND er.end_time <![CDATA[ < ]]> #{endDateTime})
+                    UNION
+                    SELECT er.user_id
+                    FROM exam_answer ea
+                    JOIN exam_record er ON ea.exam_id = er.id
+                    WHERE ea.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND ea.create_time <![CDATA[ < ]]> #{endDateTime}
+                    UNION
+                    SELECT acl.user_id
+                    FROM ai_call_log acl
+                    WHERE acl.call_type = 'USER'
+                      AND acl.user_id IS NOT NULL
+                      AND acl.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND acl.create_time <![CDATA[ < ]]> #{endDateTime}
+                    UNION
+                    SELECT f.user_id
+                    FROM favorite f
+                    WHERE f.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND f.create_time <![CDATA[ < ]]> #{endDateTime}
+                ) active_users
+            ) AS activeUsers,
+            (
+                SELECT COUNT(*)
+                FROM user u
+                WHERE u.deleted = 0
+                  AND u.last_login_time IS NOT NULL
+                  AND u.last_login_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND u.last_login_time <![CDATA[ < ]]> #{endDateTime}
+            ) AS loginUsers,
+            (
+                SELECT COUNT(DISTINCT user_id) FROM (
+                    SELECT pr.user_id
+                    FROM practice_record pr
+                    WHERE pr.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND pr.create_time <![CDATA[ < ]]> #{endDateTime}
+                    UNION
+                    SELECT pr.user_id
+                    FROM practice_detail pd
+                    JOIN practice_record pr ON pd.record_id = pr.id
+                    WHERE pd.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND pd.create_time <![CDATA[ < ]]> #{endDateTime}
+                ) practice_users
+            ) AS practiceUsers,
+            (
+                SELECT COUNT(*)
+                FROM practice_detail pd
+                WHERE pd.create_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND pd.create_time <![CDATA[ < ]]> #{endDateTime}
+            ) AS practiceAnswers,
+            (
+                SELECT COUNT(DISTINCT user_id) FROM (
+                    SELECT er.user_id
+                    FROM exam_record er
+                    WHERE (er.create_time <![CDATA[ >= ]]> #{startDateTime} AND er.create_time <![CDATA[ < ]]> #{endDateTime})
+                       OR (er.end_time IS NOT NULL AND er.end_time <![CDATA[ >= ]]> #{startDateTime} AND er.end_time <![CDATA[ < ]]> #{endDateTime})
+                    UNION
+                    SELECT er.user_id
+                    FROM exam_answer ea
+                    JOIN exam_record er ON ea.exam_id = er.id
+                    WHERE ea.create_time <![CDATA[ >= ]]> #{startDateTime}
+                      AND ea.create_time <![CDATA[ < ]]> #{endDateTime}
+                ) exam_users
+            ) AS examUsers,
+            (
+                SELECT COUNT(*)
+                FROM exam_answer ea
+                WHERE ea.create_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND ea.create_time <![CDATA[ < ]]> #{endDateTime}
+            ) AS examAnswers,
+            (
+                SELECT COUNT(DISTINCT acl.user_id)
+                FROM ai_call_log acl
+                WHERE acl.call_type = 'USER'
+                  AND acl.user_id IS NOT NULL
+                  AND acl.create_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND acl.create_time <![CDATA[ < ]]> #{endDateTime}
+            ) AS aiUsers,
+            (
+                SELECT COUNT(DISTINCT f.user_id)
+                FROM favorite f
+                WHERE f.create_time <![CDATA[ >= ]]> #{startDateTime}
+                  AND f.create_time <![CDATA[ < ]]> #{endDateTime}
+            ) AS favoriteUsers
+    </select>
+
+    <select id="countActiveUsers" resultType="long">
+        <include refid="ActiveUserCte" />
+        SELECT COUNT(*)
+        FROM active_user_ids au
+        JOIN user u ON u.id = au.user_id AND u.deleted = 0
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.phone LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="listActiveUsers" resultType="java.util.Map">
+        <include refid="ActiveUserCte" />
+        SELECT
+            u.id AS userId,
+            u.nickname AS userNickname,
+            u.phone AS userPhone,
+            u.avatar AS userAvatar,
+            GREATEST(
+                COALESCE(login_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(practice_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(exam_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(ai_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(favorite_agg.last_active_time, '1970-01-01 00:00:00')
+            ) AS lastActiveTime,
+            COALESCE(login_agg.login_count, 0) AS loginCount,
+            COALESCE(practice_agg.practice_record_count, 0) AS practiceRecordCount,
+            COALESCE(practice_agg.practice_answer_count, 0) AS practiceAnswerCount,
+            COALESCE(exam_agg.exam_record_count, 0) AS examRecordCount,
+            COALESCE(exam_agg.exam_answer_count, 0) AS examAnswerCount,
+            COALESCE(ai_agg.ai_call_count, 0) AS aiCallCount,
+            COALESCE(favorite_agg.favorite_count, 0) AS favoriteCount,
+            (
+                COALESCE(login_agg.login_count, 0)
+                + COALESCE(practice_agg.practice_record_count, 0)
+                + COALESCE(practice_agg.practice_answer_count, 0)
+                + COALESCE(exam_agg.exam_record_count, 0)
+                + COALESCE(exam_agg.exam_answer_count, 0)
+                + COALESCE(ai_agg.ai_call_count, 0)
+                + COALESCE(favorite_agg.favorite_count, 0)
+            ) AS totalActionCount
+        FROM active_user_ids au
+        JOIN user u ON u.id = au.user_id AND u.deleted = 0
+        LEFT JOIN login_agg ON login_agg.user_id = au.user_id
+        LEFT JOIN practice_agg ON practice_agg.user_id = au.user_id
+        LEFT JOIN exam_agg ON exam_agg.user_id = au.user_id
+        LEFT JOIN ai_agg ON ai_agg.user_id = au.user_id
+        LEFT JOIN favorite_agg ON favorite_agg.user_id = au.user_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.phone LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY totalActionCount DESC, lastActiveTime DESC, u.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="getActiveUserSummary" resultType="java.util.Map">
+        <include refid="ActiveUserCte" />
+        SELECT
+            u.id AS userId,
+            u.nickname AS userNickname,
+            u.phone AS userPhone,
+            u.avatar AS userAvatar,
+            GREATEST(
+                COALESCE(login_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(practice_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(exam_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(ai_agg.last_active_time, '1970-01-01 00:00:00'),
+                COALESCE(favorite_agg.last_active_time, '1970-01-01 00:00:00')
+            ) AS lastActiveTime,
+            COALESCE(login_agg.login_count, 0) AS loginCount,
+            COALESCE(practice_agg.practice_record_count, 0) AS practiceRecordCount,
+            COALESCE(practice_agg.practice_answer_count, 0) AS practiceAnswerCount,
+            COALESCE(exam_agg.exam_record_count, 0) AS examRecordCount,
+            COALESCE(exam_agg.exam_answer_count, 0) AS examAnswerCount,
+            COALESCE(ai_agg.ai_call_count, 0) AS aiCallCount,
+            COALESCE(favorite_agg.favorite_count, 0) AS favoriteCount,
+            (
+                COALESCE(login_agg.login_count, 0)
+                + COALESCE(practice_agg.practice_record_count, 0)
+                + COALESCE(practice_agg.practice_answer_count, 0)
+                + COALESCE(exam_agg.exam_record_count, 0)
+                + COALESCE(exam_agg.exam_answer_count, 0)
+                + COALESCE(ai_agg.ai_call_count, 0)
+                + COALESCE(favorite_agg.favorite_count, 0)
+            ) AS totalActionCount
+        FROM active_user_ids au
+        JOIN user u ON u.id = au.user_id AND u.deleted = 0
+        LEFT JOIN login_agg ON login_agg.user_id = au.user_id
+        LEFT JOIN practice_agg ON practice_agg.user_id = au.user_id
+        LEFT JOIN exam_agg ON exam_agg.user_id = au.user_id
+        LEFT JOIN ai_agg ON ai_agg.user_id = au.user_id
+        LEFT JOIN favorite_agg ON favorite_agg.user_id = au.user_id
+        WHERE au.user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="countAnswerDetails" resultType="long">
+        <include refid="AnswerUnionCte" />
+        SELECT COUNT(*)
+        FROM answer_union
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    user_nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR user_phone LIKE CONCAT('%', #{keyword}, '%')
+                    OR bank_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR question_content LIKE CONCAT('%', #{keyword}, '%')
+                    OR CAST(question_id AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="bankId != null">
+                AND bank_id = #{bankId}
+            </if>
+            <if test="source != null and source != ''">
+                AND source = #{source}
+            </if>
+            <if test="result != null">
+                <choose>
+                    <when test="result == -1">
+                        AND is_correct IS NULL
+                    </when>
+                    <otherwise>
+                        AND is_correct = #{result}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+        </where>
+    </select>
+
+    <select id="listAnswerDetails" resultType="java.util.Map">
+        <include refid="AnswerUnionCte" />
+        SELECT
+            answer_time AS answerTime,
+            source AS source,
+            record_id AS recordId,
+            user_id AS userId,
+            user_nickname AS userNickname,
+            user_phone AS userPhone,
+            bank_id AS bankId,
+            bank_name AS bankName,
+            question_id AS questionId,
+            question_content AS questionContent,
+            user_answer AS userAnswer,
+            correct_answer AS correctAnswer,
+            is_correct AS isCorrect
+        FROM answer_union
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    user_nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR user_phone LIKE CONCAT('%', #{keyword}, '%')
+                    OR bank_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR question_content LIKE CONCAT('%', #{keyword}, '%')
+                    OR CAST(question_id AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="bankId != null">
+                AND bank_id = #{bankId}
+            </if>
+            <if test="source != null and source != ''">
+                AND source = #{source}
+            </if>
+            <if test="result != null">
+                <choose>
+                    <when test="result == -1">
+                        AND is_correct IS NULL
+                    </when>
+                    <otherwise>
+                        AND is_correct = #{result}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+        </where>
+        ORDER BY answer_time DESC, record_id DESC, question_id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+</mapper>

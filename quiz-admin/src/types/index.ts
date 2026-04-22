@@ -131,6 +131,7 @@ export interface User {
   status: number
   isVip: number
   vipExpireTime: string
+  lastLoginTime: string
   createTime: string
 }
 

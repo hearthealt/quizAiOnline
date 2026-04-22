@@ -11,9 +11,11 @@ public interface RecordService {
 
     Map<String, Object> appRecordDetail(Long id, String type, Long userId);
 
-    PageResult<Map<String, Object>> adminPracticeRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize);
+    PageResult<Map<String, Object>> adminPracticeRecords(String keyword, Long bankId, String startDate, String endDate,
+                                                         Integer pageNum, Integer pageSize);
 
-    PageResult<Map<String, Object>> adminExamRecords(String keyword, Long bankId, Integer pageNum, Integer pageSize);
+    PageResult<Map<String, Object>> adminExamRecords(String keyword, Long bankId, String startDate, String endDate,
+                                                     Integer pageNum, Integer pageSize);
 
     Map<String, Object> adminPracticeRecordDetail(Long id, String keyword, String result, Integer pageNum, Integer pageSize);
 

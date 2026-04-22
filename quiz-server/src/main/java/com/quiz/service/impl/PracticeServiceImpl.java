@@ -19,6 +19,7 @@ import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.service.QuestionBankService;
 import com.quiz.service.PracticeService;
+import com.quiz.service.UserActivityService;
 import com.quiz.util.AppViewMapper;
 import com.quiz.service.WrongQuestionService;
 import com.quiz.vo.app.PracticeResultVO;
@@ -58,6 +59,7 @@ public class PracticeServiceImpl implements PracticeService {
     private final QuestionOptionMapper questionOptionMapper;
     private final WrongQuestionService wrongQuestionService;
     private final QuestionBankService questionBankService;
+    private final UserActivityService userActivityService;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -140,6 +142,8 @@ public class PracticeServiceImpl implements PracticeService {
             throw new BizException("序列化题目ID列表失败");
         }
 
+        userActivityService.recordPracticeStart(userId, bankId, record.getId(), mode, record.getTotalCount());
+
         return record;
     }
 
@@ -201,6 +205,15 @@ public class PracticeServiceImpl implements PracticeService {
         detail.setIsCorrect(isCorrect ? 1 : 0);
         detail.setAnswerTime(dto.getAnswerTime());
         practiceDetailMapper.insert(detail);
+        userActivityService.recordPracticeAnswer(
+                userId,
+                record.getBankId(),
+                recordId,
+                questionId,
+                dto.getAnswer(),
+                isCorrect ? 1 : 0,
+                dto.getAnswerTime()
+        );
 
         // Update practice record
         record.setAnswerCount(record.getAnswerCount() + 1);
@@ -239,6 +252,7 @@ public class PracticeServiceImpl implements PracticeService {
         // Mark as completed
         record.setStatus(1);
         practiceRecordMapper.update(record);
+        userActivityService.recordPracticeFinish(userId, record.getBankId(), recordId, record.getAnswerCount(), record.getCorrectCount());
 
         // Clean up Redis
         stringRedisTemplate.delete(PRACTICE_KEY_PREFIX + recordId);

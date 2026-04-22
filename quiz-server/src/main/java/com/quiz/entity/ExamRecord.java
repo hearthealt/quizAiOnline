@@ -1,5 +1,6 @@
 package com.quiz.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mybatisflex.annotation.Column;
 import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
@@ -37,6 +38,9 @@ public class ExamRecord implements Serializable {
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
+
+    @JsonIgnore
+    private String questionIds;
 
     @Column(onInsertValue = "now()")
     private LocalDateTime createTime;

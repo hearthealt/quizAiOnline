@@ -123,7 +123,10 @@ CREATE TABLE `exam_answer`  (
   `question_id` bigint NOT NULL COMMENT '题目ID',
   `user_answer` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用户答案',
   `is_correct` tinyint NULL DEFAULT NULL COMMENT '是否正确',
+  `answer_time` int NULL DEFAULT NULL COMMENT '答题用时(秒)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近一次保存时间',
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_exam_question`(`exam_id` ASC, `question_id` ASC) USING BTREE,
   INDEX `idx_exam_id`(`exam_id` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '考试答题表' ROW_FORMAT = Dynamic;
 
@@ -144,6 +147,7 @@ CREATE TABLE `exam_record`  (
   `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态: 0-考试中 1-已交卷',
   `start_time` datetime NOT NULL COMMENT '开始时间',
   `end_time` datetime NULL DEFAULT NULL COMMENT '交卷时间',
+  `question_ids` json NULL COMMENT '题目ID列表(JSON)',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_user_id`(`user_id` ASC) USING BTREE,
@@ -298,6 +302,33 @@ CREATE TABLE `user`  (
   UNIQUE INDEX `uk_openid`(`openid` ASC) USING BTREE,
   UNIQUE INDEX `uk_phone`(`phone` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for user_activity_log
+-- ----------------------------
+DROP TABLE IF EXISTS `user_activity_log`;
+CREATE TABLE `user_activity_log`  (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `activity_date` date NOT NULL COMMENT '行为日期',
+  `action_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '行为类型',
+  `biz_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '业务类型',
+  `biz_id` bigint NULL DEFAULT NULL COMMENT '业务ID',
+  `bank_id` bigint NULL DEFAULT NULL COMMENT '题库ID',
+  `question_id` bigint NULL DEFAULT NULL COMMENT '题目ID',
+  `record_id` bigint NULL DEFAULT NULL COMMENT '记录ID',
+  `user_answer` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用户答案',
+  `is_correct` tinyint NULL DEFAULT NULL COMMENT '是否正确',
+  `cost_seconds` int NULL DEFAULT NULL COMMENT '耗时(秒)',
+  `ext_json` json NULL COMMENT '扩展信息',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_date`(`user_id` ASC, `activity_date` ASC) USING BTREE,
+  INDEX `idx_action_date`(`action_type` ASC, `activity_date` ASC) USING BTREE,
+  INDEX `idx_bank_date`(`bank_id` ASC, `activity_date` ASC) USING BTREE,
+  INDEX `idx_record_id`(`record_id` ASC) USING BTREE,
+  INDEX `idx_create_time`(`create_time` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户行为日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for vip_order

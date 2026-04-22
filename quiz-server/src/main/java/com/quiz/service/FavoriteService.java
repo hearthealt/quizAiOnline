@@ -16,5 +16,5 @@ public interface FavoriteService {
 
     void batchRemove(Long userId, List<Long> questionIds);
 
-    PageResult<Map<String, Object>> adminList(String keyword, Integer pageNum, Integer pageSize);
+    PageResult<Map<String, Object>> adminList(String keyword, Long bankId, Integer pageNum, Integer pageSize);
 }

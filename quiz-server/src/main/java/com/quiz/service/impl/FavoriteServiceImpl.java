@@ -14,6 +14,7 @@ import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.FavoriteService;
+import com.quiz.service.UserActivityService;
 import com.quiz.util.AppViewMapper;
 import com.quiz.vo.app.FavoriteVO;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.FavoriteTableDef.FAVORITE;
+import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.UserTableDef.USER;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 
@@ -42,6 +44,7 @@ public class FavoriteServiceImpl implements FavoriteService {
     private final QuestionBankMapper questionBankMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final UserMapper userMapper;
+    private final UserActivityService userActivityService;
 
     @Override
     @Transactional
@@ -59,6 +62,8 @@ public class FavoriteServiceImpl implements FavoriteService {
             favorite.setUserId(userId);
             favorite.setQuestionId(questionId);
             favoriteMapper.insert(favorite);
+            Question question = questionMapper.selectOneById(questionId);
+            userActivityService.recordFavoriteAdd(userId, questionId, question != null ? question.getBankId() : null);
             return true;
         }
     }
@@ -133,7 +138,7 @@ public class FavoriteServiceImpl implements FavoriteService {
     }
 
     @Override
-    public PageResult<Map<String, Object>> adminList(String keyword, Integer pageNum, Integer pageSize) {
+    public PageResult<Map<String, Object>> adminList(String keyword, Long bankId, Integer pageNum, Integer pageSize) {
         // 关键词搜索用户
         List<Long> matchedUserIds = null;
         if (StringUtils.hasText(keyword)) {
@@ -149,6 +154,17 @@ public class FavoriteServiceImpl implements FavoriteService {
 
         QueryWrapper qw = QueryWrapper.create();
         if (matchedUserIds != null) qw.and(FAVORITE.USER_ID.in(matchedUserIds));
+        if (bankId != null) {
+            List<Long> matchedQuestionIds = questionMapper.selectListByQuery(
+                    QueryWrapper.create()
+                            .select(QUESTION.ID)
+                            .where(QUESTION.BANK_ID.eq(bankId))
+            ).stream().map(Question::getId).filter(Objects::nonNull).toList();
+            if (matchedQuestionIds.isEmpty()) {
+                return PageResult.empty(pageNum, pageSize);
+            }
+            qw.and(FAVORITE.QUESTION_ID.in(matchedQuestionIds));
+        }
         qw.orderBy(FAVORITE.CREATE_TIME.desc());
         Page<Favorite> page = favoriteMapper.paginate(pageNum, pageSize, qw);
 
@@ -156,7 +172,7 @@ public class FavoriteServiceImpl implements FavoriteService {
             return PageResult.empty(pageNum, pageSize);
         }
 
-        // 批量查询用户和题目
+        // 批量查询用户、题目、题库
         Set<Long> userIds = page.getRecords().stream().map(Favorite::getUserId).collect(Collectors.toSet());
         Set<Long> questionIds2 = page.getRecords().stream().map(Favorite::getQuestionId).filter(Objects::nonNull).collect(Collectors.toSet());
 
@@ -164,15 +180,24 @@ public class FavoriteServiceImpl implements FavoriteService {
                 userMapper.selectListByIds(userIds).stream().collect(Collectors.toMap(User::getId, Function.identity(), (a, b) -> a));
         Map<Long, Question> questionMap = questionIds2.isEmpty() ? Collections.emptyMap() :
                 questionMapper.selectListByIds(questionIds2).stream().collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+        Set<Long> bankIds = questionMap.values().stream()
+                .map(Question::getBankId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, QuestionBank> bankMap = bankIds.isEmpty() ? Collections.emptyMap() :
+                questionBankMapper.selectListByIds(bankIds).stream().collect(Collectors.toMap(QuestionBank::getId, Function.identity(), (a, b) -> a));
 
         List<Map<String, Object>> resultList = page.getRecords().stream().map(fav -> {
+            Question question = questionMap.getOrDefault(fav.getQuestionId(), new Question());
             Map<String, Object> map = new HashMap<>();
             map.put("id", fav.getId());
             map.put("userId", fav.getUserId());
             map.put("userNickname", userMap.getOrDefault(fav.getUserId(), new User()).getNickname());
             map.put("userPhone", userMap.getOrDefault(fav.getUserId(), new User()).getPhone());
             map.put("questionId", fav.getQuestionId());
-            map.put("questionContent", questionMap.getOrDefault(fav.getQuestionId(), new Question()).getContent());
+            map.put("questionContent", question.getContent());
+            map.put("bankId", question.getBankId());
+            map.put("bankName", bankMap.getOrDefault(question.getBankId(), new QuestionBank()).getName());
             map.put("createTime", fav.getCreateTime());
             return map;
         }).toList();

@@ -9,10 +9,11 @@
       </template>
 
       <n-space class="search-bar">
-        <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="fetchData">
+        <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="handleSearch">
           <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
         </n-input>
-        <n-button type="primary" @click="fetchData">搜索</n-button>
+        <n-select v-model:value="query.bankId" placeholder="选择题库" clearable :options="bankOptions" style="width: 180px" />
+        <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
       </n-space>
 
@@ -35,17 +36,20 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NIcon } from 'naive-ui'
+import { NIcon, NTag } from 'naive-ui'
 import { getAdminFavoriteList } from '@/api/favorite'
+import { getList as getBankList } from '@/api/bank'
 import dayjs from 'dayjs'
 import type { DataTableColumns } from 'naive-ui'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
 const total = ref(0)
+const bankOptions = ref<{ label: string; value: number }[]>([])
 
 const query = reactive({
   keyword: '',
+  bankId: null as number | null,
   pageNum: 1,
   pageSize: 10
 })
@@ -60,6 +64,19 @@ const columns: DataTableColumns = [
         h('div', { style: 'font-weight:500' }, row.userNickname),
         h('div', { style: 'font-size:12px;color:#999' }, row.userPhone),
       ])
+    }
+  },
+  {
+    title: '题库',
+    key: 'bankName',
+    width: 240,
+    render(row: any) {
+      const text = row.bankName || '-'
+      return h(NTag, { size: 'small', bordered: false, type: 'info', title: text }, () =>
+        h('span', {
+          style: 'display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;'
+        }, text)
+      )
     }
   },
   { title: '题目内容', key: 'questionContent', ellipsis: { tooltip: true } },
@@ -82,6 +99,11 @@ async function fetchData() {
   }
 }
 
+function handleSearch() {
+  query.pageNum = 1
+  fetchData()
+}
+
 function handlePageChange(page: number) {
   query.pageNum = page
   fetchData()
@@ -95,11 +117,22 @@ function handlePageSizeChange(size: number) {
 
 function handleReset() {
   query.keyword = ''
+  query.bankId = null
   query.pageNum = 1
   fetchData()
 }
 
-onMounted(() => fetchData())
+async function loadBanks() {
+  try {
+    const res = await getBankList({ pageNum: 1, pageSize: 999 }) as any
+    bankOptions.value = (res?.list || []).map((b: any) => ({ label: b.name, value: b.id }))
+  } catch {}
+}
+
+onMounted(() => {
+  fetchData()
+  loadBanks()
+})
 </script>
 
 <style scoped>

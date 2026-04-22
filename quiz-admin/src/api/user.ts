@@ -10,7 +10,7 @@ export function getDetail(id: number) {
 }
 
 export function updateStatus(id: number, status: number) {
-  return request.put(`/api/admin/user/${id}/status`, { status })
+  return request.put(`/api/admin/user/${id}/status`, null, { params: { status } })
 }
 
 export function getRecords(id: number, params: Record<string, any>) {

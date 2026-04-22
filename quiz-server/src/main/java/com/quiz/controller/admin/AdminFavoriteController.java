@@ -18,8 +18,9 @@ public class AdminFavoriteController {
     @Operation(summary = "收藏列表")
     @GetMapping("/list")
     public R<?> list(@RequestParam(required = false) String keyword,
+                     @RequestParam(required = false) Long bankId,
                      @RequestParam(defaultValue = "1") Integer pageNum,
                      @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(favoriteService.adminList(keyword, pageNum, pageSize));
+        return R.ok(favoriteService.adminList(keyword, bankId, pageNum, pageSize));
     }
 }
