@@ -280,13 +280,6 @@ const formRules: FormRules = {
   bankId: { required: true, type: 'number', message: '请选择题库', trigger: 'change' },
   type: { required: true, type: 'number', message: '请选择题型', trigger: 'change' },
   content: { required: true, message: '请输入题目内容', trigger: 'blur' },
-  answer: {
-    validator: () => {
-      const answer = serializeAnswerForSubmit(formValue.value.type)
-      return answer ? true : new Error('请选择或输入答案')
-    },
-    trigger: ['change', 'blur'],
-  },
 }
 
 const showImportModal = ref(false)
@@ -490,9 +483,11 @@ async function handleSubmit() {
   try {
     const payload: Record<string, any> = { ...formValue.value }
     payload.answer = serializeAnswerForSubmit(formValue.value.type)
-    if (formOptions.value.length > 0) {
-      payload.options = formOptions.value
-    }
+    payload.analysis = (payload.analysis || '').trim()
+    const options = formOptions.value
+      .map((opt) => ({ ...opt, content: (opt.content || '').trim() }))
+      .filter((opt) => opt.content)
+    payload.options = formValue.value.type === 4 ? [] : options
     if (editingId.value) {
       await questionApi.update(editingId.value, payload)
       message.success('更新成功')

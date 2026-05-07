@@ -23,7 +23,6 @@ import com.quiz.mapper.QuestionMapper;
 import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.AiAnalysisService;
-import com.quiz.service.SysConfigService;
 import com.quiz.util.AiProviderUtil;
 import com.quiz.vo.admin.AiCallLogVO;
 import com.quiz.vo.admin.AiStatsVO;
@@ -36,12 +35,14 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.AiCallLogTableDef.AI_CALL_LOG;
+import static com.mybatisflex.core.query.QueryMethods.sum;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 
@@ -50,13 +51,30 @@ import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 @RequiredArgsConstructor
 public class AiAnalysisServiceImpl implements AiAnalysisService {
 
+    private static final String DEFAULT_PROMPT_ANALYSIS = """
+            {questionContext}
+
+            请输出解析：
+            - 单选题、多选题：按每个选项分别说明正确或错误的原因。
+            - 判断题、填空题：只说明判断依据或填空原因。
+            不要输出答案，直接输出解析内容。""";
+    private static final String DEFAULT_PROMPT_ANSWER = """
+            {questionContext}
+
+            请直接输出答案。单选题输出一个选项字母，多选题用逗号分隔，判断题根据选项内容输出对应选项字母，不要假设 A 或 B 的含义，填空题输出应填内容。""";
+    private static final String DEFAULT_PROMPT_BOTH = """
+            {questionContext}
+
+            请按格式输出：
+            答案：[答案]
+            解析：[单选题、多选题逐项说明每个选项原因；判断题、填空题只说明原因；判断题答案输出对应选项字母]""";
+
     private final AiConfigMapper aiConfigMapper;
     private final AiCallLogMapper aiCallLogMapper;
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final UserMapper userMapper;
     private final AdminMapper adminMapper;
-    private final SysConfigService sysConfigService;
     private final OkHttpClient okHttpClient;
     private final ThreadPoolTaskExecutor aiTaskExecutor;
 
@@ -195,16 +213,20 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 .map(o -> o.getLabel() + ". " + o.getContent())
                 .collect(Collectors.joining("\n"));
 
-        String promptTemplate = resolvePromptTemplate(mode, config);
+        String promptTemplate = resolvePromptTemplate(mode);
         if (promptTemplate == null || promptTemplate.trim().isEmpty()) {
             throw new BizException("当前模式未配置 Prompt 模板");
         }
 
+        String questionContext = buildQuestionContext(question, optionsStr);
         String prompt = promptTemplate
+                .replace("{questionContext}", questionContext)
                 .replace("{content}", question.getContent())
+                .replace("{type}", getQuestionTypeName(question.getType()))
                 .replace("{options}", optionsStr)
                 .replace("{answer}", question.getAnswer() != null ? question.getAnswer() : "")
                 .replace("{analysis}", question.getAnalysis() != null ? question.getAnalysis() : "");
+        prompt = appendQuestionTypeInstruction(prompt, question, mode);
 
         long startTime = System.currentTimeMillis();
         AiCallLog callLog = new AiCallLog();
@@ -228,11 +250,11 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             if ("GENERATE_ANALYSIS".equals(mode)) {
                 question.setAnalysis(result);
             } else if ("GENERATE_ANSWER".equals(mode)) {
-                question.setAnswer(result.trim());
+                question.setAnswer(normalizeGeneratedAnswer(question, options, result));
             } else if ("GENERATE_BOTH".equals(mode)) {
-                parseBothResult(question, result);
+                parseBothResult(question, options, result);
             }
-            questionMapper.update(question);
+            questionMapper.update(question, false);
 
             aiCallLogMapper.insert(callLog);
             return result;
@@ -377,8 +399,11 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 QueryWrapper.create().where(AI_CALL_LOG.STATUS.eq(1))));
         vo.setFailCalls(aiCallLogMapper.selectCountByQuery(
                 QueryWrapper.create().where(AI_CALL_LOG.STATUS.eq(0))));
-        vo.setTodayCalls(0L);
-        vo.setTotalTokens(0L);
+        vo.setTodayCalls(aiCallLogMapper.selectCountByQuery(
+                QueryWrapper.create().where(AI_CALL_LOG.CREATE_TIME.ge(LocalDate.now().atStartOfDay()))));
+        String totalTokens = aiCallLogMapper.selectObjectByQueryAs(
+                QueryWrapper.create().select(sum(AI_CALL_LOG.TOKENS_USED)), String.class);
+        vo.setTotalTokens(parseLongOrZero(totalTokens));
         return vo;
     }
 
@@ -754,16 +779,19 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         return config;
     }
 
-    private void parseBothResult(Question question, String result) {
+    private void parseBothResult(Question question, List<QuestionOption> options, String result) {
         String[] lines = result.split("\n");
         StringBuilder analysis = new StringBuilder();
         boolean inAnalysis = false;
         for (String line : lines) {
-            if (line.startsWith("答案：") || line.startsWith("答案:")) {
-                question.setAnswer(line.substring(3).trim());
-            } else if (line.startsWith("解析：") || line.startsWith("解析:")) {
+            String trimmed = line.trim();
+            if (trimmed.matches("^答案\\s*[:：].*")) {
+                String answer = trimmed.replaceFirst("^答案\\s*[:：]\\s*", "");
+                question.setAnswer(normalizeGeneratedAnswer(question, options, answer));
+                inAnalysis = false;
+            } else if (trimmed.matches("^解析\\s*[:：].*")) {
                 inAnalysis = true;
-                analysis.append(line.substring(3).trim());
+                analysis.append(trimmed.replaceFirst("^解析\\s*[:：]\\s*", "").trim());
             } else if (inAnalysis) {
                 analysis.append("\n").append(line);
             }
@@ -773,18 +801,145 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         }
     }
 
-    private String resolvePromptTemplate(String mode, AiConfig config) {
+    private String buildQuestionContext(Question question, String optionsStr) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("题型：").append(getQuestionTypeName(question.getType()));
+        builder.append("\n题目：").append(question.getContent());
+        if (hasText(optionsStr)) {
+            builder.append("\n选项：\n").append(optionsStr);
+        }
+        if (hasText(question.getAnswer())) {
+            builder.append("\n正确答案：").append(question.getAnswer().trim());
+        }
+        if (hasText(question.getAnalysis())) {
+            builder.append("\n已有解析：").append(question.getAnalysis().trim());
+        }
+        return builder.toString();
+    }
+
+    private String appendQuestionTypeInstruction(String prompt, Question question, String mode) {
+        StringBuilder builder = new StringBuilder(prompt == null ? "" : prompt.trim());
+        builder.append("\n\n题型要求：\n");
+        if (question != null && (Objects.equals(question.getType(), 1) || Objects.equals(question.getType(), 2))) {
+            builder.append("本题是").append(getQuestionTypeName(question.getType())).append("。");
+            if ("GENERATE_ANSWER".equals(mode)) {
+                if (Objects.equals(question.getType(), 1)) {
+                    builder.append("只输出一个正确选项字母，不要输出解析。");
+                } else {
+                    builder.append("只输出正确选项字母，多个答案用英文逗号分隔，不要输出解析。");
+                }
+            } else {
+                builder.append("解析必须逐个说明每个选项的原因，按 A、B、C、D 等选项顺序分别说明为什么正确或错误；不要只解释正确答案。");
+            }
+        } else if (question != null && Objects.equals(question.getType(), 3)) {
+            builder.append("本题是判断题。");
+            if ("GENERATE_ANSWER".equals(mode)) {
+                builder.append("只输出与判断结果匹配的选项字母，不要输出解析；必须根据选项内容判断哪个字母表示正确或错误，不要假设 A 或 B 的含义。");
+            } else {
+                builder.append("解析只需要说明判断为对或错的依据，不需要按选项逐项分析；如输出答案，必须输出与选项内容匹配的选项字母，不要假设 A 或 B 的含义。");
+            }
+        } else if (question != null && Objects.equals(question.getType(), 4)) {
+            builder.append("本题是填空题。");
+            if ("GENERATE_ANSWER".equals(mode)) {
+                builder.append("只输出应填内容，不要输出解析。");
+            } else {
+                builder.append("解析只需要说明填入该答案的依据、关键词或推导过程，不需要按选项逐项分析。");
+            }
+        } else {
+            builder.append("请根据题型输出内容。选择题解析需要逐项说明每个选项的原因；判断题和填空题解析只说明原因。");
+        }
+        return builder.toString();
+    }
+
+    private String getQuestionTypeName(Integer type) {
+        if (type == null) {
+            return "未知题型";
+        }
+        return switch (type) {
+            case 1 -> "单选题";
+            case 2 -> "多选题";
+            case 3 -> "判断题";
+            case 4 -> "填空题";
+            default -> "未知题型";
+        };
+    }
+
+    private String normalizeGeneratedAnswer(Question question, List<QuestionOption> options, String rawAnswer) {
+        String answer = trimToNull(stripAnswerBrackets(rawAnswer));
+        if (answer == null || question == null || !Objects.equals(question.getType(), 3)) {
+            return answer;
+        }
+        String optionLabel = findJudgeOptionLabel(options, answer);
+        return optionLabel != null ? optionLabel : answer;
+    }
+
+    private String findJudgeOptionLabel(List<QuestionOption> options, String answer) {
+        if (options == null || options.isEmpty() || answer == null) {
+            return null;
+        }
+        String normalizedAnswer = normalizeJudgeText(answer);
+        if (normalizedAnswer == null) {
+            return null;
+        }
+        for (QuestionOption option : options) {
+            String normalizedOption = normalizeJudgeText(option.getContent());
+            if (normalizedAnswer.equals(normalizedOption)) {
+                return option.getLabel();
+            }
+        }
+        return null;
+    }
+
+    private String normalizeJudgeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim()
+                .replace("。", "")
+                .replace(".", "")
+                .replace(" ", "")
+                .toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "正确", "对", "是", "TRUE", "T", "YES", "Y", "√" -> "TRUE";
+            case "错误", "错", "否", "FALSE", "F", "NO", "N", "×", "X" -> "FALSE";
+            default -> null;
+        };
+    }
+
+    private String stripAnswerBrackets(String value) {
+        String answer = trimToNull(value);
+        if (answer == null) {
+            return null;
+        }
+        return answer.replaceFirst("^\\s*[\\[【（(]\\s*", "")
+                .replaceFirst("\\s*[\\]】）)]\\s*$", "");
+    }
+
+    private String resolvePromptTemplate(String mode) {
         return switch (mode) {
-            case "GENERATE_ANALYSIS" -> sysConfigService.getValue(
-                    "aiPromptAnalysis"
-            );
-            case "GENERATE_ANSWER" -> sysConfigService.getValue(
-                    "aiPromptAnswer"
-            );
-            case "GENERATE_BOTH" -> sysConfigService.getValue(
-                    "aiPromptBoth"
-            );
+            case "GENERATE_ANALYSIS" -> DEFAULT_PROMPT_ANALYSIS;
+            case "GENERATE_ANSWER" -> DEFAULT_PROMPT_ANSWER;
+            case "GENERATE_BOTH" -> DEFAULT_PROMPT_BOTH;
             default -> throw new BizException("不支持的模式: " + mode);
         };
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Long parseLongOrZero(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 }

@@ -215,7 +215,7 @@ CREATE TABLE `question`  (
   `bank_id` bigint NOT NULL COMMENT '所属题库ID',
   `type` tinyint NOT NULL COMMENT '题型: 1-单选 2-多选 3-判断 4-填空',
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '题目内容',
-  `answer` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '正确答案(多选用逗号分隔)',
+  `answer` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '正确答案(多选用逗号分隔)',
   `analysis` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '答案解析',
   `difficulty` tinyint NOT NULL DEFAULT 1 COMMENT '难度: 1-简单 2-中等 3-困难',
   `sort` int NOT NULL DEFAULT 0 COMMENT '排序',

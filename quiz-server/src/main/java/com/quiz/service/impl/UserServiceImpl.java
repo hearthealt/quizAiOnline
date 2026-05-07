@@ -2,8 +2,10 @@ package com.quiz.service.impl;
 
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.quiz.common.enums.UserStatus;
 import com.quiz.common.exception.BizException;
 import com.quiz.common.result.PageResult;
+import com.quiz.config.StpKit;
 import com.quiz.dto.app.UpdateProfileDTO;
 import com.quiz.dto.app.WxLoginDTO;
 import com.quiz.entity.User;
@@ -108,6 +110,8 @@ public class UserServiceImpl implements UserService {
             log.info("wxLogin register insert success - userId: {}", user.getId());
             needProfileCompletion = true;
         } else {
+            checkUserEnabled(user);
+
             String wxNickname = normalize(dto.getNickname());
             String wxAvatar = normalize(dto.getAvatar());
             // 老用户登录：仅当用户未自定义（默认值或空）时才用微信返回的昵称/头像更新
@@ -176,15 +180,19 @@ public class UserServiceImpl implements UserService {
         if (!SecurityUtils.checkPassword(password, user.getPassword())) {
             throw new BizException("手机号或密码错误");
         }
-        if (user.getStatus() != 1) {
-            throw new BizException("账号已被禁用");
-        }
+        checkUserEnabled(user);
 
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.update(user);
         userActivityService.recordLogin(user.getId());
 
         return user;
+    }
+
+    private void checkUserEnabled(User user) {
+        if (!Integer.valueOf(UserStatus.NORMAL.getCode()).equals(user.getStatus())) {
+            throw new BizException("账号已被禁用");
+        }
     }
 
     @Override
@@ -307,6 +315,9 @@ public class UserServiceImpl implements UserService {
         }
         user.setStatus(status);
         userMapper.update(user);
+        if (!Integer.valueOf(UserStatus.NORMAL.getCode()).equals(status)) {
+            StpKit.APP.kickout(id);
+        }
     }
 
     @Override

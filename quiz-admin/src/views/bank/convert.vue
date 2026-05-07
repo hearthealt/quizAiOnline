@@ -207,12 +207,11 @@ function typeCount(type: string) {
 }
 
 const warningCount = computed(() => {
-  return parsedQuestions.value.filter(q => !q.answer || !q.content || (q.type !== '判断' && q.type !== '填空' && (!q.options || q.options.length === 0))).length
+  return parsedQuestions.value.filter(q => !q.content).length
 })
 
 function rowClassName(row: any) {
-  if (!row.answer || !row.content) return 'warning-row'
-  if (row.type !== '判断' && row.type !== '填空' && (!row.options || row.options.length === 0)) return 'warning-row'
+  if (!row.content) return 'warning-row'
   return ''
 }
 

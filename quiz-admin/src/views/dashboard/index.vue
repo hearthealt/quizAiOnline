@@ -218,8 +218,20 @@
               <div class="ai-stat-label">今日调用</div>
             </div>
             <div class="ai-stat-item">
+              <div class="ai-stat-value">{{ aiStats.successCalls || 0 }}</div>
+              <div class="ai-stat-label">成功</div>
+            </div>
+            <div class="ai-stat-item">
+              <div class="ai-stat-value">{{ aiStats.failCalls || 0 }}</div>
+              <div class="ai-stat-label">失败</div>
+            </div>
+            <div class="ai-stat-item">
               <div class="ai-stat-value">{{ aiStats.successRate || 0 }}%</div>
               <div class="ai-stat-label">成功率</div>
+            </div>
+            <div class="ai-stat-item">
+              <div class="ai-stat-value">{{ aiStats.totalTokens || 0 }}</div>
+              <div class="ai-stat-label">Token</div>
             </div>
           </div>
         </n-card>
@@ -237,7 +249,7 @@ import dayjs from 'dayjs'
 
 const overview = reactive({ totalUsers: 0, totalQuestions: 0, todayActive: 0, todayAnswers: 0 })
 const vipStats = reactive({ totalVipUsers: 0, totalRevenue: 0 })
-const aiStats = reactive({ totalCalls: 0, todayCalls: 0, successRate: '0' })
+const aiStats = reactive({ totalCalls: 0, todayCalls: 0, successCalls: 0, failCalls: 0, totalTokens: 0, successRate: '0' })
 const pendingOrders = ref<any[]>([])
 const recentUsers = ref<any[]>([])
 
@@ -269,6 +281,9 @@ onMounted(async () => {
   const ai = aiData as any || {}
   aiStats.totalCalls = ai.totalCalls || 0
   aiStats.todayCalls = ai.todayCalls || 0
+  aiStats.successCalls = ai.successCalls || 0
+  aiStats.failCalls = ai.failCalls || 0
+  aiStats.totalTokens = ai.totalTokens || 0
   aiStats.successRate = ai.totalCalls > 0 ? ((ai.successCalls || 0) / ai.totalCalls * 100).toFixed(1) : '0'
   pendingOrders.value = (ordersData as any)?.list || []
   recentUsers.value = (usersData as any)?.list || []

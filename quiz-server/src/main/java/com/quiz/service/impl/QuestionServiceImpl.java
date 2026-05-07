@@ -153,8 +153,8 @@ public class QuestionServiceImpl implements QuestionService {
         question.setBankId(dto.getBankId());
         question.setType(dto.getType());
         question.setContent(dto.getContent());
-        question.setAnswer(dto.getAnswer());
-        question.setAnalysis(dto.getAnalysis());
+        question.setAnswer(trimToNull(dto.getAnswer()));
+        question.setAnalysis(trimToNull(dto.getAnalysis()));
         question.setDifficulty(dto.getDifficulty());
         if (dto.getSort() != null && dto.getSort() > 0) {
             question.setSort(dto.getSort());
@@ -171,10 +171,13 @@ public class QuestionServiceImpl implements QuestionService {
         if (dto.getOptions() != null && !dto.getOptions().isEmpty()) {
             int sortIndex = 0;
             for (QuestionDTO.OptionDTO optDTO : dto.getOptions()) {
+                if (optDTO.getContent() == null || optDTO.getContent().trim().isEmpty()) {
+                    continue;
+                }
                 QuestionOption option = new QuestionOption();
                 option.setQuestionId(question.getId());
                 option.setLabel(optDTO.getLabel());
-                option.setContent(optDTO.getContent());
+                option.setContent(optDTO.getContent().trim());
                 option.setSort(sortIndex++);
                 questionOptionMapper.insert(option);
             }
@@ -204,10 +207,10 @@ public class QuestionServiceImpl implements QuestionService {
             question.setContent(dto.getContent());
         }
         if (dto.getAnswer() != null) {
-            question.setAnswer(dto.getAnswer());
+            question.setAnswer(trimToNull(dto.getAnswer()));
         }
         if (dto.getAnalysis() != null) {
-            question.setAnalysis(dto.getAnalysis());
+            question.setAnalysis(trimToNull(dto.getAnalysis()));
         }
         if (dto.getDifficulty() != null) {
             question.setDifficulty(dto.getDifficulty());
@@ -215,7 +218,7 @@ public class QuestionServiceImpl implements QuestionService {
         if (dto.getSort() != null) {
             question.setSort(dto.getSort());
         }
-        questionMapper.update(question);
+        questionMapper.update(question, false);
 
         // 删除旧选项，插入新选项
         if (dto.getOptions() != null) {
@@ -225,10 +228,13 @@ public class QuestionServiceImpl implements QuestionService {
 
             int sortIndex = 0;
             for (QuestionDTO.OptionDTO optDTO : dto.getOptions()) {
+                if (optDTO.getContent() == null || optDTO.getContent().trim().isEmpty()) {
+                    continue;
+                }
                 QuestionOption option = new QuestionOption();
                 option.setQuestionId(id);
                 option.setLabel(optDTO.getLabel());
-                option.setContent(optDTO.getContent());
+                option.setContent(optDTO.getContent().trim());
                 option.setSort(sortIndex++);
                 questionOptionMapper.insert(option);
             }
@@ -297,11 +303,6 @@ public class QuestionServiceImpl implements QuestionService {
                     failCount++;
                     continue;
                 }
-                if (data.getAnswer() == null || data.getAnswer().trim().isEmpty()) {
-                    errors.add("第" + rowNum + "行：正确答案不能为空");
-                    failCount++;
-                    continue;
-                }
 
                 // 解析题型
                 int type = parseQuestionType(data.getType());
@@ -313,8 +314,8 @@ public class QuestionServiceImpl implements QuestionService {
                 question.setBankId(targetBankId);
                 question.setType(type);
                 question.setContent(data.getContent().trim());
-                question.setAnswer(data.getAnswer().trim());
-                question.setAnalysis(data.getAnalysis());
+                question.setAnswer(trimToNull(data.getAnswer()));
+                question.setAnalysis(trimToNull(data.getAnalysis()));
                 question.setDifficulty(difficulty);
                 question.setSort(0);
                 question.setStatus(1);
@@ -368,11 +369,6 @@ public class QuestionServiceImpl implements QuestionService {
                     failCount++;
                     continue;
                 }
-                if (answer == null || answer.trim().isEmpty()) {
-                    errors.add("第" + rowNum + "题：正确答案不能为空");
-                    failCount++;
-                    continue;
-                }
 
                 String typeStr = (String) data.get("type");
                 int type = parseQuestionType(typeStr);
@@ -383,8 +379,8 @@ public class QuestionServiceImpl implements QuestionService {
                 question.setBankId(bankId);
                 question.setType(type);
                 question.setContent(content.trim());
-                question.setAnswer(answer.trim());
-                question.setAnalysis((String) data.get("analysis"));
+                question.setAnswer(trimToNull(answer));
+                question.setAnalysis(trimToNull((String) data.get("analysis")));
                 question.setDifficulty(difficulty);
                 question.setSort(0);
                 question.setStatus(1);
@@ -516,6 +512,14 @@ public class QuestionServiceImpl implements QuestionService {
             case "填空", "填空题" -> 4;
             default -> 1;
         };
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private int parseDifficulty(String difficultyStr) {

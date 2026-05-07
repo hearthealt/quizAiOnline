@@ -57,7 +57,8 @@ public class ExcelUtil {
                     
                     // 动态选项列：从第6列开始，每列是一个选项
                     char label = 'A';
-                    for (int i = 5; i < rowData.size(); i++) {
+                    int maxColumnIndex = rowData.keySet().stream().mapToInt(Integer::intValue).max().orElse(4);
+                    for (int i = 5; i <= maxColumnIndex; i++) {
                         String optContent = getCell(rowData, i);
                         if (optContent != null && !optContent.isEmpty()) {
                             data.getOptions().add(new String[]{String.valueOf(label), optContent});

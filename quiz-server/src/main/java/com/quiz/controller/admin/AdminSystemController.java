@@ -30,8 +30,7 @@ public class AdminSystemController {
             "practiceManagerContact",
             "wxAppId", "wxAppSecret",
             "registerEnabled",
-            "aiChatPersona", "aiChatGreeting",
-            "aiPromptAnalysis", "aiPromptAnswer", "aiPromptBoth"
+            "aiChatPersona", "aiChatGreeting"
     ));
 
     @Operation(summary = "管理员列表")
