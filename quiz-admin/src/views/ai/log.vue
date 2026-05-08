@@ -1,24 +1,15 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">AI调用日志</span>
-          <n-text depth="3">共 {{ total }} 条记录</n-text>
-        </div>
-      </template>
-
-      <n-space class="search-bar">
+  <PageContainer title="AI调用日志" :subtitle="'共 ' + total + ' 条记录'">
+    <DataTableSection>
+      <template #search>
         <n-select v-model:value="query.callType" :options="callTypeOptions" placeholder="调用类型" clearable style="width: 120px" />
         <n-select v-model:value="query.status" :options="statusOptions" placeholder="状态" clearable style="width: 100px" />
         <n-select v-model:value="query.mode" :options="modeOptions" placeholder="调用模式" clearable style="width: 160px" />
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
-      </n-space>
-
+      </template>
       <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" :row-props="rowProps" striped size="small" />
-
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="query.pageNum"
           :page-size="query.pageSize"
@@ -28,8 +19,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <n-modal v-model:show="showDetail" preset="card" title="调用详情" style="width: 700px">
       <div class="detail-section">
@@ -45,11 +36,11 @@
         <n-code :code="currentRow?.result || ''" language="text" word-wrap />
       </div>
       <div v-if="currentRow?.errorMsg" class="detail-section">
-        <div class="detail-title" style="color: #d03050">错误信息</div>
+        <div class="detail-title" style="color: var(--color-error)">错误信息</div>
         <n-code :code="currentRow.errorMsg" language="text" word-wrap />
       </div>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -144,7 +135,7 @@ const columns: DataTableColumns = [
     title: '耗时',
     key: 'costMs',
     width: 80,
-    render(row: any) { return h('span', { style: row.costMs > 3000 ? 'color:#d03050' : '' }, `${row.costMs}ms`) }
+    render(row: any) { return h('span', { style: row.costMs > 3000 ? 'color:var(--color-error)' : '' }, `${row.costMs}ms`) }
   },
   { title: 'Token', key: 'tokensUsed', width: 70 },
   { title: '错误信息', key: 'errorMsg', ellipsis: { tooltip: true } },
@@ -205,39 +196,6 @@ onMounted(() => fetchData())
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
-}
-
 .detail-section {
   margin-bottom: 16px;
 }
@@ -251,6 +209,6 @@ onMounted(() => fetchData())
   font-weight: 500;
   margin-bottom: 8px;
   padding-left: 8px;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--color-primary);
 }
 </style>

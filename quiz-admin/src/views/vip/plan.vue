@@ -1,18 +1,15 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">VIP套餐管理</span>
-          <n-button type="primary" @click="openForm()">
-            <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-            新增套餐
-          </n-button>
-        </div>
-      </template>
+  <PageContainer title="VIP套餐管理">
+    <template #header-actions>
+      <n-button type="primary" @click="openForm()">
+        <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+        新增套餐
+      </n-button>
+    </template>
 
+    <DataTableSection>
       <n-data-table size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
-    </n-card>
+    </DataTableSection>
 
     <n-modal v-model:show="showForm" preset="card" :title="formData.id ? '编辑套餐' : '新增套餐'" style="width: 520px">
       <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="80">
@@ -66,7 +63,7 @@
         </n-space>
       </template>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -109,8 +106,8 @@ const columns: DataTableColumns = [
     key: 'price',
     width: 180,
     render: (row: any) => h('div', null, [
-      h('span', { style: 'font-size:16px;font-weight:600;color:#667eea' }, `¥${row.price}`),
-      row.originalPrice > row.price ? h('span', { style: 'font-size:12px;color:#999;text-decoration:line-through;margin-left:8px' }, `¥${row.originalPrice}`) : null,
+      h('span', { style: 'font-size:16px;font-weight:600;color:var(--color-primary)' }, `¥${row.price}`),
+      row.originalPrice > row.price ? h('span', { style: 'font-size:12px;color:var(--color-text-muted);text-decoration:line-through;margin-left:8px' }, `¥${row.originalPrice}`) : null,
     ])
   },
   { title: '描述', key: 'description', ellipsis: { tooltip: true } },
@@ -188,24 +185,3 @@ async function fetchData() {
 
 onMounted(() => fetchData())
 </script>
-
-<style scoped>
-.page-container {
-  min-height: 100%;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-</style>

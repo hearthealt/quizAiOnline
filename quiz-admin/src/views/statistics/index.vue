@@ -1,33 +1,28 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">数据统计</span>
-          <n-date-picker v-model:value="dateRange" type="daterange" clearable @update:value="onDateChange" />
-        </div>
-      </template>
+  <PageContainer title="数据统计">
+    <template #header-actions>
+      <n-date-picker v-model:value="dateRange" type="daterange" clearable @update:value="onDateChange" />
+    </template>
 
-      <div class="chart-grid">
-        <div class="chart-item">
-          <div class="chart-title">用户增长趋势</div>
-          <div ref="userGrowthRef" class="chart-container" />
-        </div>
-        <div class="chart-item">
-          <div class="chart-title">答题趋势</div>
-          <div ref="answerTrendRef" class="chart-container" />
-        </div>
-        <div class="chart-item">
-          <div class="chart-title">题库热度排行</div>
-          <div ref="bankHotRef" class="chart-container" />
-        </div>
-        <div class="chart-item">
-          <div class="chart-title">正确率分布</div>
-          <div ref="accuracyRef" class="chart-container" />
-        </div>
+    <div class="chart-grid">
+      <div class="glass-sm chart-item">
+        <div class="chart-title">用户增长趋势</div>
+        <div ref="userGrowthRef" class="chart-container" />
       </div>
-    </n-card>
-  </div>
+      <div class="glass-sm chart-item">
+        <div class="chart-title">答题趋势</div>
+        <div ref="answerTrendRef" class="chart-container" />
+      </div>
+      <div class="glass-sm chart-item">
+        <div class="chart-title">题库热度排行</div>
+        <div ref="bankHotRef" class="chart-container" />
+      </div>
+      <div class="glass-sm chart-item">
+        <div class="chart-title">正确率分布</div>
+        <div ref="accuracyRef" class="chart-container" />
+      </div>
+    </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -70,7 +65,7 @@ async function loadUserGrowth() {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: list.map((i: any) => i.date), axisLine: chartTheme.axisLine, axisLabel: chartTheme.axisLabel },
       yAxis: { type: 'value', axisLine: { show: false }, splitLine: chartTheme.splitLine, axisLabel: chartTheme.axisLabel },
-      series: [{ name: '新增用户', type: 'line', data: list.map((i: any) => i.count), smooth: true, areaStyle: { opacity: 0.2, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#667eea' }, { offset: 1, color: '#fff' }]) }, itemStyle: { color: '#667eea' }, lineStyle: { width: 3 } }],
+      series: [{ name: '新增用户', type: 'line', data: list.map((i: any) => i.count), smooth: true, areaStyle: { opacity: 0.2, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#b6402c' }, { offset: 1, color: '#fff' }]) }, itemStyle: { color: '#b6402c' }, lineStyle: { width: 3 } }],
       grid: chartTheme.grid,
     })
   } catch {}
@@ -83,7 +78,7 @@ async function loadAnswerTrend() {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: list.map((i: any) => i.date), axisLine: chartTheme.axisLine, axisLabel: chartTheme.axisLabel },
       yAxis: { type: 'value', axisLine: { show: false }, splitLine: chartTheme.splitLine, axisLabel: chartTheme.axisLabel },
-      series: [{ name: '答题数', type: 'line', data: list.map((i: any) => i.count), smooth: true, areaStyle: { opacity: 0.2, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#43e97b' }, { offset: 1, color: '#fff' }]) }, itemStyle: { color: '#43e97b' }, lineStyle: { width: 3 } }],
+      series: [{ name: '答题数', type: 'line', data: list.map((i: any) => i.count), smooth: true, areaStyle: { opacity: 0.2, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#3aa56d' }, { offset: 1, color: '#fff' }]) }, itemStyle: { color: '#3aa56d' }, lineStyle: { width: 3 } }],
       grid: chartTheme.grid,
     })
   } catch {}
@@ -96,7 +91,7 @@ async function loadBankHot() {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'value', axisLine: { show: false }, splitLine: chartTheme.splitLine, axisLabel: chartTheme.axisLabel },
       yAxis: { type: 'category', data: list.map((i: any) => i.name), axisLine: chartTheme.axisLine, axisLabel: chartTheme.axisLabel },
-      series: [{ name: '热度', type: 'bar', data: list.map((i: any) => i.count), itemStyle: { borderRadius: [0, 4, 4, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#667eea' }, { offset: 1, color: '#764ba2' }]) } }],
+      series: [{ name: '热度', type: 'bar', data: list.map((i: any) => i.count), itemStyle: { borderRadius: [0, 4, 4, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#b6402c' }, { offset: 1, color: '#8e76ff' }]) } }],
       grid: { left: 120, right: 20, bottom: 20, top: 10 },
     })
   } catch {}
@@ -105,7 +100,7 @@ async function loadBankHot() {
 async function loadAccuracy() {
   try {
     const list = (await getAccuracyDist() as any) || []
-    const colors = ['#667eea', '#43e97b', '#f093fb', '#4facfe', '#fa709a']
+    const colors = ['#b6402c', '#3aa56d', '#8e76ff', '#5b8fb9', '#d48806']
     accuracyChart.setOption({
       tooltip: { trigger: 'item' },
       legend: { bottom: 0, textStyle: { color: '#666' } },
@@ -162,44 +157,23 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.page-container {
-  min-height: 100%;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: var(--gap-page);
 }
 
 .chart-item {
-  background: #fafafa;
-  border-radius: 8px;
-  padding: 12px;
+  padding: 16px;
 }
 
 .chart-title {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text);
   margin-bottom: 12px;
   padding-left: 8px;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--color-primary);
 }
 
 .chart-container {

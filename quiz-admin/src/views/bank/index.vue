@@ -1,17 +1,14 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">题库管理</span>
-          <n-button type="primary" @click="openDrawer()">
-            <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-            新增题库
-          </n-button>
-        </div>
-      </template>
+  <PageContainer title="题库管理">
+    <template #header-actions>
+      <n-button type="primary" @click="openDrawer()">
+        <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+        新增题库
+      </n-button>
+    </template>
 
-      <n-space class="search-bar">
+    <DataTableSection>
+      <template #search>
         <n-select
           v-model:value="searchParams.categoryId"
           placeholder="选择分类"
@@ -24,7 +21,7 @@
         </n-input>
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
-      </n-space>
+      </template>
 
       <n-data-table
         :columns="columns"
@@ -36,7 +33,7 @@
         striped
       />
 
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="pagination.page"
           :page-size="pagination.pageSize"
@@ -46,8 +43,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <!-- 侧边表单 -->
     <n-drawer v-model:show="showDrawer" :width="520">
@@ -103,7 +100,7 @@
         </template>
       </n-drawer-content>
     </n-drawer>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -115,6 +112,8 @@ import * as categoryApi from '@/api/category'
 import { uploadImage } from '@/api/upload'
 import { useTable } from '@/composables/useTable'
 import { useForm } from '@/composables/useForm'
+import PageContainer from '@/components/PageContainer.vue'
+import DataTableSection from '@/components/DataTableSection.vue'
 
 const message = useMessage()
 
@@ -155,7 +154,7 @@ const columns: DataTableColumns<QuestionBank> = [
     render(row) { return row.cover ? h('img', { src: row.cover, style: 'width:50px;height:36px;object-fit:cover;border-radius:4px' }) : h(NTag, { size: 'small', bordered: false }, () => '无') }
   },
   { title: '描述', key: 'description', ellipsis: { tooltip: true } },
-  { title: '题目数', key: 'questionCount', width: 80, render(row) { return h('span', { style: 'font-weight:500;color:#667eea' }, row.questionCount || 0) } },
+  { title: '题目数', key: 'questionCount', width: 80, render(row) { return h('span', { style: 'font-weight:500;color:var(--color-primary)' }, row.questionCount || 0) } },
   { title: '及格分', key: 'passScore', width: 80 },
   {
     title: '状态',
@@ -260,39 +259,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
-}
-
 .cover-upload {
   display: flex;
   align-items: flex-end;
@@ -316,7 +282,7 @@ onMounted(() => {
 }
 
 .upload-trigger:hover {
-  border-color: #667eea;
+  border-color: var(--color-primary);
 }
 
 .upload-trigger.has-image {

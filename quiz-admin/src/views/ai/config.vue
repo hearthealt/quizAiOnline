@@ -1,113 +1,107 @@
 <template>
-  <div class="page-container">
+  <PageContainer title="AI 提供商配置">
     <div class="config-grid">
-      <n-card :bordered="false" size="small" class="config-card" :loading="pageLoading">
-        <template #header>
-          <div class="card-header">
-            <span class="card-title">AI 提供商配置</span>
-          </div>
-        </template>
+      <div class="glass-sm">
+        <div class="config-card-header">AI 提供商配置</div>
+        <div class="config-card-body">
+          <n-form :model="formData" label-placement="left" label-width="110">
+            <n-form-item label="提供商" path="provider">
+              <n-select v-model:value="formData.provider" :options="providerOptions" />
+            </n-form-item>
 
-        <n-form :model="formData" label-placement="left" label-width="110">
-          <n-form-item label="提供商" path="provider">
-            <n-select v-model:value="formData.provider" :options="providerOptions" />
-          </n-form-item>
+            <n-form-item label="Base URL" path="baseUrl">
+              <n-input v-model:value="formData.baseUrl" :placeholder="currentProviderMeta.baseUrl || '请输入兼容 OpenAI 的 Base URL'" />
+            </n-form-item>
 
-          <n-form-item label="Base URL" path="baseUrl">
-            <n-input v-model:value="formData.baseUrl" :placeholder="currentProviderMeta.baseUrl || '请输入兼容 OpenAI 的 Base URL'" />
-          </n-form-item>
+            <n-form-item label="API Key" path="apiKey">
+              <n-input v-model:value="formData.apiKey" type="password" show-password-on="click" placeholder="请输入 API Key" />
+            </n-form-item>
 
-          <n-form-item label="API Key" path="apiKey">
-            <n-input v-model:value="formData.apiKey" type="password" show-password-on="click" placeholder="请输入 API Key" />
-          </n-form-item>
+            <n-form-item label="模型" path="model">
+              <n-space vertical style="width: 100%" :size="8">
+                <n-select
+                  v-model:value="formData.model"
+                  :options="modelOptions"
+                  filterable
+                  tag
+                  placeholder="选择或输入模型名称"
+                  :loading="modelsLoading"
+                />
+                <div class="model-actions">
+                  <span class="model-tip">{{ modelTip }}</span>
+                  <n-button size="small" quaternary :loading="modelsLoading" @click="fetchModels(true)">
+                    重新获取
+                  </n-button>
+                </div>
+              </n-space>
+            </n-form-item>
 
-          <n-form-item label="模型" path="model">
-            <n-space vertical style="width: 100%" :size="8">
-              <n-select
-                v-model:value="formData.model"
-                :options="modelOptions"
-                filterable
-                tag
-                placeholder="选择或输入模型名称"
-                :loading="modelsLoading"
-              />
-              <div class="model-actions">
-                <span class="model-tip">{{ modelTip }}</span>
-                <n-button size="small" quaternary :loading="modelsLoading" @click="fetchModels(true)">
-                  重新获取
-                </n-button>
+            <n-grid :cols="2" :x-gap="16">
+              <n-gi>
+                <n-form-item label="Max Tokens" path="maxTokens" label-width="90">
+                  <n-input-number v-model:value="formData.maxTokens" :min="1" style="width: 100%" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item label="Temperature" path="temperature" label-width="90">
+                  <n-input-number v-model:value="formData.temperature" :min="0" :max="2" :step="0.1" style="width: 100%" />
+                </n-form-item>
+              </n-gi>
+            </n-grid>
+
+            <n-form-item label=" ">
+              <n-space>
+                <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
+                <n-button :loading="testing" @click="handleTest">测试连通性</n-button>
+                <n-button v-if="formData.provider !== 'CUSTOM'" quaternary @click="applyProviderPreset(true)">应用预设 Base URL</n-button>
+              </n-space>
+            </n-form-item>
+          </n-form>
+        </div>
+      </div>
+
+      <div class="glass-sm">
+        <div class="config-card-header">接入说明</div>
+        <div class="config-card-body">
+          <n-space vertical :size="16">
+            <n-alert type="info" :bordered="false">
+              当前只保留通用 AI 提供商模式。OpenAI、DeepSeek 和自定义服务都按兼容 OpenAI Chat Completions 的方式接入。
+            </n-alert>
+
+            <div class="meta-block">
+              <div class="meta-title">当前提供商</div>
+              <div class="meta-value">{{ currentProviderMeta.label }}</div>
+              <div class="meta-desc">{{ currentProviderMeta.description }}</div>
+            </div>
+
+            <div class="meta-block">
+              <div class="meta-title">建议 Base URL</div>
+              <div class="meta-code">{{ currentProviderMeta.baseUrl || '自定义填写' }}</div>
+            </div>
+
+            <div class="meta-block">
+              <div class="meta-title">常用模型</div>
+              <div class="tag-list">
+                <n-tag v-for="model in currentProviderMeta.models" :key="model" size="small" round>
+                  {{ model }}
+                </n-tag>
+                <n-tag v-if="!currentProviderMeta.models.length" size="small" round>手动填写</n-tag>
               </div>
-            </n-space>
-          </n-form-item>
-
-          <n-grid :cols="2" :x-gap="16">
-            <n-gi>
-              <n-form-item label="Max Tokens" path="maxTokens" label-width="90">
-                <n-input-number v-model:value="formData.maxTokens" :min="1" style="width: 100%" />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="Temperature" path="temperature" label-width="90">
-                <n-input-number v-model:value="formData.temperature" :min="0" :max="2" :step="0.1" style="width: 100%" />
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-
-          <n-form-item label=" ">
-            <n-space>
-              <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
-              <n-button :loading="testing" @click="handleTest">测试连通性</n-button>
-              <n-button v-if="formData.provider !== 'CUSTOM'" quaternary @click="applyProviderPreset(true)">应用预设 Base URL</n-button>
-            </n-space>
-          </n-form-item>
-        </n-form>
-      </n-card>
-
-      <n-card :bordered="false" size="small" class="config-card">
-        <template #header>
-          <div class="card-header">
-            <span class="card-title">接入说明</span>
-          </div>
-        </template>
-
-        <n-space vertical :size="16">
-          <n-alert type="info" :bordered="false">
-            当前只保留通用 AI 提供商模式。OpenAI、DeepSeek 和自定义服务都按兼容 OpenAI Chat Completions 的方式接入。
-          </n-alert>
-
-          <div class="meta-block">
-            <div class="meta-title">当前提供商</div>
-            <div class="meta-value">{{ currentProviderMeta.label }}</div>
-            <div class="meta-desc">{{ currentProviderMeta.description }}</div>
-          </div>
-
-          <div class="meta-block">
-            <div class="meta-title">建议 Base URL</div>
-            <div class="meta-code">{{ currentProviderMeta.baseUrl || '自定义填写' }}</div>
-          </div>
-
-          <div class="meta-block">
-            <div class="meta-title">常用模型</div>
-            <div class="tag-list">
-              <n-tag v-for="model in currentProviderMeta.models" :key="model" size="small" round>
-                {{ model }}
-              </n-tag>
-              <n-tag v-if="!currentProviderMeta.models.length" size="small" round>手动填写</n-tag>
             </div>
-          </div>
 
-          <div class="meta-block">
-            <div class="meta-title">Prompt 变量</div>
-            <div class="tag-list">
-              <n-tag size="small" round>{content}</n-tag>
-              <n-tag size="small" round>{options}</n-tag>
-              <n-tag size="small" round>{answer}</n-tag>
-              <n-tag size="small" round>{analysis}</n-tag>
+            <div class="meta-block">
+              <div class="meta-title">Prompt 变量</div>
+              <div class="tag-list">
+                <n-tag size="small" round>{content}</n-tag>
+                <n-tag size="small" round>{options}</n-tag>
+                <n-tag size="small" round>{answer}</n-tag>
+                <n-tag size="small" round>{analysis}</n-tag>
+              </div>
+              <div class="meta-desc">题目生成 Prompt 已迁移到"系统设置 > AI辅导设置"。</div>
             </div>
-            <div class="meta-desc">题目生成 Prompt 已迁移到“系统设置 > AI辅导设置”。</div>
-          </div>
-        </n-space>
-      </n-card>
+          </n-space>
+        </div>
+      </div>
     </div>
 
     <n-modal v-model:show="showTestModal" preset="card" title="连通性测试结果" style="width: 560px">
@@ -130,7 +124,7 @@
         </n-descriptions>
       </template>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -370,60 +364,52 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.page-container {
-  min-height: 100%;
-}
-
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: var(--gap-page);
 }
 
-.config-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
+.config-card-header {
+  padding: 16px 20px 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.config-card-body {
+  padding: 16px 20px 20px;
 }
 
 .meta-block {
   padding: 14px 16px;
-  background: #f7f8fa;
-  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-sm);
 }
 
 .meta-title {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 8px;
 }
 
 .meta-value {
   font-size: 16px;
   font-weight: 600;
-  color: #222;
+  color: var(--color-text);
 }
 
 .meta-desc {
   margin-top: 6px;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
 .meta-code {
   font-family: Consolas, Monaco, monospace;
   font-size: 13px;
-  color: #222;
+  color: var(--color-text);
   word-break: break-all;
 }
 
@@ -442,11 +428,11 @@ onBeforeUnmount(() => {
 
 .model-tip {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .error-text {
-  color: #d03050;
+  color: var(--color-error);
 }
 
 @media (max-width: 1200px) {

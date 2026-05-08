@@ -1,12 +1,6 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">系统设置</span>
-        </div>
-      </template>
-
+  <PageContainer title="系统设置">
+    <DataTableSection>
       <n-tabs type="line" animated>
         <!-- 站点设置 -->
         <n-tab-pane name="site" tab="站点设置">
@@ -106,8 +100,8 @@
           </n-form>
         </n-tab-pane>
       </n-tabs>
-    </n-card>
-  </div>
+    </DataTableSection>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -194,25 +188,6 @@ onMounted(() => loadSetting())
 </script>
 
 <style scoped>
-.page-container {
-  min-height: 100%;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .setting-form {
   max-width: 600px;
   padding-top: 12px;
@@ -240,7 +215,7 @@ onMounted(() => loadSetting())
 }
 
 .upload-trigger:hover {
-  border-color: #667eea;
+  border-color: var(--color-primary);
 }
 
 .upload-trigger.has-image {

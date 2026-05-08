@@ -1,14 +1,7 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">练习记录</span>
-          <n-text depth="3">共 {{ total }} 条记录</n-text>
-        </div>
-      </template>
-
-      <n-space class="search-bar">
+  <PageContainer title="练习记录" :subtitle="'共 ' + total + ' 条记录'">
+    <DataTableSection>
+      <template #search>
         <n-input v-model:value="query.keyword" placeholder="用户昵称/手机号" clearable style="width: 180px" @keyup.enter="handleSearch">
           <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
         </n-input>
@@ -16,7 +9,7 @@
         <n-date-picker v-model:value="query.dateRange" type="daterange" clearable style="width: 260px" />
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
-      </n-space>
+      </template>
 
       <div class="answer-legend">
         <span class="legend-dot is-correct"></span><span>答对</span>
@@ -27,7 +20,7 @@
 
       <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
 
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="query.pageNum"
           :page-size="query.pageSize"
@@ -37,8 +30,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <!-- 详情弹窗 -->
     <n-modal v-model:show="showDetail" preset="card" title="答题详情" style="width: min(960px, calc(100vw - 32px))">
@@ -96,7 +89,7 @@
         </div>
       </div>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -333,20 +326,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
 .answer-legend {
   display: flex;
   align-items: center;
@@ -378,25 +357,6 @@ onMounted(() => {
 
 .legend-dot.is-total {
   background: #2080f0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
 }
 
 .summary-item.is-correct {

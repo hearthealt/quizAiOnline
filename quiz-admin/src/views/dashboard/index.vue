@@ -20,7 +20,7 @@
 
     <!-- 统计卡片 -->
     <div class="stat-cards">
-      <div class="stat-card" style="--card-color: #667eea">
+      <div class="stat-card" style="--card-color: var(--color-primary)">
         <div class="stat-icon">
           <n-icon size="28">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4s-4 1.79-4 4s1.79 4 4 4m0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>
@@ -31,8 +31,8 @@
           <div class="stat-label">用户总数</div>
         </div>
       </div>
-      
-      <div class="stat-card" style="--card-color: #f093fb">
+
+      <div class="stat-card" style="--card-color: var(--color-ai)">
         <div class="stat-icon">
           <n-icon size="28">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-5 14H7v-2h7zm3-4H7v-2h10zm0-4H7V7h10z"/></svg>
@@ -43,8 +43,8 @@
           <div class="stat-label">题目总数</div>
         </div>
       </div>
-      
-      <div class="stat-card" style="--card-color: #4facfe">
+
+      <div class="stat-card" style="--card-color: var(--color-info)">
         <div class="stat-icon">
           <n-icon size="28">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8z"/></svg>
@@ -55,8 +55,8 @@
           <div class="stat-label">今日活跃</div>
         </div>
       </div>
-      
-      <div class="stat-card" style="--card-color: #43e97b">
+
+      <div class="stat-card" style="--card-color: var(--color-success)">
         <div class="stat-icon">
           <n-icon size="28">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19L21 7l-1.41-1.41z"/></svg>
@@ -68,7 +68,7 @@
         </div>
       </div>
 
-      <div class="stat-card" style="--card-color: #fa709a">
+      <div class="stat-card" style="--card-color: var(--color-warning)">
         <div class="stat-icon">
           <n-icon size="28">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12c5.16-1.26 9-6.45 9-12V5zm0 6c1.4 0 2.8 1.1 2.8 2.5V11c.6 0 1.2.6 1.2 1.3v3.5c0 .6-.6 1.2-1.3 1.2H9.2c-.6 0-1.2-.6-1.2-1.3v-3.5c0-.6.6-1.2 1.2-1.2v-1.5C9.2 8.1 10.6 7 12 7m0 1.2c-.8 0-1.5.5-1.5 1.3V11h3v-1.5c0-.8-.7-1.3-1.5-1.3"/></svg>
@@ -80,8 +80,8 @@
         </div>
       </div>
 
-      <div class="stat-card" style="--card-color: #ffecd2">
-        <div class="stat-icon" style="color: #f5af19">
+      <div class="stat-card" style="--card-color: #ffd666">
+        <div class="stat-icon" style="color: var(--color-warning)">
           <n-icon size="28">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87c1.96 0 2.4-.98 2.4-1.59c0-.83-.44-1.61-2.67-2.14c-2.48-.6-4.18-1.62-4.18-3.67c0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87c-1.5 0-2.4.68-2.4 1.64c0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16"/></svg>
           </n-icon>
@@ -100,37 +100,37 @@
       </template>
       <div class="action-grid">
         <div class="action-item" @click="$router.push('/question')">
-          <div class="action-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+          <div class="action-icon" style="background: var(--color-ai-gradient)">
             <n-icon size="24"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon>
           </div>
           <span>新增题目</span>
         </div>
         <div class="action-item" @click="$router.push('/bank')">
-          <div class="action-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
+          <div class="action-icon" style="background: linear-gradient(135deg, var(--color-ai) 0%, var(--color-primary) 100%)">
             <n-icon size="24"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2m0 14H8V4h12z"/></svg></n-icon>
           </div>
           <span>题库管理</span>
         </div>
         <div class="action-item" @click="$router.push('/user')">
-          <div class="action-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
+          <div class="action-icon" style="background: linear-gradient(135deg, var(--color-info) 0%, #69c0ff 100%)">
             <n-icon size="24"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3s1.34 3 3 3m-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5S5 6.34 5 8s1.34 3 3 3m0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5m8 0c-.29 0-.62.02-.97.05c1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5"/></svg></n-icon>
           </div>
           <span>用户管理</span>
         </div>
         <div class="action-item" @click="$router.push('/vip/order')">
-          <div class="action-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
+          <div class="action-icon" style="background: linear-gradient(135deg, var(--color-warning) 0%, #ffd666 100%)">
             <n-icon size="24"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14zM17.99 9l-1.41-1.42l-6.59 6.59l-2.58-2.57l-1.42 1.41l4 3.99z"/></svg></n-icon>
           </div>
           <span>VIP审核</span>
         </div>
         <div class="action-item" @click="$router.push('/ai/config')">
-          <div class="action-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)">
+          <div class="action-icon" style="background: linear-gradient(135deg, var(--color-success) 0%, #95de64 100%)">
             <n-icon size="24"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.875 6.875 0 0 0 0 9.79a7.02 7.02 0 0 0 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29c-3.51 3.48-9.21 3.48-12.72 0c-3.5-3.47-3.53-9.11-.02-12.58a8.987 8.987 0 0 1 12.65 0L21 3z"/></svg></n-icon>
           </div>
           <span>AI配置</span>
         </div>
         <div class="action-item" @click="$router.push('/statistics')">
-          <div class="action-icon" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)">
+          <div class="action-icon" style="background: linear-gradient(135deg, var(--color-ai) 0%, #b37feb 100%)">
             <n-icon size="24"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2M9 17H7v-7h2zm4 0h-2V7h2zm4 0h-2v-4h2z"/></svg></n-icon>
           </div>
           <span>数据统计</span>
@@ -301,8 +301,8 @@ onMounted(async () => {
         type: 'line',
         smooth: true,
         data: trends.map((t: any) => t.count),
-        areaStyle: { opacity: 0.2, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#667eea' }, { offset: 1, color: '#fff' }]) },
-        itemStyle: { color: '#667eea' },
+        areaStyle: { opacity: 0.2, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#b6402c' }, { offset: 1, color: '#fff' }]) },
+        itemStyle: { color: '#b6402c' },
         lineStyle: { width: 3 },
       }],
       grid: { left: 50, right: 20, bottom: 30, top: 20 },
@@ -320,7 +320,7 @@ onMounted(async () => {
         name: '答题人次',
         type: 'bar',
         data: ranks.map((r: any) => r.count),
-        itemStyle: { borderRadius: [0, 4, 4, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#667eea' }, { offset: 1, color: '#764ba2' }]) },
+        itemStyle: { borderRadius: [0, 4, 4, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#b6402c' }, { offset: 1, color: '#8e76ff' }]) },
       }],
       grid: { left: 100, right: 20, bottom: 20, top: 10 },
     })
@@ -384,13 +384,13 @@ onUnmounted(() => {
 .stat-value {
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 13px;
-  color: #999;
+  color: var(--color-text-muted);
   margin-top: 2px;
 }
 
@@ -401,7 +401,7 @@ onUnmounted(() => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text);
 }
 
 .action-grid {
@@ -437,7 +437,7 @@ onUnmounted(() => {
 
 .action-item span {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .main-content {
@@ -478,7 +478,7 @@ onUnmounted(() => {
 
 .empty-tip {
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   padding: 20px 0;
   font-size: 13px;
 }
@@ -511,13 +511,13 @@ onUnmounted(() => {
 
 .order-plan {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .order-amount {
   font-size: 16px;
   font-weight: 600;
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 .user-list {
@@ -543,7 +543,7 @@ onUnmounted(() => {
 
 .user-time {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .ai-stats {
@@ -562,12 +562,12 @@ onUnmounted(() => {
 .ai-stat-value {
   font-size: 20px;
   font-weight: 600;
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 .ai-stat-label {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-muted);
   margin-top: 4px;
 }
 
@@ -667,7 +667,7 @@ onUnmounted(() => {
   background: rgba(255, 252, 247, 0.78);
   border-radius: 22px;
   border: 1px solid rgba(95, 68, 47, 0.12);
-  box-shadow: var(--admin-shadow-soft);
+  box-shadow: var(--shadow-soft);
 }
 
 .quick-actions {
@@ -713,14 +713,14 @@ onUnmounted(() => {
 
 .order-amount,
 .ai-stat-value {
-  color: var(--admin-accent);
+  color: var(--color-primary);
 }
 
 .empty-tip,
 .order-plan,
 .user-time,
 .ai-stat-label {
-  color: var(--admin-muted);
+  color: var(--color-text-muted);
 }
 
 @media (max-width: 1200px) {

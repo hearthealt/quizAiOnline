@@ -154,7 +154,7 @@ async function handleLogin() {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-ai-gradient);
   color: #fff;
   padding: 40px;
   position: relative;
@@ -210,17 +210,18 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
+  background: var(--bg-body);
   padding: 40px;
 }
 
 .login-form-wrap {
   width: 100%;
   max-width: 400px;
-  background: #fff;
+  background: var(--bg-surface);
   padding: 48px 40px;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--glass-border);
 }
 
 .login-header {
@@ -231,13 +232,13 @@ async function handleLogin() {
 .login-header h2 {
   font-size: 26px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text);
   margin: 0 0 8px;
 }
 
 .login-header p {
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   margin: 0;
 }
 

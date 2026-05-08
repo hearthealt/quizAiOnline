@@ -1,27 +1,23 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">用户管理</span>
-          <n-text depth="3">共 {{ pagination.itemCount }} 位用户</n-text>
-        </div>
-      </template>
+  <PageContainer title="用户管理" :subtitle="'共 ' + pagination.itemCount + ' 位用户'">
 
-      <n-space class="search-bar">
-        <n-input v-model:value="searchParams.keyword" placeholder="搜索昵称/手机号" clearable style="width: 200px" @keyup.enter="handleSearch">
-          <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
-        </n-input>
-        <n-select
-          v-model:value="searchParams.status"
-          placeholder="用户状态"
-          :options="[{ label: '正常', value: 1 }, { label: '禁用', value: 0 }]"
-          clearable
-          style="width: 140px"
-        />
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
-        <n-button @click="handleReset">重置</n-button>
-      </n-space>
+    <DataTableSection>
+      <template #search>
+        <n-space>
+          <n-input v-model:value="searchParams.keyword" placeholder="搜索昵称/手机号" clearable style="width: 200px" @keyup.enter="handleSearch">
+            <template #prefix><n-icon color="#999"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg></n-icon></template>
+          </n-input>
+          <n-select
+            v-model:value="searchParams.status"
+            placeholder="用户状态"
+            :options="[{ label: '正常', value: 1 }, { label: '禁用', value: 0 }]"
+            clearable
+            style="width: 140px"
+          />
+          <n-button type="primary" @click="handleSearch">搜索</n-button>
+          <n-button @click="handleReset">重置</n-button>
+        </n-space>
+      </template>
 
       <n-data-table
         :columns="columns"
@@ -33,7 +29,7 @@
         striped
       />
 
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="pagination.page"
           :page-size="pagination.pageSize"
@@ -43,8 +39,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <!-- 用户详情抽屉 -->
     <n-drawer v-model:show="showDrawer" :width="550">
@@ -102,7 +98,7 @@
             size="small"
             :pagination="{ pageSize: 5 }"
           />
-          
+
           <div class="section-title">AI对话记录</div>
           <div v-if="chatLoading" style="text-align:center;padding:20px">
             <n-spin size="small" />
@@ -120,7 +116,7 @@
         </template>
       </n-drawer-content>
     </n-drawer>
-    
+
     <!-- AI 对话记录弹窗 -->
     <n-modal v-model:show="showChatModal" preset="card" title="AI 对话记录" style="width: 600px; max-width: 90vw;">
       <div class="chat-modal-content">
@@ -162,7 +158,7 @@
         </n-space>
       </template>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -365,45 +361,12 @@ onMounted(() => fetchData(searchParams))
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
-}
-
 .user-profile {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-ai-gradient);
   border-radius: 8px;
   margin-bottom: 20px;
 }
@@ -440,7 +403,7 @@ onMounted(() => fetchData(searchParams))
   margin-bottom: 12px;
   margin-top: 20px;
   padding-left: 8px;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--color-primary);
 }
 
 .chat-summary {
@@ -461,7 +424,7 @@ onMounted(() => fetchData(searchParams))
 .stat-num {
   font-size: 24px;
   font-weight: 600;
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 .stat-label {
@@ -504,7 +467,7 @@ onMounted(() => fetchData(searchParams))
 }
 
 .chat-bubble-wrap.user .chat-bubble {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--color-ai-gradient);
   color: #fff;
   border-bottom-right-radius: 4px;
 }

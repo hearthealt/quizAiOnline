@@ -1,19 +1,14 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">活跃分析</span>
-          <n-text depth="3">{{ currentDateLabel }} 活跃用户 {{ total }}</n-text>
-        </div>
+  <PageContainer title="活跃分析" :subtitle="currentDateLabel + ' 活跃用户 ' + total">
+    <DataTableSection>
+      <template #search>
+        <n-space>
+          <n-date-picker v-model:value="query.date" type="date" clearable style="width: 180px" />
+          <n-input v-model:value="query.keyword" placeholder="搜索昵称/手机号" clearable style="width: 220px" @keyup.enter="fetchAll" />
+          <n-button type="primary" @click="handleSearch">搜索</n-button>
+          <n-button @click="handleReset">重置</n-button>
+        </n-space>
       </template>
-
-      <n-space class="search-bar">
-        <n-date-picker v-model:value="query.date" type="date" clearable style="width: 180px" />
-        <n-input v-model:value="query.keyword" placeholder="搜索昵称/手机号" clearable style="width: 220px" @keyup.enter="fetchAll" />
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
-        <n-button @click="handleReset">重置</n-button>
-      </n-space>
 
       <div class="overview-grid">
         <div class="overview-card">
@@ -51,7 +46,7 @@
         striped
       />
 
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="query.pageNum"
           :page-size="query.pageSize"
@@ -61,8 +56,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <n-drawer v-model:show="showDrawer" :width="720">
       <n-drawer-content title="用户当日行为详情" closable>
@@ -152,7 +147,7 @@
         </template>
       </n-drawer-content>
     </n-drawer>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -162,6 +157,8 @@ import type { DataTableColumns } from 'naive-ui'
 import dayjs from 'dayjs'
 import { getActivityOverview, getActiveUsers, getActivityUserDetail } from '@/api/activity'
 import { resolveAssetUrl } from '@/utils/assets'
+import PageContainer from '@/components/PageContainer.vue'
+import DataTableSection from '@/components/DataTableSection.vue'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
@@ -203,7 +200,7 @@ const columns: DataTableColumns = [
         h(NAvatar, { src: resolveAssetUrl(row.userAvatar), size: 38, round: true }),
         h('div', null, [
           h('div', { style: 'font-weight:600' }, row.userNickname || '-'),
-          h('div', { style: 'font-size:12px;color:#94a3b8' }, row.userPhone || '未绑定手机号')
+          h('div', { style: 'font-size:12px;color:var(--color-text-muted)' }, row.userPhone || '未绑定手机号')
         ])
       ])
     }
@@ -459,31 +456,6 @@ void fetchAll()
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -512,14 +484,6 @@ void fetchAll()
   color: #0f172a;
 }
 
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
-}
-
 .loading-wrap {
   display: flex;
   justify-content: center;
@@ -540,7 +504,7 @@ void fetchAll()
 
 .detail-user-meta {
   margin-top: 4px;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 

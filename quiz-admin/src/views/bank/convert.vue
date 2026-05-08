@@ -44,7 +44,7 @@
 
         <div v-else class="success-state">
           <div class="success-icon">
-            <n-icon size="48" color="#52c41a">
+            <n-icon size="48" color="var(--color-success)">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8z"/></svg>
             </n-icon>
           </div>
@@ -70,7 +70,7 @@
         </div>
         <n-space v-if="parsedQuestions.length" :size="8" align="center">
           <n-text depth="3" class="question-count">
-            <n-icon size="14" color="#52c41a">
+            <n-icon size="14" color="var(--color-success)">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-7 14h-2v-4H7v-2h5V7h2v10z"/></svg>
             </n-icon>
             {{ parsedQuestions.length }} 道题
@@ -120,7 +120,7 @@
 
       <div v-if="!parsedQuestions.length && !parsing" class="empty-state">
         <div class="empty-icon">
-          <n-icon size="64" color="#d9d9d9">
+          <n-icon size="64" color="var(--glass-border)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h7v5h5zm-5-2c.6 0 1-.4 1-1s-.4-1-1-1s-1 .4-1 1s.4 1 1 1m2-4H9v2h6zm0-4H9v2h6z"/></svg>
           </n-icon>
         </div>
@@ -145,7 +145,7 @@
     <n-modal v-model:show="showImportModal" preset="dialog" title="导入到题库" positive-text="确认导入" negative-text="取消" @positive-click="handleImport" :loading="importing" style="width: 480px;">
       <template #header>
         <div class="modal-header">
-          <n-icon size="20" color="#1890ff" style="margin-right: 8px;">
+          <n-icon size="20" color="var(--color-primary)" style="margin-right: 8px;">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
           </n-icon>
           导入到题库
@@ -359,16 +359,12 @@ function downloadResult() {
   flex: 0 0 260px;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
-  border: 1px solid #e8eaed;
+  border: 1px solid var(--glass-border);
   transition: all 0.3s ease;
-}
-
-.left-panel {
-  flex: 0 0 260px;
 }
 
 .left-panel.collapsed :deep(.panel-content) {
@@ -380,11 +376,11 @@ function downloadResult() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
-  border: 1px solid #e8eaed;
+  border: 1px solid var(--glass-border);
   min-width: 0;
 }
 
@@ -394,25 +390,21 @@ function downloadResult() {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f2;
-  background: linear-gradient(180deg, #fafbfc 0%, #f5f6f8 100%);
-}
-
-.panel-header {
-  justify-content: space-between;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-header);
 }
 
 .panel-title {
   font-weight: 600;
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--color-text);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .panel-icon {
-  color: #1890ff;
+  color: var(--color-primary);
 }
 
 .header-left {
@@ -443,17 +435,17 @@ function downloadResult() {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  border: 2px dashed #d9d9d9;
-  border-radius: 16px;
+  border: 2px dashed var(--glass-border);
+  border-radius: var(--radius-lg);
   transition: all 0.3s ease;
-  background: #fafbfc;
+  background: var(--bg-body);
 }
 
 .upload-area :deep(.n-upload-dragger:hover) {
-  border-color: #1890ff;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e6f4ff 100%);
+  border-color: var(--color-primary);
+  background: var(--color-primary-fade);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(182, 64, 44, 0.12);
 }
 
 .upload-icon {
@@ -468,14 +460,14 @@ function downloadResult() {
 
 .upload-text {
   font-size: 16px;
-  color: #333;
+  color: var(--color-text);
   margin-bottom: 16px;
   font-weight: 500;
 }
 
 .upload-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 /* 解析状态 */
@@ -490,7 +482,7 @@ function downloadResult() {
 
 .parsing-text {
   font-size: 14px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 /* 成功状态 */
@@ -512,7 +504,7 @@ function downloadResult() {
 .success-text {
   font-size: 18px;
   font-weight: 500;
-  color: #52c41a;
+  color: var(--color-success);
 }
 
 @keyframes scaleIn {
@@ -540,8 +532,8 @@ function downloadResult() {
 /* 统计栏 */
 .stats-bar {
   padding: 12px 24px;
-  border-bottom: 1px solid #f0f0f2;
-  background: linear-gradient(180deg, #fafbfc 0%, #f5f6f8 100%);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-header);
 }
 
 .stat-item {
@@ -553,7 +545,7 @@ function downloadResult() {
 .stat-value {
   font-weight: 600;
   font-size: 14px;
-  color: #333;
+  color: var(--color-text);
 }
 
 .question-count {
@@ -569,7 +561,7 @@ function downloadResult() {
 }
 
 .action-link:hover {
-  background: #f5f9ff;
+  background: var(--color-primary-fade);
   border-radius: 4px;
 }
 
@@ -612,7 +604,7 @@ function downloadResult() {
 .empty-text {
   font-size: 16px;
   font-weight: 500;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 /* 警告行样式 */
@@ -631,18 +623,18 @@ function downloadResult() {
 
 :deep(.n-data-table-th) {
   font-weight: 600;
-  background: #fafafa;
-  color: #333;
+  background: var(--bg-body);
+  color: var(--color-text);
   padding: 12px 16px;
 }
 
 :deep(.n-data-table .n-data-table-td) {
   padding: 10px 16px;
-  border-bottom: 1px solid #f0f0f2;
+  border-bottom: 1px solid var(--glass-border);
 }
 
 :deep(.n-data-table tr:hover .n-data-table-td) {
-  background: #f5f9ff;
+  background: var(--color-primary-fade);
 }
 
 /* 模态框样式 */
@@ -654,9 +646,9 @@ function downloadResult() {
 }
 
 .import-summary {
-  background: #f5f9ff;
+  background: var(--color-primary-fade);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-top: 8px;
 }
 
@@ -677,17 +669,17 @@ function downloadResult() {
   }
 
   &::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--bg-body);
     border-radius: 4px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
+    background: rgba(95, 68, 47, 0.2);
     border-radius: 4px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+    background: rgba(95, 68, 47, 0.35);
   }
 }
 </style>

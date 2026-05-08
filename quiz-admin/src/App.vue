@@ -18,27 +18,29 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 const themeOverrides: GlobalThemeOverrides = {
   common: {
     primaryColor: '#b6402c',
-    primaryColorHover: '#c64b36',
+    primaryColorHover: '#d66a55',
     primaryColorPressed: '#8e2a19',
     primaryColorSuppl: '#d66a55',
-    borderRadius: '18px',
-    borderColor: 'rgba(95, 68, 47, 0.14)',
+    borderRadius: '12px',
+    borderRadiusSmall: '8px',
+    borderColor: 'rgba(95, 68, 47, 0.1)',
     bodyColor: '#f5f0e8',
-    cardColor: 'rgba(255, 252, 247, 0.88)',
+    cardColor: 'rgba(255, 252, 247, 0.82)',
     modalColor: '#fffdfa',
     popoverColor: '#fffdfa',
-    tableColor: 'rgba(255, 252, 247, 0.88)',
+    tableColor: 'rgba(255, 252, 247, 0.82)',
     textColorBase: '#23170f',
     textColor1: '#23170f',
     textColor2: '#6d5949',
     textColor3: '#9f8c7c',
-    successColor: '#2f8f63',
-    warningColor: '#c07b22',
-    errorColor: '#c24832'
+    successColor: '#3aa56d',
+    warningColor: '#d48806',
+    errorColor: '#cf1322',
+    infoColor: '#5b8fb9'
   },
   Card: {
-    borderRadius: '24px',
-    color: 'rgba(255, 252, 247, 0.88)'
+    borderRadius: '28px',
+    color: 'rgba(255, 252, 247, 0.82)'
   },
   Layout: {
     color: 'transparent',
@@ -46,7 +48,7 @@ const themeOverrides: GlobalThemeOverrides = {
     headerColor: 'transparent'
   },
   Menu: {
-    borderRadius: '16px',
+    borderRadius: '12px',
     itemColorHover: 'rgba(182, 64, 44, 0.04)',
     itemColorActive: 'rgba(182, 64, 44, 0.08)',
     itemTextColor: '#6d5949',

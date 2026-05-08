@@ -17,16 +17,64 @@
 
       <div class="menu-wrap">
         <div v-if="!collapsed" class="menu-label">主导航</div>
-        <n-menu
-          class="shell-menu"
-          :collapsed="collapsed"
-          :collapsed-width="88"
-          :collapsed-icon-size="20"
-          :options="menuOptions"
-          :value="activeKey"
-          accordion
-          @update:value="handleMenuSelect"
-        />
+        <div class="custom-menu">
+          <template v-for="item in menuOptions" :key="item.key">
+            <!-- 单个菜单项 -->
+            <div
+              v-if="!item.children"
+              class="menu-item"
+              :class="{ active: activeKey === item.key }"
+              @click="handleMenuSelect(item.key)"
+            >
+              <component :is="item.icon" class="menu-icon" />
+              <span v-if="!collapsed" class="menu-label-text">{{ item.label }}</span>
+            </div>
+
+            <!-- 带子菜单的项 -->
+            <div v-else class="menu-group">
+              <!-- 折叠状态下使用 Dropdown -->
+              <n-dropdown
+                v-if="collapsed"
+                :options="item.children.map((c: any) => ({ label: c.label, key: c.key }))"
+                placement="right-start"
+                trigger="hover"
+                @select="handleMenuSelect"
+              >
+                <div
+                  class="menu-item"
+                  :class="{ active: item.children.some((c: any) => c.key === activeKey) }"
+                >
+                  <component :is="item.icon" class="menu-icon" />
+                </div>
+              </n-dropdown>
+
+              <!-- 展开状态下正常显示 -->
+              <template v-else>
+                <div
+                  class="menu-item"
+                  :class="{ active: item.children.some((c: any) => c.key === activeKey) }"
+                  @click="toggleGroup(item.key)"
+                >
+                  <component :is="item.icon" class="menu-icon" />
+                  <span class="menu-label-text">{{ item.label }}</span>
+                  <span class="menu-arrow" :class="{ expanded: expandedGroups.includes(item.key) }">›</span>
+                </div>
+                <div v-if="expandedGroups.includes(item.key)" class="menu-children">
+                  <div
+                    v-for="child in item.children"
+                    :key="child.key"
+                    class="menu-item menu-child"
+                    :class="{ active: activeKey === child.key }"
+                    @click="handleMenuSelect(child.key)"
+                  >
+                    <component :is="child.icon" class="menu-icon" />
+                    <span class="menu-label-text">{{ child.label }}</span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
       </div>
 
       <div class="sider-foot" :class="{ compact: collapsed }">
@@ -39,20 +87,16 @@
 
     <main class="shell-main">
       <header class="shell-header">
-        <div class="header-copy">
-          <span class="header-eyebrow">{{ roleText }}</span>
-          <span class="header-title">{{ currentSection }}</span>
-        </div>
+        <n-breadcrumb>
+          <n-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">
+            {{ item.title }}
+          </n-breadcrumb-item>
+        </n-breadcrumb>
 
         <div class="header-actions">
-          <div class="site-meta" v-if="siteDescription">
-            <span class="meta-dot" />
-            <span>{{ siteDescription }}</span>
-          </div>
-
           <n-dropdown :options="userMenuOptions" trigger="click" @select="handleUserMenuSelect">
             <div class="user-chip">
-              <n-avatar :src="resolveAssetUrl(adminInfo?.avatar)" :size="38" round>
+              <n-avatar :src="resolveAssetUrl(adminInfo?.avatar)" :size="34" round>
                 <template #fallback>
                   <div class="avatar-fallback">{{ (adminInfo?.nickname || adminInfo?.username || "A").slice(0, 1) }}</div>
                 </template>
@@ -126,13 +170,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   type DropdownOption,
   type FormInst,
   type FormRules,
-  NIcon,
   type UploadCustomRequestOptions,
   useMessage
 } from 'naive-ui'
@@ -163,11 +206,23 @@ import {
 } from '@vicons/ionicons5'
 
 const collapsed = ref(false)
+const expandedGroups = ref<string[]>([])
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 const message = useMessage()
+
+function toggleGroup(key: string) {
+  const index = expandedGroups.value.indexOf(key)
+  if (index > -1) {
+    // 如果已经展开，则收起
+    expandedGroups.value.splice(index, 1)
+  } else {
+    // 否则，关闭所有其他的，只展开当前的
+    expandedGroups.value = [key]
+  }
+}
 
 const siteName = computed(() => appStore.siteName || 'Quiz AI')
 const siteLogo = computed(() => appStore.siteLogo)
@@ -176,9 +231,20 @@ const adminInfo = computed(() => authStore.adminInfo)
 const roleText = computed(() => adminInfo.value?.role === 'super_admin' ? '超级管理员' : '运营管理员')
 const activeKey = computed(() => route.path)
 
-const currentSection = computed(() => {
-  const match = menuOptions.flatMap((item: any) => item.children || item).find((item: any) => item.key === route.path)
-  return match?.label || '控制台'
+const breadcrumbs = computed(() => {
+  const items = [{ title: '首页', path: '/dashboard' }]
+  const flat = menuOptions.flatMap((item: any) => item.children ? [item, ...item.children] : [item])
+  const match = flat.find((item: any) => item.key === route.path)
+  if (match && match.key !== '/dashboard') {
+    if (match.children) {
+      items.push({ title: match.label, path: '' })
+    } else {
+      const parent = menuOptions.find((g: any) => g.children?.some((c: any) => c.key === route.path))
+      if (parent) items.push({ title: parent.label, path: '' })
+      items.push({ title: match.label, path: match.key })
+    }
+  }
+  return items
 })
 
 const showProfileModal = ref(false)
@@ -275,77 +341,73 @@ async function handleChangePassword() {
   }
 }
 
-function renderIcon(icon: any) {
-  return () => h(NIcon, null, { default: () => h(icon) })
-}
-
 const menuOptions = [
-  { label: '仪表盘', key: '/dashboard', icon: renderIcon(HomeOutline) },
+  { label: '仪表盘', key: '/dashboard', icon: HomeOutline },
   {
     label: '题库管理',
     key: 'question-group',
-    icon: renderIcon(FolderOutline),
+    icon: FolderOutline,
     children: [
-      { label: '分类管理', key: '/category', icon: renderIcon(FolderOutline) },
-      { label: '题库列表', key: '/bank', icon: renderIcon(BookOutline) },
-      { label: '题目管理', key: '/question', icon: renderIcon(DocumentTextOutline) },
-      { label: '题目转换', key: '/bank/convert', icon: renderIcon(SwapHorizontalOutline) },
+      { label: '分类管理', key: '/category', icon: FolderOutline },
+      { label: '题库列表', key: '/bank', icon: BookOutline },
+      { label: '题目管理', key: '/question', icon: DocumentTextOutline },
+      { label: '题目转换', key: '/bank/convert', icon: SwapHorizontalOutline },
     ],
   },
   {
     label: '用户管理',
     key: 'user-group',
-    icon: renderIcon(PeopleOutline),
+    icon: PeopleOutline,
     children: [
-      { label: '用户列表', key: '/user', icon: renderIcon(PeopleOutline) },
-      { label: '活跃分析', key: '/activity/users', icon: renderIcon(StatsChartOutline) },
+      { label: '用户列表', key: '/user', icon: PeopleOutline },
+      { label: '活跃分析', key: '/activity/users', icon: StatsChartOutline },
     ],
   },
   {
     label: '记录管理',
     key: 'record-group',
-    icon: renderIcon(CreateOutline),
+    icon: CreateOutline,
     children: [
-      { label: '练习记录', key: '/record/practice', icon: renderIcon(CreateOutline) },
-      { label: '考试记录', key: '/record/exam', icon: renderIcon(ListOutline) },
-      { label: '今日答题', key: '/activity/answers', icon: renderIcon(DocumentTextOutline) },
+      { label: '练习记录', key: '/record/practice', icon: CreateOutline },
+      { label: '考试记录', key: '/record/exam', icon: ListOutline },
+      { label: '今日答题', key: '/activity/answers', icon: DocumentTextOutline },
     ],
   },
   {
     label: '数据中心',
     key: 'data-group',
-    icon: renderIcon(StatsChartOutline),
+    icon: StatsChartOutline,
     children: [
-      { label: '收藏管理', key: '/favorite', icon: renderIcon(HeartOutline) },
-      { label: '错题管理', key: '/wrong', icon: renderIcon(CloseCircleOutline) },
-      { label: '数据统计', key: '/statistics', icon: renderIcon(StatsChartOutline) },
+      { label: '收藏管理', key: '/favorite', icon: HeartOutline },
+      { label: '错题管理', key: '/wrong', icon: CloseCircleOutline },
+      { label: '数据统计', key: '/statistics', icon: StatsChartOutline },
     ],
   },
   {
     label: 'VIP管理',
     key: 'vip-group',
-    icon: renderIcon(DiamondOutline),
+    icon: DiamondOutline,
     children: [
-      { label: '套餐配置', key: '/vip/plan', icon: renderIcon(DiamondOutline) },
-      { label: '订单列表', key: '/vip/order', icon: renderIcon(WalletOutline) },
+      { label: '套餐配置', key: '/vip/plan', icon: DiamondOutline },
+      { label: '订单列表', key: '/vip/order', icon: WalletOutline },
     ],
   },
   {
     label: 'AI配置',
     key: 'ai-group',
-    icon: renderIcon(HardwareChipOutline),
+    icon: HardwareChipOutline,
     children: [
-      { label: '模型配置', key: '/ai/config', icon: renderIcon(HardwareChipOutline) },
-      { label: '调用日志', key: '/ai/log', icon: renderIcon(DocumentOutline) },
+      { label: '模型配置', key: '/ai/config', icon: HardwareChipOutline },
+      { label: '调用日志', key: '/ai/log', icon: DocumentOutline },
     ],
   },
   {
     label: '系统管理',
     key: 'system-group',
-    icon: renderIcon(SettingsOutline),
+    icon: SettingsOutline,
     children: [
-      { label: '管理员管理', key: '/system/admin', icon: renderIcon(BuildOutline) },
-      { label: '系统设置', key: '/system/setting', icon: renderIcon(SettingsOutline) },
+      { label: '管理员管理', key: '/system/admin', icon: BuildOutline },
+      { label: '系统设置', key: '/system/setting', icon: SettingsOutline },
     ],
   },
 ]
@@ -370,34 +432,36 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: auto 1fr;
   min-height: 100vh;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--gap-page);
+  padding: var(--gap-page);
   align-items: start;
 }
 
+/* ── Sidebar ── */
+
 .shell-sider {
   position: sticky;
-  top: 12px;
+  top: var(--gap-page);
   align-self: start;
-  width: 264px;
-  height: calc(100vh - 24px);
+  width: 170px;
+  height: calc(100vh - var(--gap-page) * 2);
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 12px 10px 10px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--admin-text);
-  border: 1px solid rgba(95, 68, 47, 0.06);
-  box-shadow: 0 8px 24px rgba(59, 32, 18, 0.04);
-  backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--color-text);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: var(--glass-blur);
   transition: width 0.25s ease, padding 0.25s ease;
   overflow: hidden;
 }
 
 .shell-sider.collapsed {
-  width: 78px;
-  padding-inline: 10px;
+  width: 88px;
+  padding-inline: 0;
 }
 
 .sider-top {
@@ -410,14 +474,14 @@ onMounted(async () => {
 .brand-mark {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(95, 68, 47, 0.08);
   flex-shrink: 0;
-  color: var(--admin-accent);
+  color: var(--color-primary);
 }
 
 .brand-glyph {
@@ -442,13 +506,13 @@ onMounted(async () => {
 .brand-title {
   font-size: 13px;
   font-weight: 700;
-  color: var(--admin-text);
+  color: var(--color-text);
 }
 
 .brand-sub {
   margin-top: 2px;
   font-size: 11px;
-  color: var(--admin-muted);
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -460,7 +524,7 @@ onMounted(async () => {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--admin-text-soft);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
@@ -481,15 +545,80 @@ onMounted(async () => {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--admin-muted);
+  color: var(--color-text-muted);
 }
 
-.shell-menu {
+.custom-menu {
   flex: 1;
-  background: transparent;
-  padding: 0;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 2px 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  position: relative;
+}
+
+.shell-sider.collapsed .menu-item {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.menu-item:hover {
+  background: rgba(182, 64, 44, 0.04);
+  color: var(--color-text);
+}
+
+.menu-item.active {
+  background: var(--color-primary-fade);
+  color: var(--color-text);
+}
+
+.menu-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.menu-label-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-arrow {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: transform 0.2s ease;
+  color: var(--color-text-muted);
+}
+
+.menu-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.menu-children {
+  padding-left: 10px;
+  margin-top: 2px;
+}
+
+.menu-child {
+  font-size: 13px;
 }
 
 .sider-foot {
@@ -502,14 +631,19 @@ onMounted(async () => {
   justify-content: center;
 }
 
+.sider-foot.compact .foot-note {
+  width: auto;
+  justify-content: center;
+}
+
 .foot-note {
   width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 10px;
-  color: var(--admin-muted);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 600;
 }
@@ -518,14 +652,16 @@ onMounted(async () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #3aa56d;
+  background: var(--color-success);
   box-shadow: 0 0 8px rgba(58, 165, 109, 0.35);
 }
+
+/* ── Main Area ── */
 
 .shell-main {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--gap-page);
   min-width: 0;
 }
 
@@ -534,31 +670,28 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 16px 22px;
-  border-radius: 28px;
-  background: rgba(255, 252, 247, 0.72);
-  border: 1px solid rgba(95, 68, 47, 0.12);
-  box-shadow: var(--admin-shadow-soft);
-  backdrop-filter: blur(18px);
+  padding: 14px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-header);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: var(--glass-blur);
+  min-height: 64px;
 }
 
-.header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.shell-header :deep(.n-breadcrumb .n-breadcrumb-item__link) {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 13px;
 }
 
-.header-eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--admin-muted);
+.shell-header :deep(.n-breadcrumb .n-breadcrumb-item__separator) {
+  color: var(--color-text-muted);
 }
 
-.header-title {
-  font-size: 24px;
-  font-weight: 750;
-  color: var(--admin-text);
+.shell-header :deep(.n-breadcrumb .n-breadcrumb-item:last-child .n-breadcrumb-item__link) {
+  color: var(--color-text);
+  font-weight: 700;
 }
 
 .header-actions {
@@ -567,30 +700,11 @@ onMounted(async () => {
   gap: 12px;
 }
 
-.site-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(182, 64, 44, 0.06);
-  font-size: 12px;
-  color: var(--admin-text-soft);
-}
-
-.meta-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--admin-accent);
-}
-
 .user-chip {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px 8px 8px;
-  min-width: 220px;
+  gap: 10px;
+  padding: 6px 10px 6px 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(95, 68, 47, 0.1);
@@ -616,14 +730,14 @@ onMounted(async () => {
 }
 
 .user-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--admin-text);
+  color: var(--color-text);
 }
 
 .user-role {
-  font-size: 12px;
-  color: var(--admin-text-soft);
+  font-size: 11px;
+  color: var(--color-text-muted);
 }
 
 .shell-content {
@@ -636,65 +750,13 @@ onMounted(async () => {
   gap: 16px;
 }
 
-:deep(.shell-menu .n-menu-item-content),
-:deep(.shell-menu .n-submenu .n-menu-item-content-header) {
-  margin: 1px 0;
-  border-radius: 10px;
-  min-height: 36px;
-}
-
-:deep(.shell-menu .n-menu-item-content::before),
-:deep(.shell-menu .n-submenu .n-menu-item-content-header::before) {
-  border-radius: 10px !important;
-}
-
-:deep(.shell-menu .n-menu-item-content-header),
-:deep(.shell-menu .n-menu-item-content__arrow),
-:deep(.shell-menu .n-menu-item-content-header a),
-:deep(.shell-menu .n-menu-item-content-header span) {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-:deep(.shell-menu .n-menu-item-content__icon) {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--admin-text-soft);
-}
-
-:deep(.shell-menu .n-submenu-children) {
-  margin-top: 2px;
-  padding-left: 10px;
-}
-
-:deep(.shell-menu .n-menu-item-content--selected),
-:deep(.shell-menu .n-submenu .n-menu-item-content-header.n-menu-item-content--selected),
-:deep(.shell-menu .n-menu-item-content--child-active) {
-  background: rgba(35, 23, 15, 0.06) !important;
-  color: var(--admin-text) !important;
-  box-shadow: none;
-}
-
-:deep(.shell-menu .n-menu-item-content--selected .n-menu-item-content__icon),
-:deep(.shell-menu .n-menu-item-content--child-active .n-menu-item-content__icon),
-:deep(.shell-menu .n-submenu .n-menu-item-content-header.n-menu-item-content--selected .n-menu-item-content__icon) {
-  color: var(--admin-text);
-}
-
-:deep(.shell-menu .n-menu-item-content--collapsed) {
-  justify-content: center;
-}
-
-:deep(.shell-menu .n-menu-item-content--collapsed .n-menu-item-content__icon) {
-  margin-right: 0 !important;
-}
+/* ── Responsive ── */
 
 @media (max-width: 1180px) {
   .admin-shell {
     grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px;
   }
 
   .shell-sider,

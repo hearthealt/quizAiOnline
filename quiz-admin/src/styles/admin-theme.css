@@ -1,20 +1,61 @@
+/* ============================================
+   Quiz AI Admin — Design System Variables
+   ============================================ */
+
 :root {
-  --admin-bg: #f5f0e8;
-  --admin-bg-soft: #fbf8f3;
-  --admin-surface: rgba(255, 252, 247, 0.86);
-  --admin-surface-strong: #fffdfa;
-  --admin-line: rgba(95, 68, 47, 0.12);
-  --admin-line-strong: rgba(95, 68, 47, 0.2);
-  --admin-text: #23170f;
-  --admin-text-soft: #6d5949;
-  --admin-muted: #9f8c7c;
-  --admin-accent: #b6402c;
-  --admin-accent-strong: #8e2a19;
-  --admin-accent-soft: #f3d7c8;
-  --admin-shadow: 0 18px 50px rgba(59, 32, 18, 0.08);
-  --admin-shadow-soft: 0 10px 30px rgba(59, 32, 18, 0.06);
-  --admin-radius: 24px;
+  /* ── Brand & Primary ── */
+  --color-primary: #b6402c;
+  --color-primary-hover: #d66a55;
+  --color-primary-active: #8e2a19;
+  --color-primary-fade: rgba(182, 64, 44, 0.08);
+
+  /* ── AI Accent ── */
+  --color-ai: #8e76ff;
+  --color-ai-gradient: linear-gradient(135deg, #8e76ff 0%, #b6402c 100%);
+  --color-ai-glow: 0 0 20px rgba(142, 118, 255, 0.3);
+
+  /* ── Semantic Status ── */
+  --color-success: #3aa56d;
+  --color-warning: #d48806;
+  --color-error: #cf1322;
+  --color-info: #5b8fb9;
+
+  /* ── Text ── */
+  --color-text: #23170f;
+  --color-text-secondary: #6d5949;
+  --color-text-muted: #9f8c7c;
+
+  /* ── Surface & Background ── */
+  --bg-app: #f5f0e8;
+  --bg-app-soft: #fbf8f3;
+  --bg-surface: rgba(255, 252, 247, 0.82);
+  --bg-surface-strong: #fffdfa;
+  --bg-header: rgba(255, 255, 255, 0.65);
+
+  /* ── Glass Morphism ── */
+  --glass-blur: blur(16px);
+  --glass-border: 1px solid rgba(95, 68, 47, 0.1);
+
+  /* ── Border ── */
+  --border-light: rgba(95, 68, 47, 0.12);
+  --border-strong: rgba(95, 68, 47, 0.2);
+
+  /* ── Shadow ── */
+  --shadow-soft: 0 2px 8px rgba(59, 32, 18, 0.04);
+  --shadow-card: 0 12px 32px rgba(59, 32, 18, 0.08);
+  --shadow-float: 0 24px 64px rgba(55, 27, 17, 0.15);
+
+  /* ── Geometry ── */
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 12px;
+  --gap-page: 24px;
+  --gap-card: 20px;
 }
+
+/* ============================================
+   Global Base
+   ============================================ */
 
 html,
 body,
@@ -24,7 +65,7 @@ body,
     radial-gradient(circle at top left, rgba(182, 64, 44, 0.11), transparent 28%),
     radial-gradient(circle at 85% 10%, rgba(190, 149, 91, 0.14), transparent 22%),
     linear-gradient(180deg, #f7f2ea 0%, #f3ede4 100%);
-  color: var(--admin-text);
+  color: var(--color-text);
   font-family: "Avenir Next", "Segoe UI", "PingFang SC", sans-serif;
 }
 
@@ -36,80 +77,146 @@ body {
   box-sizing: border-box;
 }
 
-.page-container {
-  min-height: 100%;
+/* ============================================
+   Glass Morphism Utility
+   ============================================ */
+
+.glass {
+  background: var(--bg-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
-.main-card,
-.config-card,
-.quick-actions,
-.chart-card,
-.info-card {
-  background: var(--admin-surface) !important;
-  border: 1px solid var(--admin-line);
-  border-radius: var(--admin-radius) !important;
-  box-shadow: var(--admin-shadow-soft);
-  backdrop-filter: blur(18px);
+.glass-sm {
+  background: var(--bg-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
 }
 
-.card-header,
-.card-header-flex {
+/* ============================================
+   Bento Page Layout
+   ============================================ */
+
+.bento-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-page);
+}
+
+.bento-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 }
 
-.card-title,
-.section-title {
-  color: var(--admin-text);
-  font-size: 15px;
+.bento-header h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+}
+
+.bento-header .subtitle {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.bento-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ============================================
+   DataTable Section
+   ============================================ */
+
+.data-table-section {
+  background: var(--bg-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--gap-card);
 }
 
 .search-bar {
-  padding: 16px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.pagination-wrap {
+.search-bar .n-input,
+.search-bar .n-base-selection,
+.search-bar .n-input-number {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+}
+
+.search-bar .n-input:hover,
+.search-bar .n-base-selection:hover,
+.search-bar .n-input-number:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+.search-bar .n-input:focus-within,
+.search-bar .n-base-selection--active,
+.search-bar .n-input-number:focus-within {
+  background: rgba(0, 0, 0, 0.02) !important;
+  box-shadow: 0 0 0 2px rgba(182, 64, 44, 0.15) !important;
+}
+
+.pagination-area {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid var(--admin-line);
+  border-top: 1px solid var(--border-light);
 }
 
-.main-card :where(.n-data-table),
-.main-card :where(.n-tabs-nav),
-.main-card :where(.n-card__content) {
-  color: var(--admin-text);
-}
+/* ============================================
+   Naive UI DataTable Overrides
+   ============================================ */
 
-.main-card :where(.n-data-table-th) {
-  background: rgba(182, 64, 44, 0.05);
-}
-
-.main-card :where(.n-data-table-tr:hover .n-data-table-td) {
+.n-data-table .n-data-table-th {
   background: rgba(182, 64, 44, 0.04);
+  font-weight: 600;
+  padding: 6px 12px !important;
 }
 
-.main-card :where(.n-input__input-el),
-.main-card :where(.n-base-selection-label),
-.main-card :where(.n-input-number-input),
-.config-card :where(.n-input__input-el),
-.config-card :where(.n-base-selection-label),
-.config-card :where(.n-input-number-input) {
-  color: var(--admin-text);
+.n-data-table .n-data-table-td {
+  border-bottom: 1px solid var(--border-light);
+  padding: 6px 12px !important;
 }
 
-.main-card :where(.n-input),
-.main-card :where(.n-base-selection),
-.main-card :where(.n-input-number),
-.config-card :where(.n-input),
-.config-card :where(.n-base-selection),
-.config-card :where(.n-input-number) {
-  --n-border: 1px solid var(--admin-line-strong);
+.n-data-table .n-data-table-tr:hover .n-data-table-td {
+  background: var(--color-primary-fade);
+}
+
+/* ============================================
+   Naive UI Input/Select Overrides
+   ============================================ */
+
+.n-input,
+.n-base-selection,
+.n-input-number {
+  --n-border: 1px solid var(--border-strong);
   --n-border-hover: 1px solid rgba(182, 64, 44, 0.45);
   --n-border-focus: 1px solid rgba(182, 64, 44, 0.75);
   --n-box-shadow-focus: 0 0 0 3px rgba(182, 64, 44, 0.1);
@@ -118,14 +225,28 @@ body {
   --n-color-active: #fffdfa;
 }
 
+.n-input .n-input__input-el,
+.n-base-selection .n-base-selection-label,
+.n-input-number .n-input-number-input {
+  color: var(--color-text);
+}
+
+/* ============================================
+   Naive UI Pagination Overrides
+   ============================================ */
+
 .n-pagination .n-pagination-item:not(.n-pagination-item--disabled):hover {
-  color: var(--admin-accent);
+  color: var(--color-primary);
 }
 
 .n-pagination .n-pagination-item--active {
-  background: var(--admin-accent);
+  background: var(--color-primary);
   color: #fff;
 }
+
+/* ============================================
+   Scrollbar
+   ============================================ */
 
 ::-webkit-scrollbar {
   width: 10px;

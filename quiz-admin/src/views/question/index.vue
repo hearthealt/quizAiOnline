@@ -1,24 +1,21 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">题目管理</span>
-          <n-space>
-            <n-button type="primary" @click="openDrawer()">
-              <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-              新增题目
-            </n-button>
-            <n-button @click="showImportModal = true">批量导入</n-button>
-            <n-button :disabled="checkedKeys.length === 0" @click="handleBatchDelete">
-              批量删除 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
-            </n-button>
-            <n-button type="warning" @click="showAiModal = true">AI批量生成</n-button>
-          </n-space>
-        </div>
-      </template>
+  <PageContainer title="题目管理">
+    <template #header-actions>
+      <n-space>
+        <n-button type="primary" @click="openDrawer()">
+          <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+          新增题目
+        </n-button>
+        <n-button @click="showImportModal = true">批量导入</n-button>
+        <n-button :disabled="checkedKeys.length === 0" @click="handleBatchDelete">
+          批量删除 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-button type="warning" @click="showAiModal = true">AI批量生成</n-button>
+      </n-space>
+    </template>
 
-      <n-space class="search-bar">
+    <DataTableSection>
+      <template #search>
         <n-select v-model:value="searchParams.bankId" placeholder="选择题库" :options="bankOptions" clearable style="width: 200px" />
         <n-select v-model:value="searchParams.type" placeholder="题目类型" :options="typeOptions" clearable style="width: 140px" />
         <n-input v-model:value="searchParams.keyword" placeholder="搜索题目内容" clearable style="width: 200px" @keyup.enter="handleSearch">
@@ -26,7 +23,7 @@
         </n-input>
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
-      </n-space>
+      </template>
 
       <n-data-table
         :columns="columns"
@@ -40,7 +37,7 @@
         striped
       />
 
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="pagination.page"
           :page-size="pagination.pageSize"
@@ -50,8 +47,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <!-- 新增/编辑抽屉 -->
     <n-drawer v-model:show="showDrawer" :width="600">
@@ -223,7 +220,7 @@
         </n-space>
       </template>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -236,6 +233,8 @@ import * as categoryApi from '@/api/category'
 import * as aiApi from '@/api/ai'
 import { useTable } from '@/composables/useTable'
 import { useForm } from '@/composables/useForm'
+import PageContainer from '@/components/PageContainer.vue'
+import DataTableSection from '@/components/DataTableSection.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -617,31 +616,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .import-shell {
   display: flex;
   flex-direction: column;
@@ -744,7 +718,7 @@ onMounted(() => {
 }
 
 .import-file-name {
-  color: #111827;
+  color: var(--color-text);
   font-size: 13px;
   font-weight: 500;
   text-align: right;
@@ -772,14 +746,6 @@ onMounted(() => {
   .import-file-name {
     text-align: left;
   }
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
 }
 
 .options-list {

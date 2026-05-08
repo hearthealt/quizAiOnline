@@ -1,19 +1,15 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">管理员管理</span>
-          <n-button type="primary" @click="openForm()">
-            <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-            新增管理员
-          </n-button>
-        </div>
-      </template>
+  <PageContainer title="管理员管理">
+    <template #header-actions>
+      <n-button type="primary" @click="openForm()">
+        <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+        新增管理员
+      </n-button>
+    </template>
 
+    <DataTableSection>
       <n-data-table size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
-
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="query.pageNum"
           :page-size="query.pageSize"
@@ -23,8 +19,8 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
+      </template>
+    </DataTableSection>
 
     <n-modal v-model:show="showForm" preset="card" :title="formData.id ? '编辑管理员' : '新增管理员'" style="width: 480px">
       <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="80">
@@ -51,7 +47,7 @@
         </n-space>
       </template>
     </n-modal>
-  </div>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -100,10 +96,10 @@ const columns: DataTableColumns = [
     width: 200,
     render(row: any) {
       return h('div', { style: 'display:flex;align-items:center;gap:10px' }, [
-        h(NAvatar, { src: resolveAssetUrl(row.avatar) || undefined, size: 36, round: true, style: 'background:#667eea;color:#fff' }, { fallback: () => (row.nickname || row.username || '').charAt(0).toUpperCase() }),
+        h(NAvatar, { src: resolveAssetUrl(row.avatar) || undefined, size: 36, round: true, style: 'background:var(--color-primary);color:#fff' }, { fallback: () => (row.nickname || row.username || '').charAt(0).toUpperCase() }),
         h('div', null, [
           h('div', { style: 'font-weight:500' }, row.nickname || row.username),
-          h('div', { style: 'font-size:12px;color:#999' }, row.username),
+          h('div', { style: 'font-size:12px;color:var(--color-text-muted)' }, row.username),
         ]),
       ])
     }
@@ -201,32 +197,3 @@ function handlePageSizeChange(size: number) {
 
 onMounted(() => fetchData())
 </script>
-
-<style scoped>
-.page-container {
-  min-height: 100%;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
-}
-</style>

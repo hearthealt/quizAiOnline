@@ -1,14 +1,7 @@
 <template>
-  <div class="page-container">
-    <n-card :bordered="false" size="small" class="main-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">今日答题</span>
-          <n-text depth="3">{{ currentDateLabel }} 共 {{ total }} 条</n-text>
-        </div>
-      </template>
-
-      <n-space class="search-bar">
+  <PageContainer title="今日答题" :subtitle="currentDateLabel + ' 共 ' + total + ' 条'">
+    <DataTableSection>
+      <template #search>
         <n-date-picker v-model:value="query.date" type="date" clearable style="width: 180px" />
         <n-input v-model:value="query.keyword" placeholder="用户/题目/题库" clearable style="width: 220px" @keyup.enter="handleSearch" />
         <n-select v-model:value="query.bankId" placeholder="题库" clearable :options="bankOptions" style="width: 180px" />
@@ -16,7 +9,7 @@
         <n-select v-model:value="query.result" placeholder="结果" clearable :options="resultOptions" style="width: 120px" />
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
-      </n-space>
+      </template>
 
       <n-data-table
         :columns="columns"
@@ -27,7 +20,7 @@
         striped
       />
 
-      <div class="pagination-wrap">
+      <template #pagination>
         <n-pagination
           :page="query.pageNum"
           :page-size="query.pageSize"
@@ -37,9 +30,9 @@
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
-      </div>
-    </n-card>
-  </div>
+      </template>
+    </DataTableSection>
+  </PageContainer>
 </template>
 
 <script setup lang="ts">
@@ -95,7 +88,7 @@ const columns: DataTableColumns = [
     render(row: any) {
       return h('div', null, [
         h('div', { style: 'font-weight:600' }, row.userNickname || '-'),
-        h('div', { style: 'font-size:12px;color:#94a3b8' }, row.userPhone || '未绑定手机号')
+        h('div', { style: 'font-size:12px;color:var(--color-text-muted)' }, row.userPhone || '未绑定手机号')
       ])
     }
   },
@@ -114,7 +107,7 @@ const columns: DataTableColumns = [
     minWidth: 280,
     render(row: any) {
       return h('div', null, [
-        h('div', { style: 'font-size:12px;color:#94a3b8;margin-bottom:4px' }, `#${row.questionId}`),
+        h('div', { style: 'font-size:12px;color:var(--color-text-muted);margin-bottom:4px' }, `#${row.questionId}`),
         h('div', row.questionContent || '-')
       ])
     }
@@ -193,38 +186,3 @@ onMounted(() => {
   loadBanks()
 })
 </script>
-
-<style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.main-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.search-bar {
-  margin-bottom: 12px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
-}
-</style>
