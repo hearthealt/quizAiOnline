@@ -7,15 +7,20 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.quiz.common.exception.BizException;
 import com.quiz.common.result.PageResult;
+import com.quiz.config.AiBatchProperties;
 import com.quiz.dto.admin.AiBatchGenerateDTO;
 import com.quiz.dto.admin.AiConfigDTO;
 import com.quiz.dto.admin.AiLogQueryDTO;
 import com.quiz.entity.Admin;
+import com.quiz.entity.AiBatchJob;
+import com.quiz.entity.AiBatchJobItem;
 import com.quiz.entity.AiCallLog;
 import com.quiz.entity.AiConfig;
 import com.quiz.entity.Question;
 import com.quiz.entity.QuestionOption;
 import com.quiz.entity.User;
+import com.quiz.mapper.AiBatchJobItemMapper;
+import com.quiz.mapper.AiBatchJobMapper;
 import com.quiz.mapper.AdminMapper;
 import com.quiz.mapper.AiCallLogMapper;
 import com.quiz.mapper.AiConfigMapper;
@@ -24,11 +29,15 @@ import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.UserMapper;
 import com.quiz.service.AiAnalysisService;
 import com.quiz.util.AiProviderUtil;
+import com.quiz.vo.admin.AiBatchJobItemVO;
+import com.quiz.vo.admin.AiBatchJobVO;
 import com.quiz.vo.admin.AiCallLogVO;
 import com.quiz.vo.admin.AiStatsVO;
 import cn.hutool.core.bean.BeanUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import okhttp3.*;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -38,6 +47,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 
 import java.util.stream.Collectors;
 
@@ -49,15 +66,28 @@ import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiAnalysisServiceImpl implements AiAnalysisService {
+public class AiAnalysisServiceImpl implements AiAnalysisService, ApplicationRunner {
+
+    private static final int JOB_STATUS_PENDING = 0;
+    private static final int JOB_STATUS_RUNNING = 1;
+    private static final int JOB_STATUS_SUCCESS = 2;
+    private static final int JOB_STATUS_PARTIAL_FAILED = 3;
+    private static final int JOB_STATUS_FAILED = 4;
+    private static final int JOB_STATUS_PAUSED = 5;
+    private static final int JOB_STATUS_CANCELED = 6;
+    private static final int ITEM_STATUS_PENDING = 0;
+    private static final int ITEM_STATUS_RUNNING = 1;
+    private static final int ITEM_STATUS_SUCCESS = 2;
+    private static final int ITEM_STATUS_FAILED = 3;
+    private static final int ITEM_STATUS_CANCELED = 4;
 
     private static final String DEFAULT_PROMPT_ANALYSIS = """
             {questionContext}
 
-            请输出解析：
-            - 单选题、多选题：按每个选项分别说明正确或错误的原因。
-            - 判断题、填空题：只说明判断依据或填空原因。
-            不要输出答案，直接输出解析内容。""";
+            请只输出纯文本解析，不要输出标题、Markdown、项目符号或空行。
+            单选题、多选题：按每个选项分别说明正确或错误的原因，选项行使用“A. 选项内容：原因”的纯文本格式。
+            判断题、填空题：只说明判断依据或填空原因。
+            不要输出答案，不要以“解析：”“答案解析：”“题目解析：”开头。""";
     private static final String DEFAULT_PROMPT_ANSWER = """
             {questionContext}
 
@@ -65,18 +95,29 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final String DEFAULT_PROMPT_BOTH = """
             {questionContext}
 
-            请按格式输出：
+            请按以下纯文本格式输出，不要使用 Markdown 或空行：
             答案：[答案]
-            解析：[单选题、多选题逐项说明每个选项原因；判断题、填空题只说明原因；判断题答案输出对应选项字母]""";
+            解析：[单选题、多选题逐项说明每个选项原因；判断题、填空题只说明原因；判断题答案输出对应选项字母]
+            解析内容不要再包含“解析：”“答案解析：”“题目解析：”等标题。""";
 
     private final AiConfigMapper aiConfigMapper;
     private final AiCallLogMapper aiCallLogMapper;
+    private final AiBatchJobMapper aiBatchJobMapper;
+    private final AiBatchJobItemMapper aiBatchJobItemMapper;
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final UserMapper userMapper;
     private final AdminMapper adminMapper;
     private final OkHttpClient okHttpClient;
     private final ThreadPoolTaskExecutor aiTaskExecutor;
+    private final AiBatchProperties aiBatchProperties;
+    private final Set<Long> activeBatchJobIds = ConcurrentHashMap.newKeySet();
+    private final Set<Long> resumeRequestedBatchJobIds = ConcurrentHashMap.newKeySet();
+
+    @Override
+    public void run(ApplicationArguments args) {
+        recoverUnfinishedBatchJobs();
+    }
 
     @Override
     public AiConfig getConfig() {
@@ -200,6 +241,14 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
     @Override
     public String generate(Long questionId, String mode, Long operatorId) {
+        return generate(questionId, mode, operatorId, false);
+    }
+
+    private String generate(Long questionId, String mode, Long operatorId, boolean overwrite) {
+        return generate(questionId, mode, operatorId, overwrite, () -> true);
+    }
+
+    private String generate(Long questionId, String mode, Long operatorId, boolean overwrite, BooleanSupplier canWriteResult) {
         AiConfig config = getConfig();
         if (config == null || config.getStatus() != 1) throw new BizException("AI服务未启用");
 
@@ -218,14 +267,14 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             throw new BizException("当前模式未配置 Prompt 模板");
         }
 
-        String questionContext = buildQuestionContext(question, optionsStr);
+        String questionContext = buildQuestionContext(question, optionsStr, mode, overwrite);
         String prompt = promptTemplate
                 .replace("{questionContext}", questionContext)
                 .replace("{content}", question.getContent())
                 .replace("{type}", getQuestionTypeName(question.getType()))
                 .replace("{options}", optionsStr)
-                .replace("{answer}", question.getAnswer() != null ? question.getAnswer() : "")
-                .replace("{analysis}", question.getAnalysis() != null ? question.getAnalysis() : "");
+                .replace("{answer}", shouldIncludeExistingAnswer(mode, overwrite) && question.getAnswer() != null ? question.getAnswer() : "")
+                .replace("{analysis}", shouldIncludeExistingAnalysis(mode, overwrite) && question.getAnalysis() != null ? question.getAnalysis() : "");
         prompt = appendQuestionTypeInstruction(prompt, question, mode);
 
         long startTime = System.currentTimeMillis();
@@ -239,21 +288,36 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
         try {
             AiTextResult aiResult = callAiWithRoute(config, prompt);
-            String result = aiResult.content();
+            String rawResult = aiResult.content();
+            String result = rawResult;
             long costMs = System.currentTimeMillis() - startTime;
-            callLog.setResult(result);
             callLog.setRoute(aiResult.route());
             callLog.setCostMs((int) costMs);
             callLog.setStatus(1);
 
+            if (canWriteResult != null && !canWriteResult.getAsBoolean()) {
+                throw new BizException("批量任务已取消，跳过写入");
+            }
+
             // 更新题目
             if ("GENERATE_ANALYSIS".equals(mode)) {
+                result = emptyIfNull(normalizeAnalysisText(rawResult));
                 question.setAnalysis(result);
             } else if ("GENERATE_ANSWER".equals(mode)) {
-                question.setAnswer(normalizeGeneratedAnswer(question, options, result));
+                result = emptyIfNull(normalizeGeneratedAnswer(question, options, rawResult));
+                question.setAnswer(result);
             } else if ("GENERATE_BOTH".equals(mode)) {
-                parseBothResult(question, options, result);
+                Question parsedQuestion = new Question();
+                parsedQuestion.setType(question.getType());
+                parseBothResult(parsedQuestion, options, rawResult);
+                if (!hasText(parsedQuestion.getAnswer()) || !hasText(parsedQuestion.getAnalysis())) {
+                    throw new BizException("AI返回格式不符合要求，未解析到完整答案和解析");
+                }
+                question.setAnswer(parsedQuestion.getAnswer());
+                question.setAnalysis(parsedQuestion.getAnalysis());
+                result = buildBothResult(question);
             }
+            callLog.setResult(result);
             questionMapper.update(question, false);
 
             aiCallLogMapper.insert(callLog);
@@ -280,6 +344,9 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
     @Override
     public Map<String, Object> batchGenerate(AiBatchGenerateDTO dto, Long operatorId) {
+        if (dto == null) {
+            throw new BizException("请求参数不能为空");
+        }
         List<Question> questions;
         if (dto.getQuestionIds() != null && !dto.getQuestionIds().isEmpty()) {
             questions = questionMapper.selectListByIds(dto.getQuestionIds());
@@ -288,13 +355,16 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                     QueryWrapper.create().where(QUESTION.BANK_ID.eq(dto.getBankId()))
                             .and(QUESTION.STATUS.eq(1)));
         } else {
-            throw new BizException("请指定题库或题目");
+            questions = questionMapper.selectListByQuery(
+                    QueryWrapper.create().where(QUESTION.STATUS.eq(1)));
         }
 
-        String mode = dto.getMode();
+        String mode = trimToNull(dto.getMode());
+        resolvePromptTemplate(mode);
+        boolean overwrite = Boolean.TRUE.equals(dto.getOverwrite());
         List<Question> eligibleQuestions = questions.stream()
                 .filter(Objects::nonNull)
-                .filter(question -> !shouldSkipForMode(question, mode))
+                .filter(question -> overwrite || !shouldSkipForMode(question, mode))
                 .toList();
 
         int skippedCount = questions.size() - eligibleQuestions.size();
@@ -310,38 +380,529 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             result.put("total", questions.size());
             result.put("submitted", 0);
             result.put("skipped", skippedCount);
+            result.put("jobId", null);
             result.put("message", skippedCount > 0
                     ? "没有符合条件的题目，已跳过" + skippedCount + "道已有内容的题目"
                     : "没有符合条件的题目");
             return result;
         }
 
-        // 提交单个后台批处理任务，避免大量题目时瞬间塞满线程池和 AI 接口
-        aiTaskExecutor.execute(() -> runBatchGenerate(questionIds, mode, operatorId));
+        int concurrency = resolveBatchConcurrency(dto.getConcurrency());
+        AiBatchJob job = createBatchJob(dto, mode, operatorId, questions.size(), questionIds.size(), skippedCount, concurrency, overwrite);
+        List<AiBatchJobItem> items = createBatchJobItems(job.getId(), questionIds);
+        aiTaskExecutor.execute(() -> runBatchGenerate(job.getId(), items, mode, operatorId, concurrency, overwrite));
 
         Map<String, Object> result = new HashMap<>();
+        result.put("jobId", job.getId());
         result.put("total", questions.size());
         result.put("submitted", questionIds.size());
         result.put("skipped", skippedCount);
-        result.put("message", "已提交" + questionIds.size() + "道题目的AI生成任务，后台排队处理中"
+        result.put("concurrency", concurrency);
+        result.put("message", "已提交" + questionIds.size() + "道题目的AI生成任务，并发数 " + concurrency + "，后台处理中"
                 + (skippedCount > 0 ? "，并跳过" + skippedCount + "道已有内容的题目" : ""));
         return result;
     }
 
-    private void runBatchGenerate(List<Long> questionIds, String mode, Long operatorId) {
-        int success = 0;
-        int failed = 0;
+    @Override
+    public AiBatchJobVO getBatchJob(Long jobId) {
+        if (jobId == null) {
+            throw new BizException("任务ID不能为空");
+        }
+        AiBatchJob job = aiBatchJobMapper.selectOneById(jobId);
+        if (job == null) {
+            throw new BizException("批量任务不存在");
+        }
+        return toBatchJobVO(job, true);
+    }
+
+    @Override
+    public PageResult<AiBatchJobVO> getBatchJobList(Integer pageNum, Integer pageSize, Integer status, String mode) {
+        int safePageNum = pageNum == null || pageNum < 1 ? 1 : pageNum;
+        int safePageSize = pageSize == null || pageSize < 1 ? 10 : Math.min(pageSize, 50);
+        int offset = (safePageNum - 1) * safePageSize;
+        String safeMode = trimToNull(mode);
+        List<AiBatchJob> jobs = aiBatchJobMapper.selectPage(offset, safePageSize, status, safeMode);
+        List<AiBatchJobVO> voList = jobs.stream()
+                .map(job -> toBatchJobVO(job, false))
+                .collect(Collectors.toList());
+        return PageResult.of(voList, aiBatchJobMapper.countAllJobs(status, safeMode), safePageNum, safePageSize);
+    }
+
+    @Override
+    public void pauseBatchJob(Long jobId) {
+        AiBatchJob job = requireBatchJob(jobId);
+        if (!Objects.equals(job.getStatus(), JOB_STATUS_PENDING) && !Objects.equals(job.getStatus(), JOB_STATUS_RUNNING)) {
+            throw new BizException("只有排队中或执行中的任务可以暂停");
+        }
+        aiBatchJobMapper.pauseJob(jobId, "手动暂停");
+    }
+
+    @Override
+    public void resumeBatchJob(Long jobId) {
+        AiBatchJob job = requireBatchJob(jobId);
+        if (!Objects.equals(job.getStatus(), JOB_STATUS_PAUSED)) {
+            throw new BizException("只有已暂停的任务可以继续");
+        }
+        if (activeBatchJobIds.contains(jobId)) {
+            aiBatchJobMapper.resumeActiveJob(jobId);
+            resumeRequestedBatchJobIds.add(jobId);
+            if (!activeBatchJobIds.contains(jobId)) {
+                restartResumedBatchJobIfNeeded(jobId, job.getMode(), job.getOperatorId(),
+                        resolveBatchConcurrency(job.getConcurrency()), Objects.equals(job.getOverwrite(), 1));
+            }
+            return;
+        }
+        aiBatchJobItemMapper.resetRunningItems(jobId);
+        aiBatchJobMapper.refreshCounts(jobId);
+        List<AiBatchJobItem> items = aiBatchJobItemMapper.selectRecoverableItems(jobId);
+        if (items.isEmpty()) {
+            AiBatchJob refreshed = aiBatchJobMapper.selectOneById(jobId);
+            int failed = defaultZero(refreshed != null ? refreshed.getFailCount() : job.getFailCount());
+            aiBatchJobMapper.markFinished(jobId, failed > 0 ? JOB_STATUS_PARTIAL_FAILED : JOB_STATUS_SUCCESS, null, LocalDateTime.now());
+            return;
+        }
+        aiBatchJobMapper.resumeJob(jobId);
+        aiTaskExecutor.execute(() -> runBatchGenerate(jobId, items, job.getMode(), job.getOperatorId(),
+                resolveBatchConcurrency(job.getConcurrency()), Objects.equals(job.getOverwrite(), 1)));
+    }
+
+    @Override
+    public void retryFailedBatchJob(Long jobId) {
+        AiBatchJob job = requireBatchJob(jobId);
+        if (!Objects.equals(job.getStatus(), JOB_STATUS_PARTIAL_FAILED)
+                && !Objects.equals(job.getStatus(), JOB_STATUS_FAILED)) {
+            throw new BizException("只有完成但有失败或执行异常的任务可以重试失败题目");
+        }
+        if (activeBatchJobIds.contains(jobId)) {
+            throw new BizException("任务正在执行中，请稍后再试");
+        }
+        int failedItems = aiBatchJobItemMapper.countByJobIdAndStatus(jobId, ITEM_STATUS_FAILED);
+        if (failedItems <= 0) {
+            throw new BizException("没有失败题目可重试");
+        }
+        if (aiBatchJobMapper.markRetryPending(jobId) == 0) {
+            throw new BizException("任务状态已变化，请刷新后重试");
+        }
+        aiBatchJobItemMapper.resetFailedItems(jobId);
+        aiBatchJobItemMapper.resetRunningItems(jobId);
+        aiBatchJobMapper.refreshCounts(jobId);
+        List<AiBatchJobItem> items = aiBatchJobItemMapper.selectRecoverableItems(jobId);
+        if (items.isEmpty()) {
+            AiBatchJob refreshed = aiBatchJobMapper.selectOneById(jobId);
+            int failed = defaultZero(refreshed != null ? refreshed.getFailCount() : 0);
+            aiBatchJobMapper.markFinished(jobId, failed > 0 ? JOB_STATUS_PARTIAL_FAILED : JOB_STATUS_SUCCESS, null, LocalDateTime.now());
+            return;
+        }
+        aiTaskExecutor.execute(() -> runBatchGenerate(jobId, items, job.getMode(), job.getOperatorId(),
+                resolveBatchConcurrency(job.getConcurrency()), Objects.equals(job.getOverwrite(), 1)));
+    }
+
+    @Override
+    public void cancelBatchJob(Long jobId) {
+        AiBatchJob job = requireBatchJob(jobId);
+        if (!Objects.equals(job.getStatus(), JOB_STATUS_PENDING)
+                && !Objects.equals(job.getStatus(), JOB_STATUS_RUNNING)
+                && !Objects.equals(job.getStatus(), JOB_STATUS_PAUSED)) {
+            throw new BizException("只有排队中、执行中或已暂停的任务可以取消");
+        }
+        resumeRequestedBatchJobIds.remove(jobId);
+        aiBatchJobItemMapper.cancelOpenItems(jobId, LocalDateTime.now());
+        aiBatchJobMapper.cancelJob(jobId, "手动取消", LocalDateTime.now());
+        aiBatchJobMapper.refreshCounts(jobId);
+    }
+
+    @Override
+    public void deleteBatchJob(Long jobId) {
+        AiBatchJob job = requireBatchJob(jobId);
+        if (Objects.equals(job.getStatus(), JOB_STATUS_PENDING)
+                || Objects.equals(job.getStatus(), JOB_STATUS_RUNNING)
+                || Objects.equals(job.getStatus(), JOB_STATUS_PAUSED)) {
+            throw new BizException("运行中或已暂停的任务不能删除，请先取消");
+        }
+        aiBatchJobItemMapper.deleteByJobId(jobId);
+        aiBatchJobMapper.deleteFinishedJob(jobId);
+    }
+
+    private AiBatchJob createBatchJob(AiBatchGenerateDTO dto,
+                                      String mode,
+                                      Long operatorId,
+                                      int totalCount,
+                                      int submittedCount,
+                                      int skippedCount,
+                                      int concurrency,
+                                      boolean overwrite) {
+        AiBatchJob job = new AiBatchJob();
+        job.setBankId(dto.getBankId());
+        job.setMode(mode);
+        job.setOverwrite(overwrite ? 1 : 0);
+        job.setConcurrency(concurrency);
+        job.setTotalCount(totalCount);
+        job.setSubmittedCount(submittedCount);
+        job.setSkippedCount(skippedCount);
+        job.setSuccessCount(0);
+        job.setFailCount(0);
+        job.setStatus(JOB_STATUS_PENDING);
+        job.setOperatorId(operatorId);
+        job.setCreateTime(LocalDateTime.now());
+        job.setUpdateTime(LocalDateTime.now());
+        aiBatchJobMapper.insert(job);
+        return job;
+    }
+
+    private AiBatchJob requireBatchJob(Long jobId) {
+        if (jobId == null) {
+            throw new BizException("任务ID不能为空");
+        }
+        AiBatchJob job = aiBatchJobMapper.selectOneById(jobId);
+        if (job == null) {
+            throw new BizException("批量任务不存在");
+        }
+        return job;
+    }
+
+    private List<AiBatchJobItem> createBatchJobItems(Long jobId, List<Long> questionIds) {
+        List<AiBatchJobItem> items = new ArrayList<>();
         for (Long questionId : questionIds) {
-            try {
-                generate(questionId, mode, operatorId);
-                success++;
-            } catch (Exception e) {
-                failed++;
-                log.error("批量AI生成失败, questionId={}, mode={}", questionId, mode, e);
+            AiBatchJobItem item = new AiBatchJobItem();
+            item.setJobId(jobId);
+            item.setQuestionId(questionId);
+            item.setStatus(ITEM_STATUS_PENDING);
+            item.setRetryCount(0);
+            item.setCreateTime(LocalDateTime.now());
+            item.setUpdateTime(LocalDateTime.now());
+            aiBatchJobItemMapper.insert(item);
+            items.add(item);
+        }
+        return items;
+    }
+
+    private void recoverUnfinishedBatchJobs() {
+        List<AiBatchJob> jobs;
+        try {
+            jobs = aiBatchJobMapper.selectRecoverableJobs();
+        } catch (Exception e) {
+            log.error("扫描未完成AI批量任务失败", e);
+            return;
+        }
+        if (jobs.isEmpty()) {
+            return;
+        }
+        log.info("发现{}个未完成AI批量任务，准备恢复执行", jobs.size());
+        for (AiBatchJob job : jobs) {
+            aiTaskExecutor.execute(() -> recoverBatchJob(job));
+        }
+    }
+
+    private void recoverBatchJob(AiBatchJob job) {
+        try {
+            aiBatchJobItemMapper.resetRunningItems(job.getId());
+            aiBatchJobMapper.refreshCounts(job.getId());
+            List<AiBatchJobItem> items = aiBatchJobItemMapper.selectRecoverableItems(job.getId());
+            if (items.isEmpty()) {
+                AiBatchJob refreshed = aiBatchJobMapper.selectOneById(job.getId());
+                int failed = defaultZero(refreshed != null ? refreshed.getFailCount() : job.getFailCount());
+                aiBatchJobMapper.markFinished(job.getId(),
+                        failed > 0 ? JOB_STATUS_PARTIAL_FAILED : JOB_STATUS_SUCCESS,
+                        null,
+                        LocalDateTime.now());
+                return;
+            }
+            int concurrency = resolveBatchConcurrency(job.getConcurrency());
+            aiBatchJobMapper.markPendingForRecovery(job.getId(), "服务重启后自动恢复执行");
+            runBatchGenerate(job.getId(), items, job.getMode(), job.getOperatorId(), concurrency, Objects.equals(job.getOverwrite(), 1));
+        } catch (Exception e) {
+            aiBatchJobMapper.markFinished(job.getId(), JOB_STATUS_FAILED, abbreviateError(e.getMessage()), LocalDateTime.now());
+            log.error("恢复AI批量任务失败, jobId={}", job.getId(), e);
+        }
+    }
+
+    private void runBatchGenerate(Long jobId,
+                                  List<AiBatchJobItem> items,
+                                  String mode,
+                                  Long operatorId,
+                                  int concurrency,
+                                  boolean overwrite) {
+        if (!activeBatchJobIds.add(jobId)) {
+            log.info("批量AI任务已有执行器，跳过重复执行, jobId={}", jobId);
+            return;
+        }
+        AtomicInteger success = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        List<AiBatchJobItem> pendingItems = new ArrayList<>(items);
+        ExecutorService executor = null;
+        int submitted = 0;
+        int completed = 0;
+        try {
+            if (aiBatchJobMapper.markRunning(jobId, LocalDateTime.now()) == 0) {
+                log.info("批量AI任务未进入执行状态，跳过执行, jobId={}", jobId);
+                return;
+            }
+            executor = Executors.newFixedThreadPool(concurrency);
+            ExecutorCompletionService<Boolean> completionService = new ExecutorCompletionService<>(executor);
+            while (true) {
+                while (submitted - completed < concurrency && !pendingItems.isEmpty() && canDispatchBatchJob(jobId)) {
+                    AiBatchJobItem item = pendingItems.remove(0);
+                    completionService.submit(() -> processBatchItem(jobId, item, mode, operatorId, overwrite));
+                    submitted++;
+                }
+
+                if (completed < submitted) {
+                    Future<Boolean> future = completionService.take();
+                    completed++;
+                    if (Boolean.TRUE.equals(future.get())) {
+                        success.incrementAndGet();
+                    } else {
+                        failed.incrementAndGet();
+                    }
+                    continue;
+                }
+
+                AiBatchJob currentJob = aiBatchJobMapper.selectOneById(jobId);
+                if (currentJob != null && Objects.equals(currentJob.getStatus(), JOB_STATUS_PAUSED)) {
+                    if (resumeRequestedBatchJobIds.remove(jobId) && canDispatchBatchJob(jobId)) {
+                        continue;
+                    }
+                    log.info("批量AI生成已暂停, jobId={}, remaining={}", jobId, pendingItems.size());
+                    return;
+                }
+                if (currentJob != null && Objects.equals(currentJob.getStatus(), JOB_STATUS_CANCELED)) {
+                    aiBatchJobItemMapper.cancelOpenItems(jobId, LocalDateTime.now());
+                    log.info("批量AI生成已取消, jobId={}", jobId);
+                    return;
+                }
+                if (!pendingItems.isEmpty()) {
+                    if (canDispatchBatchJob(jobId)) {
+                        continue;
+                    }
+                    log.info("批量AI任务状态已变更，停止派发, jobId={}, remaining={}", jobId, pendingItems.size());
+                    return;
+                }
+                break;
+            }
+            aiBatchJobMapper.refreshCounts(jobId);
+            AiBatchJob latestJob = aiBatchJobMapper.selectOneById(jobId);
+            int totalFailed = defaultZero(latestJob != null ? latestJob.getFailCount() : failed.get());
+            int status = totalFailed > 0 ? JOB_STATUS_PARTIAL_FAILED : JOB_STATUS_SUCCESS;
+            aiBatchJobMapper.markFinished(jobId, status, null, LocalDateTime.now());
+            log.info("批量AI生成完成, jobId={}, mode={}, total={}, success={}, failed={}, concurrency={}",
+                    jobId, mode, items.size(), success.get(), totalFailed, concurrency);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            aiBatchJobMapper.markPendingForRecovery(jobId, "服务停止或线程中断，等待自动恢复执行");
+            log.warn("批量AI生成被中断，已保留为可恢复状态, jobId={}, mode={}", jobId, mode, e);
+        } catch (Exception e) {
+            aiBatchJobMapper.markFinished(jobId, JOB_STATUS_FAILED, abbreviateError(e.getMessage()), LocalDateTime.now());
+            log.error("批量AI生成任务异常, jobId={}, mode={}", jobId, mode, e);
+        } finally {
+            activeBatchJobIds.remove(jobId);
+            if (executor != null) {
+                executor.shutdownNow();
+                try {
+                    if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                        log.warn("批量AI生成线程池未及时退出, jobId={}", jobId);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            restartResumedBatchJobIfNeeded(jobId, mode, operatorId, concurrency, overwrite);
+        }
+    }
+
+    private void restartResumedBatchJobIfNeeded(Long jobId,
+                                                String mode,
+                                                Long operatorId,
+                                                int concurrency,
+                                                boolean overwrite) {
+        if (!resumeRequestedBatchJobIds.remove(jobId) || !canDispatchBatchJob(jobId)) {
+            return;
+        }
+        List<AiBatchJobItem> items = aiBatchJobItemMapper.selectRecoverableItems(jobId);
+        if (items.isEmpty()) {
+            aiBatchJobMapper.refreshCounts(jobId);
+            AiBatchJob latestJob = aiBatchJobMapper.selectOneById(jobId);
+            int failed = defaultZero(latestJob != null ? latestJob.getFailCount() : 0);
+            aiBatchJobMapper.markFinished(jobId, failed > 0 ? JOB_STATUS_PARTIAL_FAILED : JOB_STATUS_SUCCESS, null, LocalDateTime.now());
+            return;
+        }
+        aiTaskExecutor.execute(() -> runBatchGenerate(jobId, items, mode, operatorId, concurrency, overwrite));
+    }
+
+    private boolean processBatchItem(Long jobId, AiBatchJobItem item, String mode, Long operatorId, boolean overwrite) {
+        int retryCount = 0;
+        Exception lastError = null;
+        try {
+            if (aiBatchJobItemMapper.markRunning(item.getId(), LocalDateTime.now()) == 0) {
+                return false;
+            }
+            if (!canWriteBatchItem(jobId, item.getId())) {
+                return false;
+            }
+            while (retryCount <= 1) {
+                Question current = questionMapper.selectOneById(item.getQuestionId());
+                if (!overwrite && current != null && shouldSkipForMode(current, mode)) {
+                    return markBatchItemSuccess(jobId, item.getId(), retryCount);
+                }
+                generate(item.getQuestionId(), mode, operatorId, overwrite,
+                        () -> canWriteBatchItem(jobId, item.getId()));
+                return markBatchItemSuccess(jobId, item.getId(), retryCount);
+            }
+        } catch (Exception e) {
+            lastError = e;
+            while (retryCount < 1) {
+                retryCount++;
+                try {
+                    if (!canWriteBatchItem(jobId, item.getId())) {
+                        return false;
+                    }
+                    sleepBeforeRetry(retryCount);
+                    if (!canWriteBatchItem(jobId, item.getId())) {
+                        return false;
+                    }
+                    Question current = questionMapper.selectOneById(item.getQuestionId());
+                    if (!overwrite && current != null && shouldSkipForMode(current, mode)) {
+                        return markBatchItemSuccess(jobId, item.getId(), retryCount);
+                    }
+                    generate(item.getQuestionId(), mode, operatorId, overwrite,
+                            () -> canWriteBatchItem(jobId, item.getId()));
+                    return markBatchItemSuccess(jobId, item.getId(), retryCount);
+                } catch (Exception retryError) {
+                    lastError = retryError;
+                }
             }
         }
-        log.info("批量AI生成完成, mode={}, total={}, success={}, failed={}",
-                mode, questionIds.size(), success, failed);
+        String errorMsg = lastError != null ? lastError.getMessage() : "未知错误";
+        markBatchItemFailed(jobId, item.getId(), retryCount, abbreviateError(errorMsg));
+        log.error("批量AI生成失败, jobId={}, questionId={}, mode={}, retryCount={}",
+                jobId, item.getQuestionId(), mode, retryCount, lastError);
+        return false;
+    }
+
+    private boolean markBatchItemSuccess(Long jobId, Long itemId, int retryCount) {
+        if (aiBatchJobItemMapper.markSuccess(itemId, retryCount, LocalDateTime.now()) == 0) {
+            return false;
+        }
+        aiBatchJobMapper.incrementSuccess(jobId);
+        return true;
+    }
+
+    private void markBatchItemFailed(Long jobId, Long itemId, int retryCount, String errorMsg) {
+        if (aiBatchJobItemMapper.markFailed(itemId, retryCount, errorMsg, LocalDateTime.now()) > 0) {
+            aiBatchJobMapper.incrementFail(jobId);
+        }
+    }
+
+    private boolean canWriteBatchItem(Long jobId, Long itemId) {
+        AiBatchJob job = aiBatchJobMapper.selectOneById(jobId);
+        if (job == null
+                || (!Objects.equals(job.getStatus(), JOB_STATUS_PENDING)
+                && !Objects.equals(job.getStatus(), JOB_STATUS_RUNNING)
+                && !Objects.equals(job.getStatus(), JOB_STATUS_PAUSED))) {
+            return false;
+        }
+        AiBatchJobItem item = aiBatchJobItemMapper.selectOneById(itemId);
+        return item != null && Objects.equals(item.getStatus(), ITEM_STATUS_RUNNING);
+    }
+
+    private boolean canDispatchBatchJob(Long jobId) {
+        AiBatchJob job = aiBatchJobMapper.selectOneById(jobId);
+        return job != null && (Objects.equals(job.getStatus(), JOB_STATUS_PENDING)
+                || Objects.equals(job.getStatus(), JOB_STATUS_RUNNING));
+    }
+
+    private int resolveBatchConcurrency(Integer requestedConcurrency) {
+        int defaultConcurrency = safePositive(aiBatchProperties.getBatchConcurrency(), 5);
+        int maxConcurrency = safePositive(aiBatchProperties.getBatchMaxConcurrency(), 10);
+        if (maxConcurrency < 1) {
+            maxConcurrency = 10;
+        }
+        int concurrency = requestedConcurrency == null ? defaultConcurrency : requestedConcurrency;
+        if (concurrency < 1) {
+            concurrency = 1;
+        }
+        return Math.min(concurrency, maxConcurrency);
+    }
+
+    private int safePositive(Integer value, int fallback) {
+        return value != null && value > 0 ? value : fallback;
+    }
+
+    private void sleepBeforeRetry(int retryCount) {
+        try {
+            Thread.sleep(Math.min(1000L * retryCount, 3000L));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private AiBatchJobVO toBatchJobVO(AiBatchJob job, boolean includeFailedItems) {
+        AiBatchJobVO vo = BeanUtil.copyProperties(job, AiBatchJobVO.class);
+        int pendingCount = aiBatchJobItemMapper.countByJobIdAndStatus(job.getId(), ITEM_STATUS_PENDING);
+        int runningCount = aiBatchJobItemMapper.countByJobIdAndStatus(job.getId(), ITEM_STATUS_RUNNING);
+        vo.setPendingCount(pendingCount);
+        vo.setRunningCount(runningCount);
+        vo.setStatusText(batchJobStatusText(job.getStatus()));
+        int submitted = defaultZero(job.getSubmittedCount());
+        int done = defaultZero(job.getSuccessCount()) + defaultZero(job.getFailCount());
+        vo.setProgressPercent(submitted <= 0 ? 100 : Math.min(100, (int) Math.round(done * 100.0 / submitted)));
+        if (job.getOperatorId() != null) {
+            Admin admin = adminMapper.selectOneById(job.getOperatorId());
+            vo.setOperatorName(admin != null ? admin.getNickname() : null);
+        }
+        if (includeFailedItems) {
+            vo.setRecentFailedItems(aiBatchJobItemMapper.selectRecentFailedItems(job.getId(), 20).stream()
+                    .map(this::toBatchJobItemVO)
+                    .collect(Collectors.toList()));
+        }
+        return vo;
+    }
+
+    private AiBatchJobItemVO toBatchJobItemVO(AiBatchJobItem item) {
+        AiBatchJobItemVO vo = BeanUtil.copyProperties(item, AiBatchJobItemVO.class);
+        vo.setStatusText(batchJobItemStatusText(item.getStatus()));
+        return vo;
+    }
+
+    private String batchJobStatusText(Integer status) {
+        if (status == null) {
+            return "未知";
+        }
+        return switch (status) {
+            case JOB_STATUS_PENDING -> "排队中";
+            case JOB_STATUS_RUNNING -> "执行中";
+            case JOB_STATUS_SUCCESS -> "已完成";
+            case JOB_STATUS_PARTIAL_FAILED -> "完成但有失败";
+            case JOB_STATUS_FAILED -> "执行异常";
+            case JOB_STATUS_PAUSED -> "已暂停";
+            case JOB_STATUS_CANCELED -> "已取消";
+            default -> "未知";
+        };
+    }
+
+    private String batchJobItemStatusText(Integer status) {
+        if (status == null) {
+            return "未知";
+        }
+        return switch (status) {
+            case ITEM_STATUS_PENDING -> "待处理";
+            case ITEM_STATUS_RUNNING -> "处理中";
+            case ITEM_STATUS_SUCCESS -> "成功";
+            case ITEM_STATUS_FAILED -> "失败";
+            case ITEM_STATUS_CANCELED -> "已取消";
+            default -> "未知";
+        };
+    }
+
+    private int defaultZero(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private String abbreviateError(String message) {
+        if (message == null) {
+            return null;
+        }
+        String normalized = message.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 1000 ? normalized : normalized.substring(0, 1000);
     }
 
     private boolean shouldSkipForMode(Question question, String mode) {
@@ -780,41 +1341,63 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
 
     private void parseBothResult(Question question, List<QuestionOption> options, String result) {
-        String[] lines = result.split("\n");
+        String normalizedResult = normalizeLineSeparators(result);
+        String[] lines = normalizedResult.split("\n");
         StringBuilder analysis = new StringBuilder();
         boolean inAnalysis = false;
         for (String line : lines) {
-            String trimmed = line.trim();
+            String trimmed = stripMarkdownLineDecorations(line).trim();
             if (trimmed.matches("^答案\\s*[:：].*")) {
                 String answer = trimmed.replaceFirst("^答案\\s*[:：]\\s*", "");
                 question.setAnswer(normalizeGeneratedAnswer(question, options, answer));
                 inAnalysis = false;
-            } else if (trimmed.matches("^解析\\s*[:：].*")) {
+            } else if (trimmed.matches("^(?:答案解析|题目解析|解析)\\s*[:：].*")) {
                 inAnalysis = true;
-                analysis.append(trimmed.replaceFirst("^解析\\s*[:：]\\s*", "").trim());
+                appendAnalysisLine(analysis,
+                        trimmed.replaceFirst("^(?:答案解析|题目解析|解析)\\s*[:：]\\s*", ""));
             } else if (inAnalysis) {
-                analysis.append("\n").append(line);
+                appendAnalysisLine(analysis, line);
             }
         }
-        if (analysis.length() > 0) {
-            question.setAnalysis(analysis.toString().trim());
+        String normalizedAnalysis = normalizeAnalysisText(analysis.toString());
+        if (hasText(normalizedAnalysis)) {
+            question.setAnalysis(normalizedAnalysis);
         }
     }
 
-    private String buildQuestionContext(Question question, String optionsStr) {
+    private String buildBothResult(Question question) {
+        List<String> lines = new ArrayList<>();
+        if (hasText(question.getAnswer())) {
+            lines.add("答案：" + question.getAnswer().trim());
+        }
+        if (hasText(question.getAnalysis())) {
+            lines.add(question.getAnalysis().trim());
+        }
+        return String.join("\n", lines);
+    }
+
+    private String buildQuestionContext(Question question, String optionsStr, String mode, boolean overwrite) {
         StringBuilder builder = new StringBuilder();
         builder.append("题型：").append(getQuestionTypeName(question.getType()));
         builder.append("\n题目：").append(question.getContent());
         if (hasText(optionsStr)) {
             builder.append("\n选项：\n").append(optionsStr);
         }
-        if (hasText(question.getAnswer())) {
+        if (shouldIncludeExistingAnswer(mode, overwrite) && hasText(question.getAnswer())) {
             builder.append("\n正确答案：").append(question.getAnswer().trim());
         }
-        if (hasText(question.getAnalysis())) {
+        if (shouldIncludeExistingAnalysis(mode, overwrite) && hasText(question.getAnalysis())) {
             builder.append("\n已有解析：").append(question.getAnalysis().trim());
         }
         return builder.toString();
+    }
+
+    private boolean shouldIncludeExistingAnswer(String mode, boolean overwrite) {
+        return !overwrite || "GENERATE_ANALYSIS".equals(mode);
+    }
+
+    private boolean shouldIncludeExistingAnalysis(String mode, boolean overwrite) {
+        return !overwrite;
     }
 
     private String appendQuestionTypeInstruction(String prompt, Question question, String mode) {
@@ -848,7 +1431,95 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         } else {
             builder.append("请根据题型输出内容。选择题解析需要逐项说明每个选项的原因；判断题和填空题解析只说明原因。");
         }
+        if ("GENERATE_ANALYSIS".equals(mode) || "GENERATE_BOTH".equals(mode)) {
+            builder.append("\n\n输出格式要求：只输出纯文本；不要使用 Markdown 标题、加粗、列表符号、代码块或空行；解析正文不要以“解析：”“答案解析：”“题目解析：”开头。选择题选项说明直接写为 A. ...、B. ...。");
+        }
         return builder.toString();
+    }
+
+    private String normalizeAnalysisText(String value) {
+        String text = trimToNull(value);
+        if (text == null) {
+            return null;
+        }
+        text = normalizeLineSeparators(text);
+        List<String> lines = new ArrayList<>();
+        for (String rawLine : text.split("\n")) {
+            String line = normalizeAnalysisLine(rawLine);
+            if (!hasText(line) || isAnalysisHeadingOnly(line)) {
+                continue;
+            }
+            lines.add(line);
+        }
+        String normalized = String.join("\n", lines);
+        return trimToNull(normalized);
+    }
+
+    private String normalizeAnalysisLine(String rawLine) {
+        String line = stripMarkdownLineDecorations(rawLine);
+        line = stripLeadingAnalysisLabel(line);
+        line = unwrapMarkdownInline(line);
+        line = line.replaceAll("[ \\t\\x0B\\f]+", " ");
+        return line.trim();
+    }
+
+    private String stripMarkdownLineDecorations(String rawLine) {
+        if (rawLine == null) {
+            return "";
+        }
+        String line = rawLine.replace('\u00A0', ' ').trim();
+        if (line.matches("^```[\\w-]*\\s*$") || line.equals("```")) {
+            return "";
+        }
+        line = line.replaceFirst("^#{1,6}\\s*", "");
+        line = line.replaceFirst("^>+\\s*", "");
+        line = line.replaceFirst("^(?:[-+*]|\\d+[.)、])\\s+", "");
+        line = unwrapMarkdownInline(line);
+        return line.trim();
+    }
+
+    private String unwrapMarkdownInline(String value) {
+        String result = value == null ? "" : value;
+        String previous;
+        do {
+            previous = result;
+            result = result.replaceAll("\\*\\*(\\S(?:[^\\n*]*?\\S)?)\\*\\*", "$1")
+                    .replaceAll("`([^`\\n]+)`", "$1");
+        } while (!previous.equals(result));
+        return result.trim();
+    }
+
+    private String stripLeadingAnalysisLabel(String value) {
+        if (value == null) {
+            return "";
+        }
+        String result = value.trim();
+        result = result.replaceFirst("^\\s*[【\\[]\\s*(?:答案解析|题目解析|解析|详解|说明)\\s*[】\\]]\\s*[:：]?\\s*", "");
+        result = result.replaceFirst("^\\s*(?:答案解析|题目解析|解析|详解|说明)\\s*(?:如下)?\\s*[:：]\\s*", "");
+        return result.trim();
+    }
+
+    private boolean isAnalysisHeadingOnly(String value) {
+        if (value == null) {
+            return true;
+        }
+        String line = unwrapMarkdownInline(value).trim();
+        return line.matches("^(?:答案解析|题目解析|解析|详解|说明)\\s*(?:如下)?\\s*[:：]?$");
+    }
+
+    private void appendAnalysisLine(StringBuilder builder, String line) {
+        String normalizedLine = normalizeAnalysisLine(line);
+        if (!hasText(normalizedLine) || isAnalysisHeadingOnly(normalizedLine)) {
+            return;
+        }
+        if (builder.length() > 0) {
+            builder.append("\n");
+        }
+        builder.append(normalizedLine);
+    }
+
+    private String normalizeLineSeparators(String value) {
+        return value == null ? "" : value.replace("\r\n", "\n").replace('\r', '\n');
     }
 
     private String getQuestionTypeName(Integer type) {
@@ -916,6 +1587,9 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
 
     private String resolvePromptTemplate(String mode) {
+        if (mode == null) {
+            throw new BizException("请选择生成模式");
+        }
         return switch (mode) {
             case "GENERATE_ANALYSIS" -> DEFAULT_PROMPT_ANALYSIS;
             case "GENERATE_ANSWER" -> DEFAULT_PROMPT_ANSWER;
@@ -930,6 +1604,10 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String emptyIfNull(String value) {
+        return value == null ? "" : value;
     }
 
     private Long parseLongOrZero(String value) {

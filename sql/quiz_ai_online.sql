@@ -64,6 +64,56 @@ CREATE TABLE `ai_call_log`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI调用日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Table structure for ai_batch_job
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_batch_job`;
+CREATE TABLE `ai_batch_job`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '批量AI任务ID',
+  `bank_id` bigint NULL DEFAULT NULL COMMENT '题库ID',
+  `mode` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '生成模式',
+  `overwrite` tinyint NOT NULL DEFAULT 0 COMMENT '是否强制覆盖: 0-否 1-是',
+  `concurrency` int NOT NULL DEFAULT 5 COMMENT '并发数',
+  `total_count` int NOT NULL DEFAULT 0 COMMENT '原始题目总数',
+  `submitted_count` int NOT NULL DEFAULT 0 COMMENT '提交处理数',
+  `skipped_count` int NOT NULL DEFAULT 0 COMMENT '跳过数',
+  `success_count` int NOT NULL DEFAULT 0 COMMENT '成功数',
+  `fail_count` int NOT NULL DEFAULT 0 COMMENT '失败数',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态: 0-排队中 1-执行中 2-已完成 3-完成但有失败 4-执行异常 5-已暂停 6-已取消',
+  `error_msg` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '错误信息',
+  `operator_id` bigint NULL DEFAULT NULL COMMENT '操作管理员ID',
+  `start_time` datetime NULL DEFAULT NULL COMMENT '开始时间',
+  `end_time` datetime NULL DEFAULT NULL COMMENT '结束时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE,
+  INDEX `idx_create_time`(`create_time` ASC) USING BTREE,
+  INDEX `idx_operator_id`(`operator_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI批量生成任务表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for ai_batch_job_item
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_batch_job_item`;
+CREATE TABLE `ai_batch_job_item`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '批量AI任务明细ID',
+  `job_id` bigint NOT NULL COMMENT '批量任务ID',
+  `question_id` bigint NOT NULL COMMENT '题目ID',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态: 0-待处理 1-处理中 2-成功 3-失败 4-已取消',
+  `retry_count` int NOT NULL DEFAULT 0 COMMENT '重试次数',
+  `error_msg` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '错误信息',
+  `start_time` datetime NULL DEFAULT NULL COMMENT '开始时间',
+  `end_time` datetime NULL DEFAULT NULL COMMENT '结束时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_job_question`(`job_id` ASC, `question_id` ASC) USING BTREE,
+  INDEX `idx_job_id`(`job_id` ASC) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE,
+  INDEX `idx_question_id`(`question_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI批量生成任务明细表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
 -- Table structure for ai_chat_message
 -- ----------------------------
 DROP TABLE IF EXISTS `ai_chat_message`;
