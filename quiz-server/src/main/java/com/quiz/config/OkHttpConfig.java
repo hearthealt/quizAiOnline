@@ -1,6 +1,7 @@
 package com.quiz.config;
 
 import okhttp3.ConnectionPool;
+import okhttp3.Dispatcher;
 import okhttp3.OkHttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,10 +17,14 @@ public class OkHttpConfig {
 
     @Bean
     public OkHttpClient okHttpClient() {
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(64);
+        dispatcher.setMaxRequestsPerHost(20);
         return new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(120, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
+                .dispatcher(dispatcher)
                 .connectionPool(new ConnectionPool(10, 5, TimeUnit.MINUTES))
                 .retryOnConnectionFailure(true)
                 .build();

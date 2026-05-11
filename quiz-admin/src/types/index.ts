@@ -205,6 +205,48 @@ export interface AiCallLog {
   createTime: string
 }
 
+/** AI批量任务 */
+export interface AiBatchJob {
+  id: number
+  bankId: number | null
+  mode: string
+  overwrite: number
+  concurrency: number
+  totalCount: number
+  submittedCount: number
+  skippedCount: number
+  successCount: number
+  failCount: number
+  pendingCount: number
+  runningCount: number
+  status: number
+  statusText: string
+  progressPercent: number
+  errorMsg: string
+  operatorId: number
+  operatorName: string
+  startTime: string
+  endTime: string
+  createTime: string
+  updateTime: string
+  recentFailedItems?: AiBatchJobItem[]
+}
+
+/** AI批量任务明细 */
+export interface AiBatchJobItem {
+  id: number
+  jobId: number
+  questionId: number
+  status: number
+  statusText: string
+  retryCount: number
+  errorMsg: string
+  startTime: string
+  endTime: string
+  createTime: string
+  updateTime: string
+}
+
 /** 仪表盘数据 */
 export interface DashboardVO {
   totalUsers: number

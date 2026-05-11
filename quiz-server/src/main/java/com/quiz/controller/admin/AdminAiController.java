@@ -61,6 +61,56 @@ public class AdminAiController {
         return R.ok(aiAnalysisService.batchGenerate(dto, adminId));
     }
 
+    @Operation(summary = "AI批量任务详情")
+    @GetMapping("/batch-job/{id}")
+    public R<?> batchJob(@PathVariable Long id) {
+        return R.ok(aiAnalysisService.getBatchJob(id));
+    }
+
+    @Operation(summary = "AI批量任务列表")
+    @GetMapping("/batch-job/list")
+    public R<?> batchJobList(@RequestParam(defaultValue = "1") Integer pageNum,
+                             @RequestParam(defaultValue = "10") Integer pageSize,
+                             @RequestParam(required = false) Integer status,
+                             @RequestParam(required = false) String mode) {
+        return R.ok(aiAnalysisService.getBatchJobList(pageNum, pageSize, status, mode));
+    }
+
+    @Operation(summary = "暂停AI批量任务")
+    @PostMapping("/batch-job/{id}/pause")
+    public R<Void> pauseBatchJob(@PathVariable Long id) {
+        aiAnalysisService.pauseBatchJob(id);
+        return R.ok();
+    }
+
+    @Operation(summary = "继续AI批量任务")
+    @PostMapping("/batch-job/{id}/resume")
+    public R<Void> resumeBatchJob(@PathVariable Long id) {
+        aiAnalysisService.resumeBatchJob(id);
+        return R.ok();
+    }
+
+    @Operation(summary = "重试AI批量任务失败题目")
+    @PostMapping("/batch-job/{id}/retry-failed")
+    public R<Void> retryFailedBatchJob(@PathVariable Long id) {
+        aiAnalysisService.retryFailedBatchJob(id);
+        return R.ok();
+    }
+
+    @Operation(summary = "取消AI批量任务")
+    @PostMapping("/batch-job/{id}/cancel")
+    public R<Void> cancelBatchJob(@PathVariable Long id) {
+        aiAnalysisService.cancelBatchJob(id);
+        return R.ok();
+    }
+
+    @Operation(summary = "删除AI批量任务")
+    @DeleteMapping("/batch-job/{id}")
+    public R<Void> deleteBatchJob(@PathVariable Long id) {
+        aiAnalysisService.deleteBatchJob(id);
+        return R.ok();
+    }
+
     @Operation(summary = "AI日志列表")
     @GetMapping("/log/list")
     public R<?> logList(AiLogQueryDTO query) {

@@ -32,6 +32,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'vip/plan', name: 'VipPlan', component: () => import('@/views/vip/plan.vue') },
       { path: 'vip/order', name: 'VipOrder', component: () => import('@/views/vip/order.vue') },
       { path: 'ai/config', name: 'AiConfig', component: () => import('@/views/ai/config.vue') },
+      { path: 'ai/batch', name: 'AiBatch', component: () => import('@/views/ai/batch.vue') },
       { path: 'ai/log', name: 'AiLog', component: () => import('@/views/ai/log.vue') },
       { path: 'bank/convert', name: 'BankConvert', component: () => import('@/views/bank/convert.vue') },
       { path: 'system/admin', name: 'SystemAdmin', component: () => import('@/views/system/admin.vue') },

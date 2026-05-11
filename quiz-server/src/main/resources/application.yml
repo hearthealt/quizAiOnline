@@ -3,7 +3,7 @@ server:
 
 spring:
   profiles:
-    active: dev
+    active: prod
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
@@ -40,3 +40,8 @@ knife4j:
   setting:
     language: zh_cn
     swagger-model-name: 实体类列表
+
+quiz:
+  ai:
+    batch-concurrency: 5
+    batch-max-concurrency: 10

@@ -398,6 +398,7 @@ const menuOptions = [
     icon: HardwareChipOutline,
     children: [
       { label: '模型配置', key: '/ai/config', icon: HardwareChipOutline },
+      { label: '批量任务', key: '/ai/batch', icon: ListOutline },
       { label: '调用日志', key: '/ai/log', icon: DocumentOutline },
     ],
   },

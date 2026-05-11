@@ -207,6 +207,12 @@
         <n-form-item label="题库范围">
           <n-select v-model:value="aiBankId" :options="bankOptions" placeholder="全部题库" clearable />
         </n-form-item>
+        <n-form-item label="并发数">
+          <n-input-number v-model:value="aiConcurrency" :min="1" :max="10" :step="1" style="width: 160px" />
+        </n-form-item>
+        <n-form-item label="覆盖已有">
+          <n-switch v-model:value="aiOverwrite" />
+        </n-form-item>
         <n-form-item label="执行规则">
           <n-alert type="info" :show-icon="false">
             {{ aiBatchRuleText }}
@@ -302,8 +308,13 @@ const importTargetText = computed(() => {
 const showAiModal = ref(false)
 const aiMode = ref('GENERATE_ANALYSIS')
 const aiBankId = ref<number | null>(null)
+const aiConcurrency = ref(5)
+const aiOverwrite = ref(false)
 const aiLoading = ref(false)
 const aiBatchRuleText = computed(() => {
+  if (aiOverwrite.value) {
+    return '强制处理范围内所有题目，已有答案或解析会被重新生成并覆盖。'
+  }
   if (aiMode.value === 'GENERATE_ANALYSIS') {
     return '仅处理还没有解析的题目，已有解析会自动跳过。'
   }
@@ -314,8 +325,8 @@ const aiBatchRuleText = computed(() => {
 })
 
 const labels = 'ABCDEFGH'.split('')
-const judgeTrueValues = new Set(['A', '对', '正确', 'TRUE', 'T', 'YES', 'Y', '√', '是'])
-const judgeFalseValues = new Set(['B', '错', '错误', 'FALSE', 'F', 'NO', 'N', '×', '否'])
+const judgeTrueValues = new Set(['对', '正确', 'TRUE', 'T', 'YES', 'Y', '√', '是'])
+const judgeFalseValues = new Set(['错', '错误', 'FALSE', 'F', 'NO', 'N', '×', 'X', '否'])
 
 function getOptionTagType(label: string) {
   const types = ['success', 'info', 'warning', 'error'] as const
@@ -332,19 +343,49 @@ function parseSingleChoiceAnswer(answer?: string) {
   return matched?.[0] && labels.includes(matched[0]) ? matched[0] : (answer || '').trim()
 }
 
-function parseJudgeAnswer(answer?: string) {
-  const raw = (answer || '').trim()
-  if (!raw) return ''
-  const normalized = raw.toUpperCase()
-  if (judgeTrueValues.has(normalized) || raw === '对' || raw === '正确' || raw === '是' || raw === '√') return 'A'
-  if (judgeFalseValues.has(normalized) || raw === '错' || raw === '错误' || raw === '否' || raw === '×') return 'B'
-  const matched = normalized.match(/[AB]/)
-  return matched?.[0] || ''
+function stripAnswerPrefix(answer?: string) {
+  return (answer || '').trim().replace(/^(答案|正确答案|参考答案|标准答案)\s*[:：是为]?\s*/u, '')
 }
 
-function normalizeAnswerForEdit(type: number, answer?: string) {
+function stripAnswerBrackets(answer?: string) {
+  return stripAnswerPrefix(answer)
+    .replace(/^[\[【（(]\s*/u, '')
+    .replace(/\s*[\]】）)]$/u, '')
+    .trim()
+}
+
+function normalizeJudgeText(answer?: string) {
+  const normalized = stripAnswerBrackets(answer)
+    .replace(/[。\.\s]/g, '')
+    .toUpperCase()
+  if (!normalized) return null
+  if (judgeTrueValues.has(normalized)) return 'TRUE'
+  if (judgeFalseValues.has(normalized)) return 'FALSE'
+  return null
+}
+
+function parseJudgeAnswer(answer?: string, options = formOptions.value) {
+  const raw = (answer || '').trim()
+  if (!raw) return ''
+  const normalizedRaw = stripAnswerBrackets(raw).toUpperCase()
+  const exactLabel = options.find((opt) => opt.label.toUpperCase() === normalizedRaw)
+  if (exactLabel) {
+    return exactLabel.label
+  }
+
+  const normalizedAnswer = normalizeJudgeText(raw)
+  if (normalizedAnswer) {
+    const matchedOption = options.find((opt) => normalizeJudgeText(opt.content) === normalizedAnswer)
+    return matchedOption?.label || ''
+  }
+
+  const matchedLabel = normalizedRaw.match(/^(?:选项)?([A-Z])(?:\s*[\.、:：]|$)/u)?.[1]
+  return matchedLabel && options.some((opt) => opt.label === matchedLabel) ? matchedLabel : ''
+}
+
+function normalizeAnswerForEdit(type: number, answer?: string, options = formOptions.value) {
   if (type === 2) return parseMultipleAnswer(answer)
-  if (type === 3) return parseJudgeAnswer(answer)
+  if (type === 3) return parseJudgeAnswer(answer, options)
   if (type === 1) return parseSingleChoiceAnswer(answer)
   return (answer || '').trim()
 }
@@ -354,7 +395,7 @@ function serializeAnswerForSubmit(type: number) {
     return parseMultipleAnswer(multiAnswer.value.join(',')).join(',')
   }
   if (type === 3) {
-    return parseJudgeAnswer(formValue.value.answer)
+    return parseJudgeAnswer(formValue.value.answer, formOptions.value)
   }
   if (type === 1) {
     return parseSingleChoiceAnswer(formValue.value.answer)
@@ -446,24 +487,23 @@ async function openDrawer(row?: Question) {
     editingId.value = row.id
     try {
       const detail = (await questionApi.getDetail(row.id)) as any
-      formValue.value = {
-        bankId: detail.bankId,
-        type: detail.type,
-        content: detail.content,
-        answer: typeof normalizeAnswerForEdit(detail.type, detail.answer) === 'string'
-          ? String(normalizeAnswerForEdit(detail.type, detail.answer))
-          : '',
-        analysis: detail.analysis || '',
-        difficulty: detail.difficulty,
-        sort: detail.sort,
-      }
       if (detail.options && detail.options.length > 0) {
         formOptions.value = detail.options.map((opt: any) => ({ label: opt.label, content: opt.content }))
       } else {
         initOptions(detail.type)
       }
+      const normalizedAnswer = normalizeAnswerForEdit(detail.type, detail.answer, formOptions.value)
+      formValue.value = {
+        bankId: detail.bankId,
+        type: detail.type,
+        content: detail.content,
+        answer: typeof normalizedAnswer === 'string' ? String(normalizedAnswer) : '',
+        analysis: detail.analysis || '',
+        difficulty: detail.difficulty,
+        sort: detail.sort,
+      }
       if (detail.type === 2 && detail.answer) {
-        multiAnswer.value = normalizeAnswerForEdit(detail.type, detail.answer) as string[]
+        multiAnswer.value = Array.isArray(normalizedAnswer) ? normalizedAnswer : []
       }
     } catch {
       message.error('获取题目详情失败')
@@ -587,8 +627,13 @@ async function handleAiSingle(questionId: number) {
 async function handleAiGenerate() {
   aiLoading.value = true
   try {
-    const res = await aiApi.batchGenerate({ mode: aiMode.value, bankId: aiBankId.value }) as any
-    message.success(res?.message || 'AI批量生成任务已提交')
+    const res = await aiApi.batchGenerate({
+      mode: aiMode.value,
+      bankId: aiBankId.value,
+      concurrency: aiConcurrency.value,
+      overwrite: aiOverwrite.value
+    }) as any
+    message.success(`${res?.message || 'AI批量生成任务已提交'}，可在 AI配置 > 批量任务 查看进度`)
     showAiModal.value = false
   } catch (e: any) {
     message.error(e.message || '生成失败')
@@ -621,6 +666,7 @@ onMounted(() => {
   loadBanks()
   fetchData(searchParams)
 })
+
 </script>
 
 <style scoped>

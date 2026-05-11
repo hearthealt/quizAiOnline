@@ -25,6 +25,34 @@ export function batchGenerate(data: Record<string, any>) {
   return request.post('/api/admin/ai/batch-generate', data)
 }
 
+export function getBatchJob(id: number) {
+  return request.get(`/api/admin/ai/batch-job/${id}`)
+}
+
+export function getBatchJobList(params: Record<string, any>) {
+  return request.get<PageResult<any>>('/api/admin/ai/batch-job/list', { params })
+}
+
+export function pauseBatchJob(id: number) {
+  return request.post(`/api/admin/ai/batch-job/${id}/pause`)
+}
+
+export function resumeBatchJob(id: number) {
+  return request.post(`/api/admin/ai/batch-job/${id}/resume`)
+}
+
+export function retryFailedBatchJob(id: number) {
+  return request.post(`/api/admin/ai/batch-job/${id}/retry-failed`)
+}
+
+export function cancelBatchJob(id: number) {
+  return request.post(`/api/admin/ai/batch-job/${id}/cancel`)
+}
+
+export function deleteBatchJob(id: number) {
+  return request.delete(`/api/admin/ai/batch-job/${id}`)
+}
+
 export function getLogList(params: Record<string, any>) {
   return request.get<PageResult<any>>('/api/admin/ai/log/list', { params })
 }
