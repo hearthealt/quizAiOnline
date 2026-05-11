@@ -291,12 +291,14 @@ async function handleImport() {
   importing.value = true
   try {
     const res = await questionApi.convertImport(importBankId.value, parsedQuestions.value) as any
-    const successCount = res.successCount || 0
-    const failCount = res.failCount || 0
+    const createCount = Number(res.createCount || 0)
+    const updateCount = Number(res.updateCount || 0)
+    const successCount = Number(res.successCount || createCount + updateCount)
+    const failCount = Number(res.failCount || 0)
     if (failCount > 0) {
-      message.warning(`导入完成：成功 ${successCount} 题，失败 ${failCount} 题`)
+      message.warning(`导入完成：新增 ${createCount} 题，更新 ${updateCount} 题，失败 ${failCount} 题`)
     } else {
-      message.success(`成功导入 ${successCount} 道题目`)
+      message.success(`导入成功：新增 ${createCount} 题，更新 ${updateCount} 题，共 ${successCount} 题`)
     }
     showImportModal.value = false
   } catch (e: any) {

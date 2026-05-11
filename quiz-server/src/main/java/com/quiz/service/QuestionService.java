@@ -39,6 +39,8 @@ public interface QuestionService {
 
     class QuestionImportResult {
         private int successCount;
+        private int createCount;
+        private int updateCount;
         private int failCount;
         private List<String> errors;
 
@@ -50,8 +52,20 @@ public interface QuestionService {
             this.errors = errors;
         }
 
+        public QuestionImportResult(int createCount, int updateCount, int failCount, List<String> errors) {
+            this.createCount = createCount;
+            this.updateCount = updateCount;
+            this.successCount = createCount + updateCount;
+            this.failCount = failCount;
+            this.errors = errors;
+        }
+
         public int getSuccessCount() { return successCount; }
         public void setSuccessCount(int successCount) { this.successCount = successCount; }
+        public int getCreateCount() { return createCount; }
+        public void setCreateCount(int createCount) { this.createCount = createCount; }
+        public int getUpdateCount() { return updateCount; }
+        public void setUpdateCount(int updateCount) { this.updateCount = updateCount; }
         public int getFailCount() { return failCount; }
         public void setFailCount(int failCount) { this.failCount = failCount; }
         public List<String> getErrors() { return errors; }

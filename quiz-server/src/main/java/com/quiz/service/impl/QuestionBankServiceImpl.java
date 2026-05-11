@@ -9,9 +9,12 @@ import com.quiz.common.result.PageResult;
 import com.quiz.dto.admin.QuestionBankDTO;
 import com.quiz.entity.PracticeDetail;
 import com.quiz.entity.PracticeRecord;
+import com.quiz.entity.Question;
 import com.quiz.entity.QuestionBank;
 import com.quiz.mapper.PracticeDetailMapper;
 import com.quiz.mapper.PracticeRecordMapper;
+import com.quiz.mapper.QuestionMapper;
+import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.service.QuestionBankService;
 import com.quiz.vo.app.BankDetailVO;
@@ -28,6 +31,8 @@ import java.util.Set;
 
 import static com.quiz.entity.table.PracticeDetailTableDef.PRACTICE_DETAIL;
 import static com.quiz.entity.table.PracticeRecordTableDef.PRACTICE_RECORD;
+import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
+import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 
 @Slf4j
@@ -36,6 +41,12 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
     @Autowired
     private QuestionBankMapper questionBankMapper;
+
+    @Autowired
+    private QuestionMapper questionMapper;
+
+    @Autowired
+    private QuestionOptionMapper questionOptionMapper;
 
     @Autowired
     private PracticeRecordMapper practiceRecordMapper;
@@ -225,6 +236,21 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         if (bank == null) {
             throw new BizException("题库不存在");
         }
+        List<Long> questionIds = questionMapper.selectListByQuery(
+                        QueryWrapper.create()
+                                .select(QUESTION.ID)
+                                .where(QUESTION.BANK_ID.eq(id))
+                ).stream()
+                .map(Question::getId)
+                .toList();
+        if (!questionIds.isEmpty()) {
+            questionOptionMapper.deleteByQuery(
+                    QueryWrapper.create().where(QUESTION_OPTION.QUESTION_ID.in(questionIds))
+            );
+        }
+        questionMapper.deleteByQuery(
+                QueryWrapper.create().where(QUESTION.BANK_ID.eq(id))
+        );
         questionBankMapper.deleteById(id);
         clearCache(id);
     }

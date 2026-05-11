@@ -537,9 +537,17 @@ async function handleImport() {
   if (!importBankId.value && !importCategoryId.value) { message.warning('未选择题库时，请选择分类'); return }
   importLoading.value = true
   try {
-    await questionApi.importExcel(importBankId.value, importCategoryId.value, importFile.value)
+    const res = await questionApi.importExcel(importBankId.value, importCategoryId.value, importFile.value) as any
     await loadBanks()
-    message.success('导入成功')
+    const createCount = Number(res?.createCount || 0)
+    const updateCount = Number(res?.updateCount || 0)
+    const failCount = Number(res?.failCount || 0)
+    const successCount = Number(res?.successCount || createCount + updateCount)
+    if (failCount > 0) {
+      message.warning(`导入完成：新增 ${createCount} 题，更新 ${updateCount} 题，失败 ${failCount} 题`)
+    } else {
+      message.success(`导入成功：新增 ${createCount} 题，更新 ${updateCount} 题，共 ${successCount} 题`)
+    }
     showImportModal.value = false
     importBankId.value = null
     importCategoryId.value = null

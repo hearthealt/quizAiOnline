@@ -58,6 +58,12 @@ public class QuestionServiceImpl implements QuestionService {
                 .where(QUESTION.BANK_ID.eq(bankId).when(bankId != null))
                 .and(QUESTION.TYPE.eq(type).when(type != null))
                 .and(QUESTION.CONTENT.like(keyword).when(keyword != null && !keyword.isEmpty()))
+                .and(QUESTION.BANK_ID.in(
+                        QueryWrapper.create()
+                                .select(QUESTION_BANK.ID)
+                                .from(QUESTION_BANK)
+                                .where(QUESTION_BANK.DELETED.eq(0))
+                ))
                 .orderBy(QUESTION.ID.desc());
         Page<Question> page = questionMapper.paginate(pageNum, pageSize, query);
         return PageResult.of(page.getRecords(), page.getTotalRow(), pageNum, pageSize);
@@ -289,7 +295,8 @@ public class QuestionServiceImpl implements QuestionService {
     public QuestionImportResult importFromExcel(Long bankId, Long categoryId, String originalFilename, InputStream inputStream) {
         Long targetBankId = resolveImportBankId(bankId, categoryId, originalFilename);
         List<ExcelUtil.QuestionExcelData> dataList = ExcelUtil.readQuestions(inputStream);
-        int successCount = 0;
+        int createCount = 0;
+        int updateCount = 0;
         int failCount = 0;
         List<String> errors = new ArrayList<>();
 
@@ -310,29 +317,20 @@ public class QuestionServiceImpl implements QuestionService {
                 // 解析难度
                 int difficulty = parseDifficulty(data.getDifficulty());
 
-                Question question = new Question();
-                question.setBankId(targetBankId);
-                question.setType(type);
-                question.setContent(data.getContent().trim());
-                question.setAnswer(trimToNull(data.getAnswer()));
-                question.setAnalysis(trimToNull(data.getAnalysis()));
-                question.setDifficulty(difficulty);
-                question.setSort(0);
-                question.setStatus(1);
-                questionMapper.insert(question);
-
-                // 插入选项（支持任意数量选项）
-                int sortIndex = 0;
-                for (String[] pair : data.getOptions()) {
-                    QuestionOption option = new QuestionOption();
-                    option.setQuestionId(question.getId());
-                    option.setLabel(pair[0]);
-                    option.setContent(pair[1]);
-                    option.setSort(sortIndex++);
-                    questionOptionMapper.insert(option);
+                boolean created = upsertImportedQuestion(
+                        targetBankId,
+                        type,
+                        data.getContent().trim(),
+                        data.getAnswer(),
+                        data.getAnalysis(),
+                        difficulty,
+                        data.getOptions()
+                );
+                if (created) {
+                    createCount++;
+                } else {
+                    updateCount++;
                 }
-
-                successCount++;
             } catch (Exception e) {
                 errors.add("第" + rowNum + "行：" + e.getMessage());
                 failCount++;
@@ -342,7 +340,7 @@ public class QuestionServiceImpl implements QuestionService {
         // 更新题库题目数量
         updateBankQuestionCount(targetBankId);
 
-        return new QuestionImportResult(successCount, failCount, errors);
+        return new QuestionImportResult(createCount, updateCount, failCount, errors);
     }
 
     @Override
@@ -354,7 +352,8 @@ public class QuestionServiceImpl implements QuestionService {
             throw new BizException("题库不存在");
         }
 
-        int successCount = 0;
+        int createCount = 0;
+        int updateCount = 0;
         int failCount = 0;
         List<String> errors = new ArrayList<>();
 
@@ -375,36 +374,21 @@ public class QuestionServiceImpl implements QuestionService {
                 String diffStr = (String) data.get("difficulty");
                 int difficulty = parseDifficulty(diffStr);
 
-                Question question = new Question();
-                question.setBankId(bankId);
-                question.setType(type);
-                question.setContent(content.trim());
-                question.setAnswer(trimToNull(answer));
-                question.setAnalysis(trimToNull((String) data.get("analysis")));
-                question.setDifficulty(difficulty);
-                question.setSort(0);
-                question.setStatus(1);
-                questionMapper.insert(question);
-
-                // 插入选项
                 List<String> options = (List<String>) data.get("options");
-                if (options != null) {
-                    char label = 'A';
-                    int sortIndex = 0;
-                    for (String optContent : options) {
-                        if (optContent != null && !optContent.trim().isEmpty()) {
-                            QuestionOption option = new QuestionOption();
-                            option.setQuestionId(question.getId());
-                            option.setLabel(String.valueOf(label));
-                            option.setContent(optContent.trim());
-                            option.setSort(sortIndex++);
-                            questionOptionMapper.insert(option);
-                        }
-                        label++;
-                    }
+                boolean created = upsertImportedQuestion(
+                        bankId,
+                        type,
+                        content.trim(),
+                        answer,
+                        (String) data.get("analysis"),
+                        difficulty,
+                        toOptionPairs(options)
+                );
+                if (created) {
+                    createCount++;
+                } else {
+                    updateCount++;
                 }
-
-                successCount++;
             } catch (Exception e) {
                 errors.add("第" + rowNum + "题：" + e.getMessage());
                 failCount++;
@@ -412,7 +396,7 @@ public class QuestionServiceImpl implements QuestionService {
         }
 
         updateBankQuestionCount(bankId);
-        return new QuestionImportResult(successCount, failCount, errors);
+        return new QuestionImportResult(createCount, updateCount, failCount, errors);
     }
 
     @Override
@@ -422,6 +406,89 @@ public class QuestionServiceImpl implements QuestionService {
                 .and(QUESTION.STATUS.eq(1))
                 .orderBy(QUESTION.SORT.asc(), QUESTION.CREATE_TIME.asc());
         return questionMapper.selectListByQuery(query);
+    }
+
+    /**
+     * @return true 表示新增，false 表示更新。
+     */
+    private boolean upsertImportedQuestion(Long bankId,
+                                           Integer type,
+                                           String content,
+                                           String answer,
+                                           String analysis,
+                                           Integer difficulty,
+                                           List<String[]> optionPairs) {
+        Question question = findSameQuestion(bankId, type, content);
+        boolean created = question == null;
+
+        if (created) {
+            question = new Question();
+            question.setBankId(bankId);
+            question.setType(type);
+            question.setContent(content);
+            question.setSort(0);
+            question.setStatus(1);
+        }
+
+        question.setAnswer(trimToNull(answer));
+        question.setAnalysis(trimToNull(analysis));
+        question.setDifficulty(difficulty);
+
+        if (created) {
+            questionMapper.insert(question);
+        } else {
+            questionMapper.update(question, false);
+            QueryWrapper deleteQuery = QueryWrapper.create()
+                    .where(QUESTION_OPTION.QUESTION_ID.eq(question.getId()));
+            questionOptionMapper.deleteByQuery(deleteQuery);
+        }
+
+        insertImportedOptions(question.getId(), optionPairs);
+        return created;
+    }
+
+    private Question findSameQuestion(Long bankId, Integer type, String content) {
+        return questionMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .where(QUESTION.BANK_ID.eq(bankId))
+                        .and(QUESTION.TYPE.eq(type))
+                        .and(QUESTION.CONTENT.eq(content))
+                        .orderBy(QUESTION.ID.asc())
+                        .limit(1)
+        );
+    }
+
+    private void insertImportedOptions(Long questionId, List<String[]> optionPairs) {
+        if (optionPairs == null || optionPairs.isEmpty()) {
+            return;
+        }
+        int sortIndex = 0;
+        for (String[] pair : optionPairs) {
+            if (pair == null || pair.length < 2 || pair[1] == null || pair[1].trim().isEmpty()) {
+                continue;
+            }
+            QuestionOption option = new QuestionOption();
+            option.setQuestionId(questionId);
+            option.setLabel(pair[0]);
+            option.setContent(pair[1].trim());
+            option.setSort(sortIndex++);
+            questionOptionMapper.insert(option);
+        }
+    }
+
+    private List<String[]> toOptionPairs(List<String> options) {
+        List<String[]> optionPairs = new ArrayList<>();
+        if (options == null) {
+            return optionPairs;
+        }
+        char label = 'A';
+        for (String optContent : options) {
+            if (optContent != null && !optContent.trim().isEmpty()) {
+                optionPairs.add(new String[]{String.valueOf(label), optContent.trim()});
+            }
+            label++;
+        }
+        return optionPairs;
     }
 
     private Long resolveImportBankId(Long bankId, Long categoryId, String originalFilename) {
