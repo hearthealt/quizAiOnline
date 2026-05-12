@@ -18,7 +18,7 @@ export function deletePlan(id: number) {
 }
 
 export function togglePlanStatus(id: number, status: number) {
-  return request.put(`/api/admin/vip/plan/${id}/status`, { status })
+  return request.put(`/api/admin/vip/plan/${id}/status`, null, { params: { status } })
 }
 
 export function getOrderList(params: Record<string, any>) {

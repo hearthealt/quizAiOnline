@@ -181,8 +181,7 @@ import {
 } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
-import { changePassword } from '@/api/auth'
-import { updateAdmin } from '@/api/admin'
+import { changePassword, updateProfile } from '@/api/auth'
 import { uploadImage } from '@/api/upload'
 import { resolveAssetUrl } from '@/utils/assets'
 import {
@@ -202,6 +201,7 @@ import {
   SettingsOutline,
   StatsChartOutline,
   SwapHorizontalOutline,
+  CloudDownloadOutline,
   WalletOutline,
 } from '@vicons/ionicons5'
 
@@ -226,20 +226,20 @@ function toggleGroup(key: string) {
 
 const siteName = computed(() => appStore.siteName || 'Quiz AI')
 const siteLogo = computed(() => appStore.siteLogo)
-const siteDescription = computed(() => appStore.siteDescription)
 const adminInfo = computed(() => authStore.adminInfo)
+const isSuperAdmin = computed(() => adminInfo.value?.role === 'super_admin')
 const roleText = computed(() => adminInfo.value?.role === 'super_admin' ? '超级管理员' : '运营管理员')
 const activeKey = computed(() => route.path)
 
 const breadcrumbs = computed(() => {
   const items = [{ title: '首页', path: '/dashboard' }]
-  const flat = menuOptions.flatMap((item: any) => item.children ? [item, ...item.children] : [item])
+  const flat = menuOptions.value.flatMap((item: any) => item.children ? [item, ...item.children] : [item])
   const match = flat.find((item: any) => item.key === route.path)
   if (match && match.key !== '/dashboard') {
     if (match.children) {
       items.push({ title: match.label, path: '' })
     } else {
-      const parent = menuOptions.find((g: any) => g.children?.some((c: any) => c.key === route.path))
+      const parent = menuOptions.value.find((g: any) => g.children?.some((c: any) => c.key === route.path))
       if (parent) items.push({ title: parent.label, path: '' })
       items.push({ title: match.label, path: match.key })
     }
@@ -304,14 +304,15 @@ async function handleSaveProfile() {
   if (!adminInfo.value?.id) return
   profileLoading.value = true
   try {
-    await updateAdmin(adminInfo.value.id, {
+    const updated = await updateProfile({
       nickname: profileForm.value.nickname,
       avatar: profileForm.value.avatar
-    })
+    }) as any
     authStore.setAdminInfo({
       ...authStore.adminInfo!,
-      nickname: profileForm.value.nickname,
-      avatar: profileForm.value.avatar
+      nickname: updated?.nickname ?? profileForm.value.nickname,
+      avatar: updated?.avatar ?? profileForm.value.avatar,
+      role: updated?.role ?? authStore.adminInfo!.role
     })
     message.success('保存成功')
     showProfileModal.value = false
@@ -341,7 +342,7 @@ async function handleChangePassword() {
   }
 }
 
-const menuOptions = [
+const allMenuOptions = [
   { label: '仪表盘', key: '/dashboard', icon: HomeOutline },
   {
     label: '题库管理',
@@ -352,6 +353,7 @@ const menuOptions = [
       { label: '题库列表', key: '/bank', icon: BookOutline },
       { label: '题目管理', key: '/question', icon: DocumentTextOutline },
       { label: '题目转换', key: '/bank/convert', icon: SwapHorizontalOutline },
+      { label: 'EZTest直连', key: '/eztest/api', icon: CloudDownloadOutline },
     ],
   },
   {
@@ -413,8 +415,31 @@ const menuOptions = [
   },
 ]
 
-function handleMenuSelect(key: string) {
-  router.push(key)
+const adminAllowedKeys = new Set(['/dashboard', 'question-group', '/category', '/bank', '/question', '/eztest/api'])
+
+const menuOptions = computed(() => {
+  if (isSuperAdmin.value) {
+    return allMenuOptions
+  }
+  return allMenuOptions
+    .map((item: any) => {
+      if (!item.children) {
+        return adminAllowedKeys.has(item.key) ? item : null
+      }
+      const children = item.children.filter((child: any) => adminAllowedKeys.has(child.key))
+      return children.length && adminAllowedKeys.has(item.key) ? { ...item, children } : null
+    })
+    .filter(Boolean)
+})
+
+async function handleMenuSelect(key: string) {
+  if (!key.startsWith('/')) return
+  try {
+    await router.push(key)
+  } catch (e: any) {
+    if (e?.type) return
+    message.error(e?.message || '页面加载失败，请刷新后重试')
+  }
 }
 
 onMounted(async () => {
@@ -422,7 +447,7 @@ onMounted(async () => {
     await appStore.loadSiteConfig()
   } catch {}
 
-  if (!authStore.adminInfo && authStore.token) {
+  if (!authStore.infoLoaded && authStore.token) {
     await authStore.fetchInfo()
   }
 })

@@ -23,7 +23,13 @@ public interface QuestionBankService {
 
     void update(Long id, QuestionBankDTO dto);
 
+    void toggleStatus(Long id, Integer status);
+
+    void batchToggleStatus(List<Long> ids, Integer status);
+
     void delete(Long id);
+
+    void batchDelete(List<Long> ids);
 
     List<QuestionBank> hotBanks(Integer limit);
 }

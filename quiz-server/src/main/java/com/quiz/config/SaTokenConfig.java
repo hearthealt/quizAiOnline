@@ -31,10 +31,22 @@ public class SaTokenConfig implements WebMvcConfigurer {
                     .notMatch("/api/admin/auth/login")
                     .check(r -> StpKit.ADMIN.checkLogin());
 
-            // 系统管理接口需要超级管理员角色
+            // 普通 admin 仅开放仪表盘和题库/EZTest运营相关接口，其余后台模块需要超级管理员。
             SaRouter.match(
-                    "/api/admin/system/**"
+                    "/api/admin/**"
+            ).notMatch(
+                    "/api/admin/auth/**",
+                    "/api/admin/dashboard/**",
+                    "/api/admin/category/**",
+                    "/api/admin/bank/**",
+                    "/api/admin/question/**",
+                    "/api/admin/eztest/**",
+                    "/api/admin/upload/**",
+                    "/api/admin/system/setting"
             ).check(r -> StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN));
+
+            SaRouter.match("/api/admin/question/convert/**")
+                    .check(r -> StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN));
 
         })).addPathPatterns("/api/**");
     }

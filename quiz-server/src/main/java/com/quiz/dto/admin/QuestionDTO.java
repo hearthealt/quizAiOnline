@@ -13,6 +13,7 @@ public class QuestionDTO {
     private String analysis;
     private Integer difficulty;
     private Integer sort;
+    private Integer status;
     private List<OptionDTO> options;
 
     @Data

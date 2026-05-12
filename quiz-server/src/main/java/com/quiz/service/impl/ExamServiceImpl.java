@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.ExamAnswerTableDef.EXAM_ANSWER;
 import static com.quiz.entity.table.ExamRecordTableDef.EXAM_RECORD;
+import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
+import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 
@@ -63,7 +65,8 @@ public class ExamServiceImpl implements ExamService {
     @Transactional
     public ExamSessionVO startExam(Long userId, StartExamDTO dto) {
         QuestionBank bank = questionBankMapper.selectOneById(dto.getBankId());
-        if (bank == null) throw new BizException("题库不存在");
+        if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) throw new BizException("题库不存在");
+        ensureEnabledBank(dto.getBankId());
 
         ExamRecord ongoing = examRecordMapper.selectOneByQuery(
                 QueryWrapper.create()
@@ -95,6 +98,18 @@ public class ExamServiceImpl implements ExamService {
         List<Question> allQuestions = questionMapper.selectListByQuery(
                 QueryWrapper.create().where(QUESTION.BANK_ID.eq(dto.getBankId()))
                         .and(QUESTION.STATUS.eq(1))
+                        .and(QUESTION.BANK_ID.in(
+                                QueryWrapper.create()
+                                        .select(QUESTION_BANK.ID)
+                                        .from(QUESTION_BANK)
+                                        .where(QUESTION_BANK.STATUS.eq(1))
+                                        .and(QUESTION_BANK.CATEGORY_ID.in(
+                                                QueryWrapper.create()
+                                                        .select(CATEGORY.ID)
+                                                        .from(CATEGORY)
+                                                        .where(CATEGORY.STATUS.eq(1))
+                                        ))
+                        ))
                         .orderBy(QUESTION.SORT.asc()));
 
         int count = allQuestions.size();
@@ -152,21 +167,27 @@ public class ExamServiceImpl implements ExamService {
         if (record.getStatus() == 1) {
             throw new BizException("已交卷，不能重复提交");
         }
+        ensureEnabledBank(record.getBankId());
 
         List<SubmitExamDTO.Answer> submittedAnswers = dto != null && dto.getAnswers() != null
                 ? dto.getAnswers().stream().filter(Objects::nonNull).toList()
                 : Collections.emptyList();
+        Set<Long> examQuestionIds = new HashSet<>(parseQuestionIds(record.getQuestionIds()));
         int correctCount = 0;
         int totalCount = record.getTotalCount();
         Map<Long, Question> questionMap = batchQueryQuestions(
                 submittedAnswers.stream()
                         .map(SubmitExamDTO.Answer::getQuestionId)
                         .filter(Objects::nonNull)
+                        .filter(examQuestionIds::contains)
                         .collect(Collectors.toSet())
         );
         int answerTime = calcAnswerTime(record.getStartTime());
 
         for (SubmitExamDTO.Answer ans : submittedAnswers) {
+            if (ans.getQuestionId() == null || !examQuestionIds.contains(ans.getQuestionId())) {
+                continue;
+            }
             Question question = questionMap.get(ans.getQuestionId());
             if (question == null) continue;
 
@@ -258,6 +279,10 @@ public class ExamServiceImpl implements ExamService {
             vo.setExists(false);
             return vo;
         }
+        if (!isEnabledBank(bankId)) {
+            vo.setExists(false);
+            return vo;
+        }
         ExamRecord record = examRecordMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .where(EXAM_RECORD.USER_ID.eq(userId))
@@ -301,6 +326,7 @@ public class ExamServiceImpl implements ExamService {
         if (record.getStatus() != null && record.getStatus() == 1) {
             throw new BizException("考试已结束");
         }
+        ensureEnabledBank(record.getBankId());
         ExamSessionVO session = loadExamSession(record);
         if (session == null || session.getExamTime() == null) {
             closeExamRecord(record);
@@ -328,6 +354,7 @@ public class ExamServiceImpl implements ExamService {
         if (record.getStatus() != null && record.getStatus() == 1) {
             throw new BizException("考试已结束");
         }
+        ensureEnabledBank(record.getBankId());
         ExamSessionVO session = loadExamSession(record);
         if (session == null || session.getExamTime() == null) {
             closeExamRecord(record);
@@ -337,6 +364,9 @@ public class ExamServiceImpl implements ExamService {
         if (leftSeconds <= 0) {
             closeExamRecord(record);
             throw new BizException("考试已过期");
+        }
+        if (!parseQuestionIds(record.getQuestionIds()).contains(dto.getQuestionId())) {
+            throw new BizException("题目不存在");
         }
         String answer = dto.getAnswer() == null ? "" : dto.getAnswer();
         if (answer.trim().isEmpty()) {
@@ -453,11 +483,30 @@ public class ExamServiceImpl implements ExamService {
             return rebuilt;
         }
         try {
-            return objectMapper.readValue(json, ExamSessionVO.class);
+            ExamSessionVO session = objectMapper.readValue(json, ExamSessionVO.class);
+            if (!isEnabledExamSession(session)) {
+                clearExamSession(record.getId());
+                return rebuildExamSession(record);
+            }
+            return session;
         } catch (JsonProcessingException e) {
             log.warn("解析考试会话失败", e);
             return rebuildExamSession(record);
         }
+    }
+
+    private boolean isEnabledExamSession(ExamSessionVO session) {
+        if (session == null || session.getQuestions() == null || session.getQuestions().isEmpty()) {
+            return false;
+        }
+        Set<Long> questionIds = session.getQuestions().stream()
+                .map(ExamSessionVO.ExamQuestionVO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (questionIds.isEmpty()) {
+            return false;
+        }
+        return batchQueryQuestions(questionIds).size() == questionIds.size();
     }
 
     private void clearExamSession(Long examId) {
@@ -558,6 +607,7 @@ public class ExamServiceImpl implements ExamService {
             return Collections.emptyMap();
         }
         return questionMapper.selectListByIds(questionIds).stream()
+                .filter(question -> question.getStatus() != null && question.getStatus() == 1)
                 .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
     }
 
@@ -615,7 +665,7 @@ public class ExamServiceImpl implements ExamService {
             return null;
         }
         QuestionBank bank = questionBankMapper.selectOneById(record.getBankId());
-        if (bank == null) {
+        if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) {
             return null;
         }
         List<Question> questions = loadQuestionsByIds(questionIds);
@@ -631,6 +681,7 @@ public class ExamServiceImpl implements ExamService {
             return Collections.emptyList();
         }
         Map<Long, Question> questionMap = questionMapper.selectListByIds(questionIds).stream()
+                .filter(question -> question.getStatus() != null && question.getStatus() == 1)
                 .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
         List<Question> ordered = new ArrayList<>();
         for (Long questionId : questionIds) {
@@ -640,6 +691,30 @@ public class ExamServiceImpl implements ExamService {
             }
         }
         return ordered;
+    }
+
+    private void ensureEnabledBank(Long bankId) {
+        if (!isEnabledBank(bankId)) {
+            throw new BizException("题库不存在");
+        }
+    }
+
+    private boolean isEnabledBank(Long bankId) {
+        QuestionBank bank = questionBankMapper.selectOneById(bankId);
+        if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) {
+            return false;
+        }
+        long categoryCount = questionBankMapper.selectCountByQuery(
+                QueryWrapper.create()
+                        .where(QUESTION_BANK.ID.eq(bankId))
+                        .and(QUESTION_BANK.CATEGORY_ID.in(
+                                QueryWrapper.create()
+                                        .select(CATEGORY.ID)
+                                        .from(CATEGORY)
+                                        .where(CATEGORY.STATUS.eq(1))
+                        ))
+        );
+        return categoryCount > 0;
     }
 
     private boolean upsertDraftExamAnswer(ExamRecord record, Long questionId, String answer) {

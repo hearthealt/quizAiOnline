@@ -150,6 +150,7 @@ public final class AppViewMapper {
         vo.setAnalysis(question.getAnalysis());
         vo.setDifficulty(question.getDifficulty());
         vo.setSort(question.getSort());
+        vo.setStatus(question.getStatus());
         vo.setOptions(toQuestionDetailOptionVOs(options));
         return vo;
     }

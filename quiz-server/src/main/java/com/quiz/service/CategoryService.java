@@ -18,5 +18,9 @@ public interface CategoryService {
 
     void delete(Long id);
 
+    void batchDelete(List<Long> ids);
+
     void toggleStatus(Long id, Integer status);
+
+    void batchToggleStatus(List<Long> ids, Integer status);
 }

@@ -1,10 +1,26 @@
 <template>
   <PageContainer title="题库管理">
     <template #header-actions>
-      <n-button type="primary" @click="openDrawer()">
-        <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-        新增题库
-      </n-button>
+      <n-space>
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchStatus(1)">
+          批量启用 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchStatus(0)">
+          批量禁用 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-popconfirm v-if="isSuperAdmin" @positive-click="handleBatchDelete">
+          <template #trigger>
+            <n-button type="error" :disabled="checkedKeys.length === 0">
+              批量删除 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+            </n-button>
+          </template>
+          确定删除选中的 {{ checkedKeys.length }} 个题库吗？
+        </n-popconfirm>
+        <n-button type="primary" @click="openDrawer()">
+          <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+          新增题库
+        </n-button>
+      </n-space>
     </template>
 
     <DataTableSection>
@@ -29,6 +45,8 @@
         :loading="loading"
         :pagination="false"
         :row-key="(row: QuestionBank) => row.id"
+        :checked-row-keys="checkedKeys"
+        @update:checked-row-keys="(keys: any) => (checkedKeys = keys)"
         size="small"
         striped
       />
@@ -90,6 +108,18 @@
                 <n-input-number v-model:value="formValue.sort" :min="0" style="width: 100%" />
               </n-form-item>
           </n-gi>
+          <n-gi v-if="isSuperAdmin">
+            <n-form-item label="状态" path="status" label-width="80">
+              <n-switch
+                v-model:value="formValue.status"
+                :checked-value="1"
+                :unchecked-value="0"
+              >
+                <template #checked>启用</template>
+                <template #unchecked>禁用</template>
+              </n-switch>
+            </n-form-item>
+          </n-gi>
         </n-grid>
         </n-form>
         <template #footer>
@@ -104,21 +134,25 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
-import { NButton, NPopconfirm, NSpace, NTag, NImage, NPagination, useMessage, type DataTableColumns, type FormRules } from 'naive-ui'
+import { computed, h, ref, reactive, onMounted } from 'vue'
+import { NButton, NPopconfirm, NSpace, NSwitch, NTag, NPagination, useMessage, type DataTableColumns, type FormRules } from 'naive-ui'
 import type { QuestionBank } from '@/types'
 import * as bankApi from '@/api/bank'
 import * as categoryApi from '@/api/category'
 import { uploadImage } from '@/api/upload'
 import { useTable } from '@/composables/useTable'
 import { useForm } from '@/composables/useForm'
+import { useAuthStore } from '@/stores/auth'
 import PageContainer from '@/components/PageContainer.vue'
 import DataTableSection from '@/components/DataTableSection.vue'
 
 const message = useMessage()
+const authStore = useAuthStore()
+const isSuperAdmin = computed(() => authStore.adminInfo?.role === 'super_admin')
 
 const searchParams = reactive({ categoryId: null as number | null, keyword: '' })
 const categoryOptions = ref<{ label: string; value: number }[]>([])
+const checkedKeys = ref<number[]>([])
 
 const { loading, data, pagination, fetchData, handlePageChange, handlePageSizeChange } = useTable<QuestionBank>(
   (params) => bankApi.getList({ ...searchParams, ...params } as any) as any
@@ -128,7 +162,7 @@ const showDrawer = ref(false)
 const editingId = ref<number | null>(null)
 const submitLoading = ref(false)
 
-const defaultForm = { categoryId: null as number | null, name: '', description: '', cover: '', passScore: 60, sort: 0 }
+const defaultForm = { categoryId: null as number | null, name: '', description: '', cover: '', passScore: 60, sort: 0, status: 1 }
 const { formValue, formRef, resetForm, validate } = useForm(defaultForm)
 
 const formRules: FormRules = {
@@ -136,7 +170,8 @@ const formRules: FormRules = {
   name: { required: true, message: '请输入名称', trigger: 'blur' },
 }
 
-const columns: DataTableColumns<QuestionBank> = [
+const columns = computed<DataTableColumns<QuestionBank>>(() => [
+  ...(isSuperAdmin.value ? [{ type: 'selection' as const }] : []),
   {
     title: '分类',
     key: 'categoryId',
@@ -159,9 +194,23 @@ const columns: DataTableColumns<QuestionBank> = [
   {
     title: '状态',
     key: 'status',
-    width: 80,
+    width: 100,
     render(row) {
-      return h(NTag, { type: row.status === 1 ? 'success' : 'error', size: 'small', bordered: false }, () => row.status === 1 ? '启用' : '禁用')
+      if (!isSuperAdmin.value) {
+        return h(NTag, { size: 'small', bordered: false, type: row.status === 1 ? 'success' : 'default' }, () => row.status === 1 ? '启用' : '禁用')
+      }
+      return h(NSwitch, {
+        value: row.status === 1 ? 1 : 0,
+        checkedValue: 1,
+        uncheckedValue: 0,
+        size: 'small',
+        disabled: statusLoadingId.value !== null && statusLoadingId.value !== row.id,
+        loading: statusLoadingId.value === row.id,
+        onUpdateValue: (value: number) => handleToggleStatus(row, value)
+      }, {
+        checked: () => '启用',
+        unchecked: () => '禁用'
+      })
     },
   },
   {
@@ -169,16 +218,21 @@ const columns: DataTableColumns<QuestionBank> = [
     key: 'actions',
     width: 120,
     render(row) {
-      return h(NSpace, { size: 4 }, () => [
-        h(NButton, { text: true, type: 'primary', onClick: () => openDrawer(row) }, () => '编辑'),
+      const actions = [
+        h(NButton, { text: true, type: 'primary', onClick: () => openDrawer(row) }, () => '编辑')
+      ]
+      if (isSuperAdmin.value) {
+        actions.push(
         h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
           trigger: () => h(NButton, { text: true, type: 'error' }, () => '删除'),
           default: () => '确定删除该题库吗？',
-        }),
-      ])
+        })
+        )
+      }
+      return h(NSpace, { size: 4 }, () => actions)
     },
   },
-]
+])
 
 function openDrawer(row?: QuestionBank) {
   resetForm()
@@ -191,6 +245,7 @@ function openDrawer(row?: QuestionBank) {
       cover: row.cover,
       passScore: row.passScore,
       sort: row.sort,
+      status: row.status ?? 1,
     }
   } else {
     editingId.value = null
@@ -213,11 +268,15 @@ async function handleSubmit() {
   if (!(await validate())) return
   submitLoading.value = true
   try {
+    const payload: Record<string, any> = { ...formValue.value }
+    if (!isSuperAdmin.value) {
+      delete payload.status
+    }
     if (editingId.value) {
-      await bankApi.update(editingId.value, formValue.value)
+      await bankApi.update(editingId.value, payload)
       message.success('更新成功')
     } else {
-      await bankApi.create(formValue.value)
+      await bankApi.create(payload)
       message.success('创建成功')
     }
     showDrawer.value = false
@@ -226,6 +285,49 @@ async function handleSubmit() {
     message.error(e.message || '操作失败')
   } finally {
     submitLoading.value = false
+  }
+}
+
+const statusLoadingId = ref<number | null>(null)
+
+async function handleToggleStatus(row: QuestionBank, status: number) {
+  const previousStatus = row.status
+  row.status = status
+  statusLoadingId.value = row.id
+  try {
+    await bankApi.toggleStatus(row.id, status)
+    message.success(status === 1 ? '已启用' : '已禁用')
+    fetchData(searchParams)
+  } catch (e: any) {
+    row.status = previousStatus
+    message.error(e.message || '状态更新失败')
+    fetchData(searchParams)
+  } finally {
+    statusLoadingId.value = null
+  }
+}
+
+async function handleBatchStatus(status: number) {
+  try {
+    await bankApi.batchToggleStatus(checkedKeys.value, status)
+    message.success(status === 1 ? '批量启用成功' : '批量禁用成功')
+    checkedKeys.value = []
+    fetchData(searchParams)
+  } catch (e: any) {
+    message.error(e.message || '批量操作失败')
+    fetchData(searchParams)
+  }
+}
+
+async function handleBatchDelete() {
+  try {
+    await bankApi.batchDelete(checkedKeys.value)
+    message.success('批量删除成功')
+    checkedKeys.value = []
+    fetchData(searchParams)
+  } catch (e: any) {
+    message.error(e.message || '批量删除失败')
+    fetchData(searchParams)
   }
 }
 

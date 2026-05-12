@@ -12,6 +12,10 @@ export function getInfo() {
   return request.get('/api/admin/auth/info')
 }
 
+export function updateProfile(data: { nickname?: string; avatar?: string }) {
+  return request.put('/api/admin/auth/profile', data)
+}
+
 export function changePassword(data: { oldPassword: string; newPassword: string }) {
   return request.put('/api/admin/auth/password', data)
 }

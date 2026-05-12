@@ -39,7 +39,6 @@ public class AdminServiceImpl implements AdminService {
         if (admin == null) {
             throw new BizException("用户名或密码错误");
         }
-        System.out.println(SecurityUtils.hashPassword(dto.getPassword()));
         if (!SecurityUtils.checkPassword(dto.getPassword(), admin.getPassword())) {
             throw new BizException("用户名或密码错误");
         }
@@ -65,6 +64,25 @@ public class AdminServiceImpl implements AdminService {
         if (admin == null) {
             throw new BizException("管理员不存在");
         }
+        return toAdminInfoVO(admin);
+    }
+
+    @Override
+    @Transactional
+    public AdminInfoVO updateProfile(Long adminId, AdminUpdateDTO dto) {
+        Admin admin = adminMapper.selectOneById(adminId);
+        if (admin == null) {
+            throw new BizException("管理员不存在");
+        }
+        if (dto != null) {
+            if (dto.getNickname() != null) {
+                admin.setNickname(dto.getNickname());
+            }
+            if (dto.getAvatar() != null) {
+                admin.setAvatar(dto.getAvatar());
+            }
+        }
+        adminMapper.update(admin);
         return toAdminInfoVO(admin);
     }
 

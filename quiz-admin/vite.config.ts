@@ -34,6 +34,9 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  optimizeDeps: {
+    exclude: ['xlsx'],
+  },
   server: {
     port: 3000,
     proxy: {

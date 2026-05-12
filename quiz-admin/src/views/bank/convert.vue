@@ -174,7 +174,6 @@
 import { ref, computed, h, onMounted } from 'vue'
 import { NTag, useMessage } from 'naive-ui'
 import type { DataTableColumn } from 'naive-ui'
-import * as XLSX from 'xlsx'
 import * as questionApi from '@/api/question'
 import * as bankApi from '@/api/bank'
 
@@ -182,6 +181,7 @@ const message = useMessage()
 
 const parsedQuestions = ref<any[]>([])
 const parsing = ref(false)
+const leftPanelCollapsed = ref(false)
 
 // 导入相关
 const showImportModal = ref(false)
@@ -309,7 +309,7 @@ async function handleImport() {
   }
 }
 
-function downloadResult() {
+async function downloadResult() {
   if (parsedQuestions.value.length === 0) {
     message.warning('没有可导出的题目')
     return
@@ -339,10 +339,15 @@ function downloadResult() {
     data.push(row)
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(data)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '题目')
-  XLSX.writeFile(wb, '转换结果.xlsx')
+  try {
+    const XLSX = await import('xlsx')
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '题目')
+    XLSX.writeFile(wb, '转换结果.xlsx')
+  } catch (e: any) {
+    message.error(e?.message || '导出 Excel 失败，请刷新页面后重试')
+  }
 }
 </script>
 

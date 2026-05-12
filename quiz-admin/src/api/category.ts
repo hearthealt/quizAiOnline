@@ -21,6 +21,14 @@ export function remove(id: number) {
   return request.delete(`/api/admin/category/${id}`)
 }
 
+export function batchDelete(ids: number[]) {
+  return request.delete('/api/admin/category/batch', { data: ids })
+}
+
 export function toggleStatus(id: number, status: number) {
-  return request.put(`/api/admin/category/${id}/status`, { status })
+  return request.put(`/api/admin/category/${id}/status`, null, { params: { status } })
+}
+
+export function batchToggleStatus(ids: number[], status: number) {
+  return request.put('/api/admin/category/batch/status', ids, { params: { status } })
 }

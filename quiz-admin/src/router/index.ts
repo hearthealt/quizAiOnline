@@ -21,6 +21,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'category', name: 'Category', component: () => import('@/views/category/index.vue') },
       { path: 'bank', name: 'Bank', component: () => import('@/views/bank/index.vue') },
       { path: 'question', name: 'Question', component: () => import('@/views/question/index.vue') },
+      { path: 'eztest/api', name: 'EztestApi', component: () => import('@/views/eztest/api.vue') },
       { path: 'user', name: 'User', component: () => import('@/views/user/index.vue') },
       { path: 'activity/users', name: 'ActivityUsers', component: () => import('@/views/activity/users.vue') },
       { path: 'record/practice', name: 'PracticeRecord', component: () => import('@/views/record/practice.vue') },
@@ -46,10 +47,22 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
   if (to.path !== '/login' && !authStore.token) {
     next('/login')
+    return
+  }
+  if (to.path !== '/login' && authStore.token && !authStore.infoLoaded) {
+    await authStore.fetchInfo()
+    if (!authStore.adminInfo) {
+      next('/login')
+      return
+    }
+  }
+  if (to.path !== '/login' && authStore.adminInfo?.role !== 'super_admin') {
+    const allowed = new Set(['/dashboard', '/category', '/bank', '/question', '/eztest/api'])
+    next(allowed.has(to.path) ? undefined : '/dashboard')
   } else {
     next()
   }

@@ -148,6 +148,77 @@ CREATE TABLE `ai_config`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'AI配置表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Table structure for eztest_profile
+-- ----------------------------
+DROP TABLE IF EXISTS `eztest_profile`;
+CREATE TABLE `eztest_profile`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+  `operator_id` bigint NOT NULL COMMENT '管理员ID',
+  `permit` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '准考证号或手机号',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_operator_id`(`operator_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'EZTest常用参数表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for eztest_job
+-- ----------------------------
+DROP TABLE IF EXISTS `eztest_job`;
+CREATE TABLE `eztest_job`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
+  `permit_masked` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '脱敏准考证号或手机号',
+  `session_ids` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'sessionId列表',
+  `session_names` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '题库名称列表',
+  `import_bank_id` bigint NULL DEFAULT NULL COMMENT '导入目标题库ID',
+  `import_category_id` bigint NULL DEFAULT NULL COMMENT '未指定题库时自动创建题库使用的分类ID',
+  `import_payload` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '已转换题目数据，用于任务完成后再次导入题库',
+  `export_xlsx` tinyint NOT NULL DEFAULT 1 COMMENT '是否导出XLSX',
+  `export_pdf_with_answers` tinyint NOT NULL DEFAULT 0 COMMENT '是否导出含答案PDF',
+  `export_pdf_without_answers` tinyint NOT NULL DEFAULT 0 COMMENT '是否导出不含答案PDF',
+  `session_count` int NOT NULL DEFAULT 0 COMMENT '题库数量',
+  `completed_count` int NOT NULL DEFAULT 0 COMMENT '已完成题库数量',
+  `progress_percent` int NOT NULL DEFAULT 0 COMMENT '任务整体进度百分比',
+  `raw_count` int NOT NULL DEFAULT 0 COMMENT '原始题数',
+  `exported_count` int NOT NULL DEFAULT 0 COMMENT '导出题数',
+  `duplicate_count` int NOT NULL DEFAULT 0 COMMENT '去重题数',
+  `import_create_count` int NOT NULL DEFAULT 0 COMMENT '导入新增数',
+  `import_update_count` int NOT NULL DEFAULT 0 COMMENT '导入更新数',
+  `import_fail_count` int NOT NULL DEFAULT 0 COMMENT '导入失败数',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态: 0-排队中 1-执行中 2-已完成 3-完成但有失败 4-执行异常',
+  `progress_text` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '进度文本',
+  `error_msg` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '错误信息',
+  `logs` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '运行日志',
+  `operator_id` bigint NULL DEFAULT NULL COMMENT '操作管理员ID',
+  `start_time` datetime NULL DEFAULT NULL COMMENT '开始时间',
+  `end_time` datetime NULL DEFAULT NULL COMMENT '结束时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE,
+  INDEX `idx_create_time`(`create_time` ASC) USING BTREE,
+  INDEX `idx_operator_id`(`operator_id` ASC) USING BTREE,
+  INDEX `idx_import_bank_id`(`import_bank_id` ASC) USING BTREE,
+  INDEX `idx_import_category_id`(`import_category_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'EZTest直连导出任务表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for eztest_job_file
+-- ----------------------------
+DROP TABLE IF EXISTS `eztest_job_file`;
+CREATE TABLE `eztest_job_file`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',
+  `job_id` bigint NOT NULL COMMENT '任务ID',
+  `file_type` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件类型: XLSX/PDF_WITH_ANSWERS/PDF_WITHOUT_ANSWERS',
+  `file_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件名',
+  `file_path` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '服务器文件路径',
+  `file_size` bigint NOT NULL DEFAULT 0 COMMENT '文件大小',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_job_id`(`job_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'EZTest直连任务文件表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
 -- Table structure for category
 -- ----------------------------
 DROP TABLE IF EXISTS `category`;

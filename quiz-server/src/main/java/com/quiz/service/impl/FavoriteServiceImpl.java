@@ -28,6 +28,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.FavoriteTableDef.FAVORITE;
+import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
+import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.UserTableDef.USER;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
@@ -58,11 +60,31 @@ public class FavoriteServiceImpl implements FavoriteService {
             favoriteMapper.deleteById(existing.getId());
             return false;
         } else {
+            Question question = questionMapper.selectOneById(questionId);
+            if (question == null || question.getStatus() == null || question.getStatus() != 1) {
+                return false;
+            }
+            QuestionBank bank = question.getBankId() == null ? null : questionBankMapper.selectOneById(question.getBankId());
+            if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) {
+                return false;
+            }
+            long categoryCount = questionBankMapper.selectCountByQuery(
+                    QueryWrapper.create()
+                            .where(QUESTION_BANK.ID.eq(bank.getId()))
+                            .and(QUESTION_BANK.CATEGORY_ID.in(
+                                    QueryWrapper.create()
+                                            .select(CATEGORY.ID)
+                                            .from(CATEGORY)
+                                            .where(CATEGORY.STATUS.eq(1))
+                            ))
+            );
+            if (categoryCount == 0) {
+                return false;
+            }
             Favorite favorite = new Favorite();
             favorite.setUserId(userId);
             favorite.setQuestionId(questionId);
             favoriteMapper.insert(favorite);
-            Question question = questionMapper.selectOneById(questionId);
             userActivityService.recordFavoriteAdd(userId, questionId, question != null ? question.getBankId() : null);
             return true;
         }
@@ -72,6 +94,7 @@ public class FavoriteServiceImpl implements FavoriteService {
     public PageResult<FavoriteVO> list(Long userId, Integer pageNum, Integer pageSize) {
         QueryWrapper query = QueryWrapper.create()
                 .where(FAVORITE.USER_ID.eq(userId))
+                .and(FAVORITE.QUESTION_ID.in(enabledQuestionIdsQuery()))
                 .orderBy(FAVORITE.CREATE_TIME.desc());
         Page<Favorite> page = favoriteMapper.paginate(pageNum, pageSize, query);
 
@@ -85,7 +108,9 @@ public class FavoriteServiceImpl implements FavoriteService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, Question> questionMap = questionIds.isEmpty() ? Collections.emptyMap() :
-                questionMapper.selectListByIds(questionIds).stream()
+                questionMapper.selectListByQuery(
+                                QueryWrapper.create().where(QUESTION.ID.in(questionIds))
+                        ).stream()
                         .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
 
         // 批量查询题库
@@ -107,21 +132,44 @@ public class FavoriteServiceImpl implements FavoriteService {
 
         List<FavoriteVO> voList = page.getRecords().stream().map(fav -> {
             Question question = questionMap.get(fav.getQuestionId());
+            if (question == null) {
+                return null;
+            }
             QuestionBank bank = question != null ? bankMap.get(question.getBankId()) : null;
             List<QuestionOption> options = question != null
                     ? optionsMap.getOrDefault(question.getId(), Collections.emptyList())
                     : Collections.emptyList();
             return AppViewMapper.toFavoriteVO(fav, question, bank, options, SHOW_ANALYSIS);
-        }).collect(Collectors.toList());
+        }).filter(Objects::nonNull).collect(Collectors.toList());
 
         return PageResult.of(voList, page.getTotalRow(), pageNum, pageSize);
+    }
+
+    private QueryWrapper enabledQuestionIdsQuery() {
+        return QueryWrapper.create()
+                .select(QUESTION.ID)
+                .from(QUESTION)
+                .where(QUESTION.STATUS.eq(1))
+                .and(QUESTION.BANK_ID.in(
+                        QueryWrapper.create()
+                                .select(QUESTION_BANK.ID)
+                                .from(QUESTION_BANK)
+                                .where(QUESTION_BANK.STATUS.eq(1))
+                                .and(QUESTION_BANK.CATEGORY_ID.in(
+                                        QueryWrapper.create()
+                                                .select(CATEGORY.ID)
+                                                .from(CATEGORY)
+                                                .where(CATEGORY.STATUS.eq(1))
+                                ))
+                ));
     }
 
     @Override
     public boolean isFavorite(Long userId, Long questionId) {
         QueryWrapper query = QueryWrapper.create()
                 .where(FAVORITE.USER_ID.eq(userId))
-                .and(FAVORITE.QUESTION_ID.eq(questionId));
+                .and(FAVORITE.QUESTION_ID.eq(questionId))
+                .and(FAVORITE.QUESTION_ID.in(enabledQuestionIdsQuery()));
         return favoriteMapper.selectCountByQuery(query) > 0;
     }
 

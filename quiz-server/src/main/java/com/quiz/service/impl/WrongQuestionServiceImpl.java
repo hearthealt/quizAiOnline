@@ -28,7 +28,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.WrongQuestionTableDef.WRONG_QUESTION;
+import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
 import static com.quiz.entity.table.UserTableDef.USER;
+import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
+import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 
 @Slf4j
@@ -49,6 +52,7 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
         QueryWrapper query = QueryWrapper.create()
                 .where(WRONG_QUESTION.USER_ID.eq(userId))
                 .and(WRONG_QUESTION.BANK_ID.eq(bankId).when(bankId != null))
+                .and(WRONG_QUESTION.QUESTION_ID.in(enabledQuestionIdsQuery()))
                 .orderBy(WRONG_QUESTION.UPDATE_TIME.desc());
         Page<WrongQuestion> page = wrongQuestionMapper.paginate(pageNum, pageSize, query);
 
@@ -62,7 +66,9 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, Question> questionMap = questionIds.isEmpty() ? Collections.emptyMap() :
-                questionMapper.selectListByIds(questionIds).stream()
+                questionMapper.selectListByQuery(
+                                QueryWrapper.create().where(QUESTION.ID.in(questionIds))
+                        ).stream()
                         .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
 
         // 批量查询题库
@@ -84,12 +90,15 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
 
         List<WrongQuestionVO> voList = page.getRecords().stream().map(wq -> {
             Question question = questionMap.get(wq.getQuestionId());
+            if (question == null) {
+                return null;
+            }
             QuestionBank bank = bankMap.get(wq.getBankId());
             List<QuestionOption> options = question != null
                     ? optionsMap.getOrDefault(question.getId(), Collections.emptyList())
                     : Collections.emptyList();
             return AppViewMapper.toWrongQuestionVO(wq, question, bank, options, SHOW_ANALYSIS);
-        }).collect(Collectors.toList());
+        }).filter(Objects::nonNull).collect(Collectors.toList());
 
         return PageResult.of(voList, page.getTotalRow(), pageNum, pageSize);
     }
@@ -97,7 +106,8 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
     @Override
     public Map<String, Object> stats(Long userId) {
         QueryWrapper query = QueryWrapper.create()
-                .where(WRONG_QUESTION.USER_ID.eq(userId));
+                .where(WRONG_QUESTION.USER_ID.eq(userId))
+                .and(WRONG_QUESTION.QUESTION_ID.in(enabledQuestionIdsQuery()));
         List<WrongQuestion> wrongQuestions = wrongQuestionMapper.selectListByQuery(query);
 
         // 按题库分组统计
@@ -121,6 +131,25 @@ public class WrongQuestionServiceImpl implements WrongQuestionService {
         result.put("totalCount", wrongQuestions.size());
         result.put("bankStats", bankStats);
         return result;
+    }
+
+    private QueryWrapper enabledQuestionIdsQuery() {
+        return QueryWrapper.create()
+                .select(QUESTION.ID)
+                .from(QUESTION)
+                .where(QUESTION.STATUS.eq(1))
+                .and(QUESTION.BANK_ID.in(
+                        QueryWrapper.create()
+                                .select(QUESTION_BANK.ID)
+                                .from(QUESTION_BANK)
+                                .where(QUESTION_BANK.STATUS.eq(1))
+                                .and(QUESTION_BANK.CATEGORY_ID.in(
+                                        QueryWrapper.create()
+                                                .select(CATEGORY.ID)
+                                                .from(CATEGORY)
+                                                .where(CATEGORY.STATUS.eq(1))
+                                ))
+                ));
     }
 
     @Override

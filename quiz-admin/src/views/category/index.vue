@@ -1,10 +1,26 @@
 <template>
   <PageContainer title="分类管理">
     <template #header-actions>
-      <n-button type="primary" @click="openModal()">
-        <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
-        新增分类
-      </n-button>
+      <n-space>
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchStatus(1)">
+          批量启用 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchStatus(0)">
+          批量禁用 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-popconfirm v-if="isSuperAdmin" @positive-click="handleBatchDelete">
+          <template #trigger>
+            <n-button type="error" :disabled="checkedKeys.length === 0">
+              批量删除 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+            </n-button>
+          </template>
+          确定删除选中的 {{ checkedKeys.length }} 个分类吗？
+        </n-popconfirm>
+        <n-button type="primary" @click="openModal()">
+          <template #icon><n-icon><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></n-icon></template>
+          新增分类
+        </n-button>
+      </n-space>
     </template>
 
     <DataTableSection>
@@ -15,6 +31,8 @@
         :loading="loading"
         :pagination="false"
         :row-key="(row: Category) => row.id"
+        :checked-row-keys="checkedKeys"
+        @update:checked-row-keys="(keys: any) => (checkedKeys = keys)"
         striped
       />
       <template #pagination>
@@ -58,7 +76,7 @@
         <n-form-item v-if="editingId" label="排序" path="sort">
           <n-input-number v-model:value="formValue.sort" :min="0" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="状态" path="status">
+        <n-form-item v-if="isSuperAdmin" label="状态" path="status">
           <n-switch v-model:value="formValue.status" :checked-value="1" :unchecked-value="0">
             <template #checked>启用</template>
             <template #unchecked>禁用</template>
@@ -76,16 +94,19 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, onMounted } from 'vue'
+import { computed, h, ref, onMounted } from 'vue'
 import { NButton, NSwitch, NPopconfirm, NSpace, NImage, NPagination, NTag, useMessage, type DataTableColumns, type FormRules } from 'naive-ui'
 import type { Category } from '@/types'
 import * as categoryApi from '@/api/category'
 import { uploadImage } from '@/api/upload'
 import { useTable } from '@/composables/useTable'
 import { useForm } from '@/composables/useForm'
+import { useAuthStore } from '@/stores/auth'
 import dayjs from 'dayjs'
 
 const message = useMessage()
+const authStore = useAuthStore()
+const isSuperAdmin = computed(() => authStore.adminInfo?.role === 'super_admin')
 const { loading, data, pagination, fetchData, handlePageChange, handlePageSizeChange } = useTable<Category>(
   (params) => categoryApi.getList(params) as any
 )
@@ -93,6 +114,7 @@ const { loading, data, pagination, fetchData, handlePageChange, handlePageSizeCh
 const showModal = ref(false)
 const editingId = ref<number | null>(null)
 const submitLoading = ref(false)
+const checkedKeys = ref<number[]>([])
 
 const defaultForm = { name: '', icon: '', sort: 0, status: 1 }
 const { formValue, formRef, resetForm, validate } = useForm(defaultForm)
@@ -101,7 +123,8 @@ const formRules: FormRules = {
   name: { required: true, message: '请输入分类名称', trigger: 'blur' },
 }
 
-const columns: DataTableColumns<Category> = [
+const columns = computed<DataTableColumns<Category>>(() => [
+  ...(isSuperAdmin.value ? [{ type: 'selection' as const }] : []),
   { title: '名称', key: 'name', ellipsis: { tooltip: true } },
   { title: '图标', key: 'icon', width: 80, render(row) { return row.icon ? h('img', { src: row.icon, style: 'width:40px;height:40px;object-fit:contain;border-radius:6px;background:#f5f5f5;padding:4px' }) : h(NTag, { size: 'small', bordered: false }, () => '无') } },
   { title: '排序', key: 'sort', width: 80 },
@@ -110,6 +133,9 @@ const columns: DataTableColumns<Category> = [
     key: 'status',
     width: 100,
     render(row) {
+      if (!isSuperAdmin.value) {
+        return h(NTag, { size: 'small', bordered: false, type: row.status === 1 ? 'success' : 'default' }, () => row.status === 1 ? '启用' : '禁用')
+      }
       return h(NSwitch, {
         value: row.status,
         checkedValue: 1,
@@ -129,16 +155,21 @@ const columns: DataTableColumns<Category> = [
     key: 'actions',
     width: 140,
     render(row) {
-      return h(NSpace, { size: 4 }, () => [
-        h(NButton, { text: true, type: 'primary', onClick: () => openModal(row) }, () => '编辑'),
+      const actions = [
+        h(NButton, { text: true, type: 'primary', onClick: () => openModal(row) }, () => '编辑')
+      ]
+      if (isSuperAdmin.value) {
+        actions.push(
         h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
           trigger: () => h(NButton, { text: true, type: 'error' }, () => '删除'),
           default: () => '确定删除该分类吗？',
-        }),
-      ])
+        })
+        )
+      }
+      return h(NSpace, { size: 4 }, () => actions)
     },
   },
-]
+])
 
 function openModal(row?: Category) {
   resetForm()
@@ -166,11 +197,15 @@ async function handleSubmit() {
   if (!(await validate())) return
   submitLoading.value = true
   try {
+    const payload: Record<string, any> = { ...formValue.value }
+    if (!isSuperAdmin.value) {
+      delete payload.status
+    }
     if (editingId.value) {
-      await categoryApi.update(editingId.value, formValue.value)
+      await categoryApi.update(editingId.value, payload)
       message.success('更新成功')
     } else {
-      await categoryApi.create(formValue.value)
+      await categoryApi.create(payload)
       message.success('创建成功')
     }
     showModal.value = false
@@ -189,6 +224,30 @@ async function handleToggleStatus(id: number, status: number) {
     fetchData()
   } catch (e: any) {
     message.error(e.message || '操作失败')
+  }
+}
+
+async function handleBatchStatus(status: number) {
+  try {
+    await categoryApi.batchToggleStatus(checkedKeys.value, status)
+    message.success(status === 1 ? '批量启用成功' : '批量禁用成功')
+    checkedKeys.value = []
+    fetchData()
+  } catch (e: any) {
+    message.error(e.message || '批量操作失败')
+    fetchData()
+  }
+}
+
+async function handleBatchDelete() {
+  try {
+    await categoryApi.batchDelete(checkedKeys.value)
+    message.success('批量删除成功')
+    checkedKeys.value = []
+    fetchData()
+  } catch (e: any) {
+    message.error(e.message || '批量删除失败')
+    fetchData()
   }
 }
 

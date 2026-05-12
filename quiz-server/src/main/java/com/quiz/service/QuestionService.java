@@ -27,6 +27,10 @@ public interface QuestionService {
 
     void update(Long id, QuestionDTO dto);
 
+    void toggleStatus(Long id, Integer status);
+
+    void batchToggleStatus(List<Long> ids, Integer status);
+
     void delete(Long id);
 
     void batchDelete(List<Long> ids);
@@ -34,6 +38,8 @@ public interface QuestionService {
     QuestionImportResult importFromExcel(Long bankId, Long categoryId, String originalFilename, InputStream inputStream);
 
     QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions);
+
+    QuestionImportResult importFromConverted(Long bankId, Long categoryId, String bankName, List<Map<String, Object>> questions);
 
     List<Question> listByBankId(Long bankId);
 

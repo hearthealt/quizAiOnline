@@ -1,6 +1,8 @@
 package com.quiz.controller.admin;
 
+import com.quiz.common.constant.CommonConstant;
 import com.quiz.common.result.R;
+import com.quiz.config.StpKit;
 import com.quiz.dto.admin.AdminCreateDTO;
 import com.quiz.dto.admin.AdminUpdateDTO;
 import com.quiz.service.AdminService;
@@ -77,6 +79,7 @@ public class AdminSystemController {
     @Operation(summary = "更新系统配置")
     @PutMapping("/setting")
     public R<Void> updateSetting(@RequestBody Map<String, String> configs) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         if (configs != null && !configs.isEmpty()) {
             Map<String, String> filtered = new LinkedHashMap<>();
             for (Map.Entry<String, String> entry : configs.entrySet()) {

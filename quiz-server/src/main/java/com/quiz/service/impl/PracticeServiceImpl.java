@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.PracticeDetailTableDef.PRACTICE_DETAIL;
 import static com.quiz.entity.table.PracticeRecordTableDef.PRACTICE_RECORD;
+import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
+import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 import static com.quiz.entity.table.WrongQuestionTableDef.WRONG_QUESTION;
@@ -69,6 +71,8 @@ public class PracticeServiceImpl implements PracticeService {
         Long bankId = dto.getBankId();
         String mode = dto.getMode();
         boolean restart = dto.getRestart() != null && dto.getRestart();
+
+        ensureEnabledBank(bankId);
 
         if (restart) {
             PracticeRecord ongoing = practiceRecordMapper.selectOneByQuery(
@@ -322,6 +326,7 @@ public class PracticeServiceImpl implements PracticeService {
         if (question == null) {
             throw new BizException("题目不存在");
         }
+        ensureEnabledQuestion(question);
 
         // Get options
         QueryWrapper optQw = QueryWrapper.create()
@@ -387,6 +392,18 @@ public class PracticeServiceImpl implements PracticeService {
                     .from(QUESTION)
                     .where(QUESTION.BANK_ID.eq(bankId))
                     .and(QUESTION.STATUS.eq(1))
+                    .and(QUESTION.BANK_ID.in(
+                            QueryWrapper.create()
+                                    .select(QUESTION_BANK.ID)
+                                    .from(QUESTION_BANK)
+                                    .where(QUESTION_BANK.STATUS.eq(1))
+                                    .and(QUESTION_BANK.CATEGORY_ID.in(
+                                            QueryWrapper.create()
+                                                    .select(CATEGORY.ID)
+                                                    .from(CATEGORY)
+                                                    .where(CATEGORY.STATUS.eq(1))
+                                    ))
+                    ))
                     .and(QUESTION.ID.in(
                             QueryWrapper.create()
                                     .select(WRONG_QUESTION.QUESTION_ID)
@@ -403,6 +420,18 @@ public class PracticeServiceImpl implements PracticeService {
                     .from(QUESTION)
                     .where(QUESTION.BANK_ID.eq(bankId))
                     .and(QUESTION.STATUS.eq(1))
+                    .and(QUESTION.BANK_ID.in(
+                            QueryWrapper.create()
+                                    .select(QUESTION_BANK.ID)
+                                    .from(QUESTION_BANK)
+                                    .where(QUESTION_BANK.STATUS.eq(1))
+                                    .and(QUESTION_BANK.CATEGORY_ID.in(
+                                            QueryWrapper.create()
+                                                    .select(CATEGORY.ID)
+                                                    .from(CATEGORY)
+                                                    .where(CATEGORY.STATUS.eq(1))
+                                    ))
+                    ))
                     .orderBy(QUESTION.SORT.asc());
             List<Question> questions = questionMapper.selectListByQuery(qw);
             questionIds = questions.stream().map(Question::getId).collect(Collectors.toList());
@@ -416,6 +445,33 @@ public class PracticeServiceImpl implements PracticeService {
             throw new BizException("该题库暂无题目");
         }
         return questionIds;
+    }
+
+    private void ensureEnabledBank(Long bankId) {
+        QuestionBank bank = questionBankMapper.selectOneById(bankId);
+        if (bank == null || bank.getStatus() == null || bank.getStatus() != 1) {
+            throw new BizException("题库不存在");
+        }
+        long categoryCount = questionBankMapper.selectCountByQuery(
+                QueryWrapper.create()
+                        .where(QUESTION_BANK.ID.eq(bankId))
+                        .and(QUESTION_BANK.CATEGORY_ID.in(
+                                QueryWrapper.create()
+                                        .select(CATEGORY.ID)
+                                        .from(CATEGORY)
+                                        .where(CATEGORY.STATUS.eq(1))
+                        ))
+        );
+        if (categoryCount == 0) {
+            throw new BizException("题库不存在");
+        }
+    }
+
+    private void ensureEnabledQuestion(Question question) {
+        if (question.getStatus() == null || question.getStatus() != 1) {
+            throw new BizException("题目不存在");
+        }
+        ensureEnabledBank(question.getBankId());
     }
 
     private boolean isAnswerCorrect(Question question, String submittedAnswer) {

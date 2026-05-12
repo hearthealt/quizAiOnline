@@ -15,6 +15,7 @@ public class QuestionDetailVO {
     private String analysis;
     private Integer difficulty;
     private Integer sort;
+    private Integer status;
     private List<OptionVO> options;
 
     @Data

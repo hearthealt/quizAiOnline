@@ -7,10 +7,16 @@
           新增题目
         </n-button>
         <n-button @click="showImportModal = true">批量导入</n-button>
-        <n-button :disabled="checkedKeys.length === 0" @click="handleBatchDelete">
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchStatus(1)">
+          批量启用 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchStatus(0)">
+          批量禁用 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
+        </n-button>
+        <n-button v-if="isSuperAdmin" :disabled="checkedKeys.length === 0" @click="handleBatchDelete">
           批量删除 {{ checkedKeys.length ? `(${checkedKeys.length})` : '' }}
         </n-button>
-        <n-button type="warning" @click="showAiModal = true">AI批量生成</n-button>
+        <n-button v-if="isSuperAdmin" type="warning" @click="showAiModal = true">AI批量生成</n-button>
       </n-space>
     </template>
 
@@ -115,6 +121,16 @@
           <n-form-item v-if="editingId" label="排序" path="sort">
             <n-input-number v-model:value="formValue.sort" :min="0" style="width: 100%" />
           </n-form-item>
+          <n-form-item v-if="isSuperAdmin" label="状态" path="status">
+            <n-switch
+              v-model:value="formValue.status"
+              :checked-value="1"
+              :unchecked-value="0"
+            >
+              <template #checked>启用</template>
+              <template #unchecked>禁用</template>
+            </n-switch>
+          </n-form-item>
         </n-form>
         <template #footer>
           <n-space>
@@ -193,7 +209,7 @@
     </n-modal>
 
     <!-- AI生成弹窗 -->
-    <n-modal v-model:show="showAiModal" preset="card" title="AI批量生成" style="width: 480px">
+    <n-modal v-if="isSuperAdmin" v-model:show="showAiModal" preset="card" title="AI批量生成" style="width: 480px">
       <n-form label-placement="left" label-width="80">
         <n-form-item label="生成模式">
           <n-radio-group v-model:value="aiMode">
@@ -231,7 +247,7 @@
 
 <script setup lang="ts">
 import { computed, h, ref, reactive, onMounted, watch } from 'vue'
-import { NButton, NPopconfirm, NSpace, NTag, NPagination, useMessage, useDialog, type DataTableColumns, type FormRules } from 'naive-ui'
+import { NButton, NPopconfirm, NSpace, NSwitch, NTag, NPagination, useMessage, useDialog, type DataTableColumns, type FormRules } from 'naive-ui'
 import type { Question } from '@/types'
 import * as questionApi from '@/api/question'
 import * as bankApi from '@/api/bank'
@@ -239,11 +255,14 @@ import * as categoryApi from '@/api/category'
 import * as aiApi from '@/api/ai'
 import { useTable } from '@/composables/useTable'
 import { useForm } from '@/composables/useForm'
+import { useAuthStore } from '@/stores/auth'
 import PageContainer from '@/components/PageContainer.vue'
 import DataTableSection from '@/components/DataTableSection.vue'
 
 const message = useMessage()
 const dialog = useDialog()
+const authStore = useAuthStore()
+const isSuperAdmin = computed(() => authStore.adminInfo?.role === 'super_admin')
 
 const typeOptions = [
   { label: '单选', value: 1 },
@@ -275,10 +294,11 @@ const { loading, data, pagination, fetchData, handlePageChange, handlePageSizeCh
 const showDrawer = ref(false)
 const editingId = ref<number | null>(null)
 const submitLoading = ref(false)
+const statusLoadingId = ref<number | null>(null)
 const formOptions = ref<{ label: string; content: string }[]>([])
 const multiAnswer = ref<string[]>([])
 
-const defaultForm = { bankId: null as number | null, type: 1, content: '', answer: '', analysis: '', difficulty: 1, sort: 0 }
+const defaultForm = { bankId: null as number | null, type: 1, content: '', answer: '', analysis: '', difficulty: 1, sort: 0, status: 1 }
 const { formValue, formRef, resetForm, validate } = useForm(defaultForm)
 
 const formRules: FormRules = {
@@ -422,8 +442,8 @@ watch(() => formValue.value.type, (t) => {
   if (showDrawer.value && !editingId.value) initOptions(t)
 })
 
-const columns: DataTableColumns<Question> = [
-  { type: 'selection' },
+const columns = computed<DataTableColumns<Question>>(() => [
+  ...(isSuperAdmin.value ? [{ type: 'selection' as const }] : []),
   {
     title: '题库',
     key: 'bankId',
@@ -458,9 +478,23 @@ const columns: DataTableColumns<Question> = [
   {
     title: '状态',
     key: 'status',
-    width: 60,
+    width: 100,
     render(row) {
-      return h(NTag, { type: row.status === 1 ? 'success' : 'error', size: 'small', bordered: false }, () => row.status === 1 ? '启用' : '禁用')
+      if (!isSuperAdmin.value) {
+        return h(NTag, { size: 'small', bordered: false, type: row.status === 1 ? 'success' : 'default' }, () => row.status === 1 ? '启用' : '禁用')
+      }
+      return h(NSwitch, {
+        value: row.status === 1 ? 1 : 0,
+        checkedValue: 1,
+        uncheckedValue: 0,
+        size: 'small',
+        disabled: statusLoadingId.value !== null && statusLoadingId.value !== row.id,
+        loading: statusLoadingId.value === row.id,
+        onUpdateValue: (value: number) => handleToggleStatus(row, value)
+      }, {
+        checked: () => '启用',
+        unchecked: () => '禁用'
+      })
     },
   },
   {
@@ -468,17 +502,22 @@ const columns: DataTableColumns<Question> = [
     key: 'actions',
     width: 100,
     render(row) {
-      return h(NSpace, { size: 4 }, () => [
-        h(NButton, { text: true, type: 'primary', onClick: () => openDrawer(row) }, () => '编辑'),
-        h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
+      const actions = [
+        h(NButton, { text: true, type: 'primary', onClick: () => openDrawer(row) }, () => '编辑')
+      ]
+      if (isSuperAdmin.value) {
+        actions.push(h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id) }, {
           trigger: () => h(NButton, { text: true, type: 'error' }, () => '删除'),
           default: () => '确定删除该题目吗？',
-        }),
-        h(NButton, { text: true, type: 'warning', onClick: () => handleAiSingle(row.id) }, () => 'AI解析'),
-      ])
+        }))
+      }
+      if (isSuperAdmin.value) {
+        actions.push(h(NButton, { text: true, type: 'warning', onClick: () => handleAiSingle(row.id) }, () => 'AI解析'))
+      }
+      return h(NSpace, { size: 4 }, () => actions)
     },
   },
-]
+])
 
 async function openDrawer(row?: Question) {
   resetForm()
@@ -501,6 +540,7 @@ async function openDrawer(row?: Question) {
         analysis: detail.analysis || '',
         difficulty: detail.difficulty,
         sort: detail.sort,
+        status: detail.status ?? 1,
       }
       if (detail.type === 2 && detail.answer) {
         multiAnswer.value = Array.isArray(normalizedAnswer) ? normalizedAnswer : []
@@ -521,6 +561,9 @@ async function handleSubmit() {
   submitLoading.value = true
   try {
     const payload: Record<string, any> = { ...formValue.value }
+    if (!isSuperAdmin.value) {
+      delete payload.status
+    }
     payload.answer = serializeAnswerForSubmit(formValue.value.type)
     payload.analysis = (payload.analysis || '').trim()
     const options = formOptions.value
@@ -540,6 +583,35 @@ async function handleSubmit() {
     message.error(e.message || '操作失败')
   } finally {
     submitLoading.value = false
+  }
+}
+
+async function handleToggleStatus(row: Question, status: number) {
+  const previousStatus = row.status
+  row.status = status
+  statusLoadingId.value = row.id
+  try {
+    await questionApi.toggleStatus(row.id, status)
+    message.success(status === 1 ? '已启用' : '已禁用')
+    fetchData(searchParams)
+  } catch (e: any) {
+    row.status = previousStatus
+    message.error(e.message || '状态更新失败')
+    fetchData(searchParams)
+  } finally {
+    statusLoadingId.value = null
+  }
+}
+
+async function handleBatchStatus(status: number) {
+  try {
+    await questionApi.batchToggleStatus(checkedKeys.value, status)
+    message.success(status === 1 ? '批量启用成功' : '批量禁用成功')
+    checkedKeys.value = []
+    fetchData(searchParams)
+  } catch (e: any) {
+    message.error(e.message || '批量操作失败')
+    fetchData(searchParams)
   }
 }
 

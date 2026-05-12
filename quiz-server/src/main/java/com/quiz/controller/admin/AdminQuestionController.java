@@ -1,6 +1,8 @@
 package com.quiz.controller.admin;
 
 import com.quiz.common.result.R;
+import com.quiz.common.constant.CommonConstant;
+import com.quiz.config.StpKit;
 import com.quiz.dto.admin.QuestionDTO;
 import com.quiz.service.QuestionConvertService;
 import com.quiz.service.QuestionService;
@@ -45,20 +47,52 @@ public class AdminQuestionController {
     @Operation(summary = "创建题目")
     @PostMapping
     public R<Void> create(@RequestBody QuestionDTO dto) {
-        questionService.create(dto);
+        if (isSuperAdmin()) {
+            questionService.create(dto);
+        } else {
+            if (dto.getStatus() != null) {
+                StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
+            }
+            dto.setStatus(0);
+            questionService.create(dto);
+        }
         return R.ok();
+    }
+
+    private boolean isSuperAdmin() {
+        return StpKit.ADMIN.hasRole(CommonConstant.ROLE_SUPER_ADMIN);
     }
 
     @Operation(summary = "更新题目")
     @PutMapping("/{id}")
     public R<Void> update(@PathVariable Long id, @RequestBody QuestionDTO dto) {
+        if (dto.getStatus() != null) {
+            StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
+        }
         questionService.update(id, dto);
+        return R.ok();
+    }
+
+    @Operation(summary = "更新题目状态")
+    @PutMapping("/{id}/status")
+    public R<Void> toggleStatus(@PathVariable Long id, @RequestParam Integer status) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
+        questionService.toggleStatus(id, status);
+        return R.ok();
+    }
+
+    @Operation(summary = "批量更新题目状态")
+    @PutMapping("/batch/status")
+    public R<Void> batchToggleStatus(@RequestBody List<Long> ids, @RequestParam Integer status) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
+        questionService.batchToggleStatus(ids, status);
         return R.ok();
     }
 
     @Operation(summary = "删除题目")
     @DeleteMapping("/{id}")
     public R<Void> delete(@PathVariable Long id) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         questionService.delete(id);
         return R.ok();
     }
@@ -66,6 +100,7 @@ public class AdminQuestionController {
     @Operation(summary = "批量删除题目")
     @DeleteMapping("/batch")
     public R<Void> batchDelete(@RequestBody List<Long> ids) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         questionService.batchDelete(ids);
         return R.ok();
     }
@@ -89,6 +124,7 @@ public class AdminQuestionController {
     @Operation(summary = "智能解析文件 - 自动识别格式并解析")
     @PostMapping("/convert/smart-parse")
     public R<?> smartParse(@RequestParam("file") MultipartFile file) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         List<Map<String, Object>> questions = questionConvertService.parseSmart(file);
         return R.ok(Map.of(
                 "mode", "smart",
@@ -101,6 +137,7 @@ public class AdminQuestionController {
     @PostMapping("/convert/import")
     public R<?> importConverted(@RequestParam("bankId") Long bankId,
                                 @RequestBody List<Map<String, Object>> questions) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         QuestionService.QuestionImportResult result = questionService.importFromConverted(bankId, questions);
         return R.ok(result);
     }

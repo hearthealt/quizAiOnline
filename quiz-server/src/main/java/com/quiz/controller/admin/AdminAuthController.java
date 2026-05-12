@@ -3,6 +3,7 @@ package com.quiz.controller.admin;
 import com.quiz.common.result.R;
 import com.quiz.config.StpKit;
 import com.quiz.dto.admin.AdminLoginDTO;
+import com.quiz.dto.admin.AdminUpdateDTO;
 import com.quiz.dto.admin.ChangePasswordDTO;
 import com.quiz.service.AdminService;
 import com.quiz.vo.admin.AdminInfoVO;
@@ -37,6 +38,13 @@ public class AdminAuthController {
     public R<AdminInfoVO> info() {
         Long adminId = StpKit.ADMIN.getLoginIdAsLong();
         return R.ok(adminService.getInfo(adminId));
+    }
+
+    @Operation(summary = "更新当前管理员个人信息")
+    @PutMapping("/profile")
+    public R<AdminInfoVO> updateProfile(@RequestBody AdminUpdateDTO dto) {
+        Long adminId = StpKit.ADMIN.getLoginIdAsLong();
+        return R.ok(adminService.updateProfile(adminId, dto));
     }
 
     @Operation(summary = "修改密码")

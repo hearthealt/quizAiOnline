@@ -7,14 +7,14 @@ import com.quiz.common.constant.RedisKey;
 import com.quiz.common.exception.BizException;
 import com.quiz.common.result.PageResult;
 import com.quiz.dto.admin.QuestionBankDTO;
+import com.quiz.entity.Category;
 import com.quiz.entity.PracticeDetail;
 import com.quiz.entity.PracticeRecord;
-import com.quiz.entity.Question;
 import com.quiz.entity.QuestionBank;
+import com.quiz.mapper.CategoryMapper;
 import com.quiz.mapper.PracticeDetailMapper;
 import com.quiz.mapper.PracticeRecordMapper;
 import com.quiz.mapper.QuestionMapper;
-import com.quiz.mapper.QuestionOptionMapper;
 import com.quiz.mapper.QuestionBankMapper;
 import com.quiz.service.QuestionBankService;
 import com.quiz.vo.app.BankDetailVO;
@@ -29,9 +29,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
+import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
 import static com.quiz.entity.table.PracticeDetailTableDef.PRACTICE_DETAIL;
 import static com.quiz.entity.table.PracticeRecordTableDef.PRACTICE_RECORD;
-import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
 import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 
@@ -46,7 +46,7 @@ public class QuestionBankServiceImpl implements QuestionBankService {
     private QuestionMapper questionMapper;
 
     @Autowired
-    private QuestionOptionMapper questionOptionMapper;
+    private CategoryMapper categoryMapper;
 
     @Autowired
     private PracticeRecordMapper practiceRecordMapper;
@@ -72,6 +72,12 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         QueryWrapper query = QueryWrapper.create()
                 .where(QUESTION_BANK.CATEGORY_ID.eq(categoryId).when(categoryId != null))
                 .and(QUESTION_BANK.STATUS.eq(1))
+                .and(QUESTION_BANK.CATEGORY_ID.in(
+                        QueryWrapper.create()
+                                .select(CATEGORY.ID)
+                                .from(CATEGORY)
+                                .where(CATEGORY.STATUS.eq(1))
+                ))
                 .orderBy(QUESTION_BANK.SORT.asc(), QUESTION_BANK.CREATE_TIME.desc());
         Page<QuestionBank> page = questionBankMapper.paginate(pageNum, pageSize, query);
         return PageResult.of(page.getRecords(), page.getTotalRow(), pageNum, pageSize);
@@ -79,7 +85,15 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
     @Override
     public QuestionBank getById(Long id) {
-        return questionBankMapper.selectOneById(id);
+        QuestionBank bank = questionBankMapper.selectOneById(id);
+        if (bank == null || bank.getCategoryId() == null) {
+            return bank;
+        }
+        Category category = categoryMapper.selectOneById(bank.getCategoryId());
+        if (category == null || category.getStatus() == null || category.getStatus() != 1) {
+            bank.setStatus(0);
+        }
+        return bank;
     }
 
     @Override
@@ -190,7 +204,9 @@ public class QuestionBankServiceImpl implements QuestionBankService {
                     QueryWrapper.create().select(max(QUESTION_BANK.SORT)), Integer.class);
             bank.setSort(maxSort != null ? maxSort + 1 : 1);
         }
-        bank.setStatus(dto.getStatus() != null ? dto.getStatus() : 1);
+        Integer status = normalizeStatus(dto.getStatus());
+        ensureBankCanBeEnabled(dto.getCategoryId(), status);
+        bank.setStatus(status);
         bank.setQuestionCount(0);
         bank.setPracticeCount(0);
         questionBankMapper.insert(bank);
@@ -223,10 +239,49 @@ public class QuestionBankServiceImpl implements QuestionBankService {
             bank.setSort(dto.getSort());
         }
         if (dto.getStatus() != null) {
+            validateStatus(dto.getStatus());
+            ensureBankCanBeEnabled(bank.getCategoryId(), dto.getStatus());
+            ensureBankCanBeDisabled(id, dto.getStatus());
             bank.setStatus(dto.getStatus());
         }
+        ensureBankCanBeEnabled(bank.getCategoryId(), bank.getStatus());
         questionBankMapper.update(bank);
         clearCache(bank.getId());
+    }
+
+    @Override
+    @Transactional
+    public void toggleStatus(Long id, Integer status) {
+        validateStatus(status);
+        QuestionBank bank = questionBankMapper.selectOneById(id);
+        if (bank == null) {
+            throw new BizException("题库不存在");
+        }
+        ensureBankCanBeEnabled(bank.getCategoryId(), status);
+        ensureBankCanBeDisabled(id, status);
+        bank.setStatus(status);
+        questionBankMapper.update(bank);
+        clearCache(id);
+    }
+
+    @Override
+    @Transactional
+    public void batchToggleStatus(List<Long> ids, Integer status) {
+        validateStatus(status);
+        if (ids == null || ids.isEmpty()) {
+            throw new BizException("请选择要操作的题库");
+        }
+        for (Long id : ids) {
+            QuestionBank bank = questionBankMapper.selectOneById(id);
+            if (bank == null) {
+                throw new BizException("题库不存在");
+            }
+            ensureBankCanBeEnabled(bank.getCategoryId(), status);
+            ensureBankCanBeDisabled(id, status);
+            bank.setStatus(status);
+            questionBankMapper.update(bank);
+            clearCache(id);
+        }
     }
 
     @Override
@@ -236,23 +291,66 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         if (bank == null) {
             throw new BizException("题库不存在");
         }
-        List<Long> questionIds = questionMapper.selectListByQuery(
-                        QueryWrapper.create()
-                                .select(QUESTION.ID)
-                                .where(QUESTION.BANK_ID.eq(id))
-                ).stream()
-                .map(Question::getId)
-                .toList();
-        if (!questionIds.isEmpty()) {
-            questionOptionMapper.deleteByQuery(
-                    QueryWrapper.create().where(QUESTION_OPTION.QUESTION_ID.in(questionIds))
-            );
-        }
-        questionMapper.deleteByQuery(
+        long questionCount = questionMapper.selectCountByQuery(
                 QueryWrapper.create().where(QUESTION.BANK_ID.eq(id))
         );
+        if (questionCount > 0) {
+            throw new BizException("题库下存在题目，不能删除");
+        }
         questionBankMapper.deleteById(id);
         clearCache(id);
+    }
+
+    @Override
+    @Transactional
+    public void batchDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BizException("请选择要删除的题库");
+        }
+        for (Long id : ids) {
+            delete(id);
+        }
+    }
+
+    private Integer normalizeStatus(Integer status) {
+        if (status == null) {
+            return 1;
+        }
+        validateStatus(status);
+        return status;
+    }
+
+    private void validateStatus(Integer status) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BizException("状态参数无效");
+        }
+    }
+
+    private void ensureBankCanBeEnabled(Long categoryId, Integer status) {
+        if (!Integer.valueOf(1).equals(status)) {
+            return;
+        }
+        Category category = categoryMapper.selectOneById(categoryId);
+        if (category == null) {
+            throw new BizException("分类不存在");
+        }
+        if (category.getStatus() == null || category.getStatus() != 1) {
+            throw new BizException("分类已禁用，不能启用题库");
+        }
+    }
+
+    private void ensureBankCanBeDisabled(Long bankId, Integer status) {
+        if (!Integer.valueOf(0).equals(status)) {
+            return;
+        }
+        long activeQuestionCount = questionMapper.selectCountByQuery(
+                QueryWrapper.create()
+                        .where(QUESTION.BANK_ID.eq(bankId))
+                        .and(QUESTION.STATUS.eq(1))
+        );
+        if (activeQuestionCount > 0) {
+            throw new BizException("题库下存在启用题目，不能禁用");
+        }
     }
 
     @Override
@@ -265,6 +363,12 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
         QueryWrapper query = QueryWrapper.create()
                 .where(QUESTION_BANK.STATUS.eq(1))
+                .and(QUESTION_BANK.CATEGORY_ID.in(
+                        QueryWrapper.create()
+                                .select(CATEGORY.ID)
+                                .from(CATEGORY)
+                                .where(CATEGORY.STATUS.eq(1))
+                ))
                 .orderBy(QUESTION_BANK.QUESTION_COUNT.desc())
                 .limit(finalLimit);
         List<QuestionBank> banks = questionBankMapper.selectListByQuery(query);

@@ -17,6 +17,14 @@ export function update(id: number, data: Record<string, any>) {
   return request.put(`/api/admin/question/${id}`, data)
 }
 
+export function toggleStatus(id: number, status: number) {
+  return request.put(`/api/admin/question/${id}/status`, null, { params: { status } })
+}
+
+export function batchToggleStatus(ids: number[], status: number) {
+  return request.put('/api/admin/question/batch/status', ids, { params: { status } })
+}
+
 export function remove(id: number) {
   return request.delete(`/api/admin/question/${id}`)
 }
@@ -51,5 +59,5 @@ export function convertSmartParse(file: File) {
 }
 
 export function convertImport(bankId: number, questions: any[]) {
-  return request.post(`/api/admin/question/convert/import?bankId=${bankId}`, questions)
+  return request.post('/api/admin/question/convert/import', questions, { params: { bankId } })
 }

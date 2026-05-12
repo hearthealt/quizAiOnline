@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.quiz.entity.table.FavoriteTableDef.FAVORITE;
+import static com.quiz.entity.table.CategoryTableDef.CATEGORY;
 import static com.quiz.entity.table.QuestionBankTableDef.QUESTION_BANK;
 import static com.quiz.entity.table.QuestionOptionTableDef.QUESTION_OPTION;
 import static com.quiz.entity.table.QuestionTableDef.QUESTION;
@@ -80,6 +81,12 @@ public class QuestionServiceImpl implements QuestionService {
                                 .select(QUESTION_BANK.ID)
                                 .from(QUESTION_BANK)
                                 .where(QUESTION_BANK.STATUS.eq(1))
+                                .and(QUESTION_BANK.CATEGORY_ID.in(
+                                        QueryWrapper.create()
+                                                .select(CATEGORY.ID)
+                                                .from(CATEGORY)
+                                                .where(CATEGORY.STATUS.eq(1))
+                                ))
                 ))
                 .orderBy(QUESTION.SORT.asc(), QUESTION.CREATE_TIME.desc());
         Page<Question> page = questionMapper.paginate(pageNum, pageSize, query);
@@ -155,6 +162,7 @@ public class QuestionServiceImpl implements QuestionService {
     @Override
     @Transactional
     public void create(QuestionDTO dto) {
+        ensureBankExists(dto.getBankId());
         Question question = new Question();
         question.setBankId(dto.getBankId());
         question.setType(dto.getType());
@@ -170,7 +178,9 @@ public class QuestionServiceImpl implements QuestionService {
                             .where(QUESTION.BANK_ID.eq(dto.getBankId())), Integer.class);
             question.setSort(maxSort != null ? maxSort + 1 : 1);
         }
-        question.setStatus(1);
+        Integer status = normalizeStatus(dto.getStatus());
+        ensureQuestionCanBeEnabled(dto.getBankId(), status);
+        question.setStatus(status);
         questionMapper.insert(question);
 
         // 插入选项
@@ -204,6 +214,7 @@ public class QuestionServiceImpl implements QuestionService {
         Long oldBankId = question.getBankId();
 
         if (dto.getBankId() != null) {
+            ensureBankExists(dto.getBankId());
             question.setBankId(dto.getBankId());
         }
         if (dto.getType() != null) {
@@ -224,6 +235,12 @@ public class QuestionServiceImpl implements QuestionService {
         if (dto.getSort() != null) {
             question.setSort(dto.getSort());
         }
+        if (dto.getStatus() != null) {
+            validateStatus(dto.getStatus());
+            ensureQuestionCanBeEnabled(question.getBankId(), dto.getStatus());
+            question.setStatus(dto.getStatus());
+        }
+        ensureQuestionCanBeEnabled(question.getBankId(), question.getStatus());
         questionMapper.update(question, false);
 
         // 删除旧选项，插入新选项
@@ -250,6 +267,49 @@ public class QuestionServiceImpl implements QuestionService {
         updateBankQuestionCount(question.getBankId());
         if (oldBankId != null && !oldBankId.equals(question.getBankId())) {
             updateBankQuestionCount(oldBankId);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void toggleStatus(Long id, Integer status) {
+        validateStatus(status);
+        Question question = questionMapper.selectOneById(id);
+        if (question == null) {
+            throw new BizException("题目不存在");
+        }
+        ensureQuestionCanBeEnabled(question.getBankId(), status);
+        question.setStatus(status);
+        questionMapper.update(question, false);
+        updateBankQuestionCount(question.getBankId());
+    }
+
+    @Override
+    @Transactional
+    public void batchToggleStatus(List<Long> ids, Integer status) {
+        validateStatus(status);
+        if (ids == null || ids.isEmpty()) {
+            throw new BizException("请选择要操作的题目");
+        }
+
+        QueryWrapper query = QueryWrapper.create()
+                .where(QUESTION.ID.in(ids));
+        List<Question> questions = questionMapper.selectListByQuery(query);
+        if (questions.size() != ids.size()) {
+            throw new BizException("部分题目不存在");
+        }
+
+        List<Long> bankIds = questions.stream()
+                .map(Question::getBankId)
+                .distinct()
+                .toList();
+        for (Question question : questions) {
+            ensureQuestionCanBeEnabled(question.getBankId(), status);
+            question.setStatus(status);
+            questionMapper.update(question, false);
+        }
+        for (Long bankId : bankIds) {
+            updateBankQuestionCount(bankId);
         }
     }
 
@@ -294,6 +354,7 @@ public class QuestionServiceImpl implements QuestionService {
     @Transactional
     public QuestionImportResult importFromExcel(Long bankId, Long categoryId, String originalFilename, InputStream inputStream) {
         Long targetBankId = resolveImportBankId(bankId, categoryId, originalFilename);
+        boolean targetBankEnabled = isBankEnabled(targetBankId);
         List<ExcelUtil.QuestionExcelData> dataList = ExcelUtil.readQuestions(inputStream);
         int createCount = 0;
         int updateCount = 0;
@@ -319,6 +380,7 @@ public class QuestionServiceImpl implements QuestionService {
 
                 boolean created = upsertImportedQuestion(
                         targetBankId,
+                        targetBankEnabled,
                         type,
                         data.getContent().trim(),
                         data.getAnswer(),
@@ -347,10 +409,15 @@ public class QuestionServiceImpl implements QuestionService {
     @Transactional
     @SuppressWarnings("unchecked")
     public QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions) {
-        QuestionBank bank = questionBankMapper.selectOneById(bankId);
-        if (bank == null) {
-            throw new BizException("题库不存在");
-        }
+        return importFromConverted(bankId, null, null, questions);
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public QuestionImportResult importFromConverted(Long bankId, Long categoryId, String bankName, List<Map<String, Object>> questions) {
+        Long targetBankId = resolveImportBankIdByName(bankId, categoryId, bankName, "由EZTest直连导入自动创建");
+        boolean targetBankEnabled = isBankEnabled(targetBankId);
 
         int createCount = 0;
         int updateCount = 0;
@@ -376,7 +443,8 @@ public class QuestionServiceImpl implements QuestionService {
 
                 List<String> options = (List<String>) data.get("options");
                 boolean created = upsertImportedQuestion(
-                        bankId,
+                        targetBankId,
+                        targetBankEnabled,
                         type,
                         content.trim(),
                         answer,
@@ -395,7 +463,7 @@ public class QuestionServiceImpl implements QuestionService {
             }
         }
 
-        updateBankQuestionCount(bankId);
+        updateBankQuestionCount(targetBankId);
         return new QuestionImportResult(createCount, updateCount, failCount, errors);
     }
 
@@ -404,6 +472,18 @@ public class QuestionServiceImpl implements QuestionService {
         QueryWrapper query = QueryWrapper.create()
                 .where(QUESTION.BANK_ID.eq(bankId))
                 .and(QUESTION.STATUS.eq(1))
+                .and(QUESTION.BANK_ID.in(
+                        QueryWrapper.create()
+                                .select(QUESTION_BANK.ID)
+                                .from(QUESTION_BANK)
+                                .where(QUESTION_BANK.STATUS.eq(1))
+                                .and(QUESTION_BANK.CATEGORY_ID.in(
+                                        QueryWrapper.create()
+                                                .select(CATEGORY.ID)
+                                                .from(CATEGORY)
+                                                .where(CATEGORY.STATUS.eq(1))
+                                ))
+                ))
                 .orderBy(QUESTION.SORT.asc(), QUESTION.CREATE_TIME.asc());
         return questionMapper.selectListByQuery(query);
     }
@@ -412,6 +492,7 @@ public class QuestionServiceImpl implements QuestionService {
      * @return true 表示新增，false 表示更新。
      */
     private boolean upsertImportedQuestion(Long bankId,
+                                           boolean bankEnabled,
                                            Integer type,
                                            String content,
                                            String answer,
@@ -427,12 +508,15 @@ public class QuestionServiceImpl implements QuestionService {
             question.setType(type);
             question.setContent(content);
             question.setSort(0);
-            question.setStatus(1);
+            question.setStatus(bankEnabled ? 1 : 0);
         }
 
         question.setAnswer(trimToNull(answer));
         question.setAnalysis(trimToNull(analysis));
         question.setDifficulty(difficulty);
+        if (!bankEnabled) {
+            question.setStatus(0);
+        }
 
         if (created) {
             questionMapper.insert(question);
@@ -493,6 +577,13 @@ public class QuestionServiceImpl implements QuestionService {
 
     private Long resolveImportBankId(Long bankId, Long categoryId, String originalFilename) {
         if (bankId != null) {
+            return resolveImportBankIdByName(bankId, categoryId, null, "由批量导入自动创建");
+        }
+        return resolveImportBankIdByName(null, categoryId, extractBankName(originalFilename), "由批量导入自动创建");
+    }
+
+    private Long resolveImportBankIdByName(Long bankId, Long categoryId, String rawBankName, String createDescription) {
+        if (bankId != null) {
             QuestionBank bank = questionBankMapper.selectOneById(bankId);
             if (bank == null) {
                 throw new BizException("题库不存在");
@@ -500,10 +591,11 @@ public class QuestionServiceImpl implements QuestionService {
             return bankId;
         }
 
-        String bankName = extractBankName(originalFilename);
+        String bankName = normalizeBankName(rawBankName);
         List<QuestionBank> matchedBanks = questionBankMapper.selectListByQuery(
                 QueryWrapper.create()
                         .where(QUESTION_BANK.NAME.eq(bankName))
+                        .and(QUESTION_BANK.CATEGORY_ID.eq(categoryId).when(categoryId != null))
                         .orderBy(QUESTION_BANK.ID.asc())
                         .limit(1)
         );
@@ -522,7 +614,7 @@ public class QuestionServiceImpl implements QuestionService {
         QuestionBank newBank = new QuestionBank();
         newBank.setCategoryId(categoryId);
         newBank.setName(bankName);
-        newBank.setDescription("由批量导入自动创建");
+        newBank.setDescription(createDescription);
         newBank.setCover("");
         newBank.setQuestionCount(0);
         newBank.setPracticeCount(0);
@@ -530,7 +622,7 @@ public class QuestionServiceImpl implements QuestionService {
         Integer maxSort = questionBankMapper.selectObjectByQueryAs(
                 QueryWrapper.create().select(max(QUESTION_BANK.SORT)), Integer.class);
         newBank.setSort(maxSort != null ? maxSort + 1 : 1);
-        newBank.setStatus(1);
+        newBank.setStatus(category.getStatus() != null && category.getStatus() == 1 ? 1 : 0);
         questionBankMapper.insert(newBank);
         questionBankService.evictCache(newBank.getId());
         return newBank.getId();
@@ -544,9 +636,14 @@ public class QuestionServiceImpl implements QuestionService {
         }
         int dotIndex = filename.lastIndexOf('.');
         String bankName = dotIndex > 0 ? filename.substring(0, dotIndex) : filename;
+        return normalizeBankName(bankName);
+    }
+
+    private String normalizeBankName(String value) {
+        String bankName = value == null ? "" : value.trim();
         bankName = bankName.trim();
         if (bankName.isEmpty()) {
-            throw new BizException("未选择题库时，无法从文件名识别题库名称，请手动选择题库");
+            throw new BizException("未选择题库时，无法识别题库名称，请手动选择题库");
         }
         return bankName.length() > 100 ? bankName.substring(0, 100) : bankName;
     }
@@ -562,10 +659,58 @@ public class QuestionServiceImpl implements QuestionService {
 
         QuestionBank bank = questionBankMapper.selectOneById(bankId);
         if (bank != null) {
-            bank.setQuestionCount((int) count);
+            bank.setQuestionCount(bank.getStatus() != null && bank.getStatus() == 1 ? (int) count : 0);
             questionBankMapper.update(bank);
         }
         questionBankService.evictCache(bankId);
+    }
+
+    private void ensureQuestionCanBeEnabled(Long bankId, Integer status) {
+        if (!Integer.valueOf(1).equals(status)) {
+            return;
+        }
+        QuestionBank bank = ensureBankExists(bankId);
+        if (bank.getStatus() == null || bank.getStatus() != 1) {
+            throw new BizException("题库已禁用，不能启用题目");
+        }
+        Category category = categoryMapper.selectOneById(bank.getCategoryId());
+        if (category == null) {
+            throw new BizException("分类不存在");
+        }
+        if (category.getStatus() == null || category.getStatus() != 1) {
+            throw new BizException("分类已禁用，不能启用题目");
+        }
+    }
+
+    private boolean isBankEnabled(Long bankId) {
+        QuestionBank bank = ensureBankExists(bankId);
+        if (bank.getStatus() == null || bank.getStatus() != 1) {
+            return false;
+        }
+        Category category = categoryMapper.selectOneById(bank.getCategoryId());
+        return category != null && category.getStatus() != null && category.getStatus() == 1;
+    }
+
+    private QuestionBank ensureBankExists(Long bankId) {
+        QuestionBank bank = bankId == null ? null : questionBankMapper.selectOneById(bankId);
+        if (bank == null) {
+            throw new BizException("题库不存在");
+        }
+        return bank;
+    }
+
+    private Integer normalizeStatus(Integer status) {
+        if (status == null) {
+            return 1;
+        }
+        validateStatus(status);
+        return status;
+    }
+
+    private void validateStatus(Integer status) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BizException("状态参数无效");
+        }
     }
 
     private int parseQuestionType(String typeStr) {

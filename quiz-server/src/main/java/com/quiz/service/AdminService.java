@@ -14,6 +14,8 @@ public interface AdminService {
 
     AdminInfoVO getInfo(Long adminId);
 
+    AdminInfoVO updateProfile(Long adminId, AdminUpdateDTO dto);
+
     void changePassword(Long adminId, ChangePasswordDTO dto);
 
     PageResult<Admin> list(Integer pageNum, Integer pageSize);

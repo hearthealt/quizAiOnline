@@ -1,5 +1,6 @@
 package com.quiz.controller.admin;
 
+import com.quiz.common.constant.CommonConstant;
 import com.quiz.common.result.R;
 import com.quiz.config.StpKit;
 import com.quiz.dto.admin.AiBatchGenerateDTO;
@@ -49,6 +50,7 @@ public class AdminAiController {
     @Operation(summary = "生成AI解析")
     @PostMapping("/generate")
     public R<?> generate(@RequestBody AiGenerateDTO dto) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         Long adminId = StpKit.ADMIN.getLoginIdAsLong();
         aiAnalysisService.generateAsync(dto.getQuestionId(), dto.getMode(), adminId);
         return R.ok("已提交AI生成任务");
@@ -57,6 +59,7 @@ public class AdminAiController {
     @Operation(summary = "批量生成AI解析")
     @PostMapping("/batch-generate")
     public R<?> batchGenerate(@RequestBody AiBatchGenerateDTO dto) {
+        StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN);
         Long adminId = StpKit.ADMIN.getLoginIdAsLong();
         return R.ok(aiAnalysisService.batchGenerate(dto, adminId));
     }

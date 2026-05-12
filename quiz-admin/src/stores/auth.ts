@@ -7,6 +7,7 @@ import type { Admin } from '@/types'
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string>(localStorage.getItem('admin_token') || '')
   const adminInfo = ref<Admin | null>(null)
+  const infoLoaded = ref(false)
 
   // 初始化时从 localStorage 恢复 adminInfo
   const savedInfo = localStorage.getItem('admin_info')
@@ -23,6 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setAdminInfo(info: Admin | null) {
     adminInfo.value = info
+    infoLoaded.value = !!info
     if (info) {
       localStorage.setItem('admin_info', JSON.stringify(info))
     } else {
@@ -68,10 +70,11 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     token.value = ''
     adminInfo.value = null
+    infoLoaded.value = false
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_info')
     router.push('/login')
   }
 
-  return { token, adminInfo, setToken, setAdminInfo, login, fetchInfo, logout }
+  return { token, adminInfo, infoLoaded, setToken, setAdminInfo, login, fetchInfo, logout }
 })
