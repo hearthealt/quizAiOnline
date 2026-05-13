@@ -19,7 +19,7 @@
         </n-space>
       </template>
 
-      <n-data-table
+      <AdminDataTable
         :columns="columns"
         :data="data"
         :loading="loading"
@@ -91,7 +91,7 @@
           </n-descriptions>
 
           <div class="section-title">最近答题记录</div>
-          <n-data-table
+          <AdminDataTable
             :columns="recordColumns"
             :data="records"
             :loading="recordLoading"
@@ -222,6 +222,7 @@ const columns: DataTableColumns<User> = [
         value: row.status,
         checkedValue: 1,
         uncheckedValue: 0,
+        size: 'small',
         onUpdateValue: (val: number) => handleToggleStatus(row.id, val),
       })
     },
@@ -516,5 +517,111 @@ onMounted(() => fetchData(searchParams))
 
 .chat-bubble-wrap.deleted .chat-bubble {
   opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .user-profile {
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .profile-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .profile-name {
+    min-width: 0;
+    flex-wrap: wrap;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .profile-phone {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vip-actions :deep(.n-space) {
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+
+  .detail-desc {
+    margin-bottom: 14px;
+  }
+
+  .detail-desc :deep(.n-descriptions-table),
+  .detail-desc :deep(.n-descriptions-table-row),
+  .detail-desc :deep(.n-descriptions-table-header),
+  .detail-desc :deep(.n-descriptions-table-content) {
+    display: block;
+    width: 100%;
+  }
+
+  .detail-desc :deep(.n-descriptions-table-header) {
+    padding: 9px 10px 4px !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  .detail-desc :deep(.n-descriptions-table-content) {
+    padding: 0 10px 9px !important;
+    border-right: 0 !important;
+  }
+
+  .section-title {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .chat-summary {
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .chat-summary .n-button {
+    min-width: 112px;
+  }
+
+  .chat-modal-content {
+    max-height: calc(100dvh - 128px);
+    gap: 10px;
+    padding: 2px 0;
+  }
+
+  .chat-bubble {
+    max-width: 92%;
+    padding: 10px 12px;
+  }
+
+  .bubble-content {
+    font-size: 13px;
+  }
+
+  .bubble-meta {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .chat-summary {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .chat-summary .n-button {
+    width: 100%;
+  }
 }
 </style>

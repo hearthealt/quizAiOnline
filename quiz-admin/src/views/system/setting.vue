@@ -12,10 +12,7 @@
               <n-input v-model:value="formData.siteDescription" type="textarea" :rows="2" placeholder="请输入站点描述" />
             </n-form-item>
             <n-form-item label="开放注册">
-              <n-switch v-model:value="registerEnabled">
-                <template #checked>开放</template>
-                <template #unchecked>关闭</template>
-              </n-switch>
+              <n-switch v-model:value="registerEnabled" size="small" />
             </n-form-item>
             <n-form-item label="站点Logo">
               <div class="logo-upload">

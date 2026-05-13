@@ -37,7 +37,7 @@
         </div>
       </div>
 
-      <n-data-table
+      <AdminDataTable
         :columns="columns"
         :data="tableData"
         :loading="loading"
@@ -126,7 +126,7 @@
           </div>
 
           <div class="section-title">当日答题</div>
-          <n-data-table
+          <AdminDataTable
             :columns="detailColumns"
             :data="detailData.answers?.list || []"
             :loading="answerLoading"
@@ -606,6 +606,85 @@ void fetchAll()
   .overview-grid,
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-card,
+  .summary-item {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .overview-value {
+    font-size: 20px;
+  }
+
+  .summary-value {
+    font-size: 16px;
+  }
+
+  .summary-value.small {
+    font-size: 13px;
+  }
+
+  .detail-user {
+    margin-bottom: 12px;
+  }
+
+  .detail-user-copy {
+    min-width: 0;
+  }
+
+  .detail-user-name,
+  .detail-user-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .section-header {
+    margin: 14px 0 8px;
+  }
+
+  .timeline-panel {
+    max-height: none;
+    padding-right: 0;
+  }
+
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .timeline-main {
+    min-width: 0;
+  }
+
+  .timeline-desc {
+    overflow-wrap: anywhere;
+  }
+
+  .timeline-time {
+    text-align: left;
+  }
+
+  .timeline-pagination {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .timeline-pagination :deep(.n-pagination) {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .overview-grid,
+  .summary-grid {
+    gap: 8px;
   }
 }
 </style>

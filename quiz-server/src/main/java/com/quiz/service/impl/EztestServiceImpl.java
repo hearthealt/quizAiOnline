@@ -1020,16 +1020,24 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         candidates.add(Path.of("C:/Windows/Fonts/msyh.ttc"));
         candidates.add(Path.of("C:/Windows/Fonts/simsun.ttc"));
         candidates.add(Path.of("C:/Windows/Fonts/simhei.ttf"));
-        candidates.add(Path.of("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"));
+        candidates.add(Path.of("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"));
+        candidates.add(Path.of("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"));
+        candidates.add(Path.of("/usr/share/fonts/truetype/arphic/uming.ttc"));
+        candidates.add(Path.of("/usr/share/fonts/truetype/arphic/ukai.ttc"));
         candidates.add(Path.of("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"));
+        candidates.add(Path.of("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"));
         candidates.add(Path.of("/System/Library/Fonts/PingFang.ttc"));
         for (Path candidate : candidates) {
             try {
                 if (candidate != null && Files.exists(candidate)) {
+                    PdfFontResource fontResource;
                     if (candidate.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ttc")) {
-                        return loadFontFromCollection(document, candidate);
+                        fontResource = loadFontFromCollection(document, candidate);
+                    } else {
+                        fontResource = new PdfFontResource(PDType0Font.load(document, candidate.toFile()), null);
                     }
-                    return new PdfFontResource(PDType0Font.load(document, candidate.toFile()), null);
+                    log.info("使用 PDF 中文字体: {}", candidate);
+                    return fontResource;
                 }
             } catch (Exception e) {
                 log.warn("加载 PDF 字体失败: {}", candidate, e);
@@ -1042,15 +1050,27 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         TrueTypeCollection collection = new TrueTypeCollection(path.toFile());
         try {
             List<PDType0Font> loaded = new ArrayList<>(1);
+            List<Throwable> failures = new ArrayList<>();
             collection.processAllFonts(font -> {
                 if (loaded.isEmpty()) {
-                    loaded.add(PDType0Font.load(document, font, true));
+                    try {
+                        loaded.add(PDType0Font.load(document, font, true));
+                    } catch (IOException | RuntimeException e) {
+                        failures.add(e);
+                        try {
+                            font.close();
+                        } catch (IOException closeException) {
+                            e.addSuppressed(closeException);
+                        }
+                    }
                 } else {
                     font.close();
                 }
             });
             if (loaded.isEmpty()) {
-                throw new IOException("字体集合为空");
+                IOException exception = new IOException("字体集合中没有可用的 TrueType 字体: " + path);
+                failures.forEach(exception::addSuppressed);
+                throw exception;
             }
             return new PdfFontResource(loaded.get(0), collection);
         } catch (IOException | RuntimeException e) {

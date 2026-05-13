@@ -512,7 +512,7 @@ CREATE TABLE `wrong_question`  (
   INDEX `idx_user_bank`(`user_id` ASC, `bank_id` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '错题表' ROW_FORMAT = Dynamic;
 
-INSERT INTO `admin` VALUES (1, 'admin', '$2a$10$RJwdMklUVLK1S0noSMvX.e3Q3Bl4V.zReAlPP6k5PSwd2qTVzApd.', '管理员', '/uploads/21180087953643e09761fbb65dc13afd.jpg', 'super_admin', 1, '2026-04-04 12:56:54', '2026-03-18 09:10:02', '2026-04-04 12:56:54', 0);
+INSERT INTO `admin` VALUES (1, 'admin', '$2a$10$ykTrA48d6wBr/GjW1uOQCec0Su7O87R5icmanhNMwtwiQnrKBxDuW', '管理员', '/uploads/21180087953643e09761fbb65dc13afd.jpg', 'super_admin', 1, '2026-04-04 12:56:54', '2026-03-18 09:10:02', '2026-04-04 12:56:54', 0);
 
 INSERT INTO `vip_plan` VALUES (1, '月度VIP', 30, 19.90, 29.90, '解锁全部题目AI智能解析', 1, 1, '2026-03-18 09:10:02', '2026-03-18 09:10:02', 0);
 INSERT INTO `vip_plan` VALUES (2, '季度VIP', 90, 49.90, 89.70, '解锁全部题目AI智能解析，季度更优惠', 2, 1, '2026-03-18 09:10:02', '2026-03-18 09:10:02', 0);

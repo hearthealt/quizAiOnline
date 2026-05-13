@@ -11,7 +11,7 @@
         <n-button @click="handleReset">重置</n-button>
       </template>
 
-      <n-data-table
+      <AdminDataTable
         :columns="columns"
         :data="tableData"
         :loading="loading"

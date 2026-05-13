@@ -9,7 +9,7 @@
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
       </template>
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
+      <AdminDataTable :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
       <template #pagination>
         <n-pagination
           :page="query.pageNum"

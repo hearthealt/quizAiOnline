@@ -130,7 +130,7 @@
 
       <!-- 表格预览 -->
       <div v-else class="result-table-wrapper">
-        <n-data-table
+        <AdminDataTable
           :columns="tableColumns"
           :data="parsedQuestions"
           :max-height="9999"
@@ -687,6 +687,62 @@ async function downloadResult() {
 
   &::-webkit-scrollbar-thumb:hover {
     background: rgba(95, 68, 47, 0.35);
+  }
+}
+
+@media (max-width: 768px) {
+  .convert-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .left-panel,
+  .right-panel {
+    min-width: 0;
+    border-radius: 14px;
+  }
+
+  .left-panel {
+    flex-basis: auto;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .panel-header > .n-space {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .stats-bar {
+    padding: 10px 12px;
+    overflow-x: auto;
+  }
+
+  .stats-bar :deep(.n-space) {
+    flex-wrap: nowrap;
+  }
+
+  .upload-area {
+    min-height: 220px;
+    padding: 12px;
+  }
+
+  .result-table-wrapper {
+    min-height: 0;
+    contain: none;
+  }
+
+  .import-summary {
+    padding: 12px;
   }
 }
 </style>

@@ -35,7 +35,7 @@
           <span v-if="runningCount" class="refresh-note">运行中任务每 5 秒刷新</span>
         </template>
 
-        <n-data-table
+        <AdminDataTable
           :columns="jobColumns"
           :data="jobs"
           :loading="jobLoading"
@@ -106,7 +106,7 @@
             <strong>题库列表</strong>
             <span v-if="sessions.length">已选 {{ selectedSessionIds.length }}/{{ sessions.length }}</span>
           </div>
-          <n-data-table
+          <AdminDataTable
             :columns="sessionColumns"
             :data="sessions"
             :loading="sessionLoading"
@@ -167,7 +167,7 @@
             导入题库
           </n-button>
         </div>
-        <n-data-table
+        <AdminDataTable
           class="file-table"
           :columns="fileColumns"
           :data="jobFiles"
@@ -880,12 +880,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 980px) {
   .export-dialog-head,
-  .dialog-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .export-dialog-head,
   .import-line,
   .detail-stats {
     grid-template-columns: 1fr;
@@ -893,6 +887,105 @@ onBeforeUnmount(() => {
 
   .detail-overview {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .export-dialog {
+    gap: 10px;
+  }
+
+  .export-dialog-head {
+    gap: 8px;
+  }
+
+  .export-dialog-head .n-button {
+    width: 100%;
+  }
+
+  .export-options {
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .option-line {
+    gap: 8px 12px;
+  }
+
+  .option-line > span {
+    flex: 0 0 100%;
+  }
+
+  .import-line {
+    gap: 8px;
+  }
+
+  .import-line > .n-checkbox {
+    width: 100%;
+  }
+
+  .session-picker {
+    min-height: 0;
+  }
+
+  .session-picker-head {
+    margin-bottom: 6px;
+  }
+
+  .dialog-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding-top: 0;
+  }
+
+  .dialog-footer .n-space {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+  }
+
+  .dialog-footer .n-space-item,
+  .dialog-footer .n-button {
+    width: 100%;
+  }
+
+  .detail-overview {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .detail-overview strong,
+  .detail-stats strong {
+    font-size: 16px;
+  }
+
+  .detail-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .detail-stats div {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .detail-block {
+    margin-top: 14px;
+  }
+
+  .detail-title-row {
+    align-items: stretch;
+  }
+
+  .file-table {
+    min-height: 0;
+  }
+
+  :deep(.file-table .n-data-table-wrapper) {
+    min-height: 0;
   }
 }
 </style>

@@ -8,7 +8,7 @@
     </template>
 
     <DataTableSection>
-      <n-data-table size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
+      <AdminDataTable size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
     </DataTableSection>
 
     <n-modal v-model:show="showForm" preset="card" :title="formData.id ? '编辑套餐' : '新增套餐'" style="width: 520px">
@@ -50,10 +50,7 @@
           <n-input v-model:value="formData.description" type="textarea" :rows="3" placeholder="请输入描述" />
         </n-form-item>
         <n-form-item label="状态" path="status">
-          <n-switch v-model:value="formData.status" :checked-value="1" :unchecked-value="0">
-            <template #checked>启用</template>
-            <template #unchecked>禁用</template>
-          </n-switch>
+          <n-switch v-model:value="formData.status" size="small" :checked-value="1" :unchecked-value="0" />
         </n-form-item>
       </n-form>
       <template #footer>
@@ -121,6 +118,7 @@ const columns: DataTableColumns = [
         value: row.status,
         checkedValue: 1,
         uncheckedValue: 0,
+        size: 'small',
         onUpdateValue: async (val: number) => {
           await togglePlanStatus(row.id, val)
           row.status = val

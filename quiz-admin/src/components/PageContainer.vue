@@ -1,10 +1,6 @@
 <template>
   <div class="bento-page">
-    <header v-if="showHeader" class="bento-header">
-      <div>
-        <h2>{{ title }}</h2>
-        <span v-if="subtitle" class="subtitle">{{ subtitle }}</span>
-      </div>
+    <header v-if="showHeader && hasHeaderActions" class="bento-header bento-header--has-actions">
       <div class="header-actions">
         <slot name="header-actions" />
       </div>
@@ -14,11 +10,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed, useSlots } from 'vue'
+
 withDefaults(defineProps<{
-  title?: string
-  subtitle?: string
   showHeader?: boolean
 }>(), {
   showHeader: true
 })
+
+const slots = useSlots()
+const hasHeaderActions = computed(() => Boolean(slots['header-actions']))
 </script>

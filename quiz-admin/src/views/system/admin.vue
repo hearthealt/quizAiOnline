@@ -8,7 +8,7 @@
     </template>
 
     <DataTableSection>
-      <n-data-table size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
+      <AdminDataTable size="small" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped />
       <template #pagination>
         <n-pagination
           :page="query.pageNum"

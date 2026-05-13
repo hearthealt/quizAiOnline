@@ -19,7 +19,7 @@
         <span class="legend-dot is-total"></span><span>总题数</span>
       </div>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
+      <AdminDataTable :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
 
       <template #pagination>
         <n-pagination
@@ -85,7 +85,7 @@
           <span v-if="detailSummary.unansweredCount > 0">未作答题目显示为"未答"。</span>
         </div>
 
-        <n-data-table :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="420" />
+        <AdminDataTable :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="420" />
 
         <div class="detail-pagination">
           <n-pagination

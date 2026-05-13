@@ -7,7 +7,7 @@
         <n-button type="primary" @click="handleSearch">搜索</n-button>
         <n-button @click="handleReset">重置</n-button>
         <n-button :loading="loading" @click="fetchData()">刷新</n-button>
-        <n-switch v-model:value="autoRefresh" />
+        <n-switch v-model:value="autoRefresh" size="small" />
         <span class="refresh-label">自动刷新</span>
         <n-select
           v-model:value="refreshPreset"
@@ -28,7 +28,7 @@
         </n-input-number>
       </template>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: AiBatchJob) => row.id" striped size="small" />
+      <AdminDataTable :columns="columns" :data="tableData" :loading="loading" :row-key="(row: AiBatchJob) => row.id" striped size="small" />
 
       <template #pagination>
         <n-pagination
@@ -67,7 +67,7 @@
 
       <div class="detail-section">
         <div class="detail-title">最近失败题目</div>
-        <n-data-table
+        <AdminDataTable
           :columns="failedColumns"
           :data="currentJob?.recentFailedItems || []"
           :pagination="false"

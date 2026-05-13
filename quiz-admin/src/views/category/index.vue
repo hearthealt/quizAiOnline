@@ -24,7 +24,7 @@
     </template>
 
     <DataTableSection>
-      <n-data-table
+      <AdminDataTable
         size="small"
         :columns="columns"
         :data="data"
@@ -77,10 +77,7 @@
           <n-input-number v-model:value="formValue.sort" :min="0" style="width: 100%" />
         </n-form-item>
         <n-form-item v-if="isSuperAdmin" label="状态" path="status">
-          <n-switch v-model:value="formValue.status" :checked-value="1" :unchecked-value="0">
-            <template #checked>启用</template>
-            <template #unchecked>禁用</template>
-          </n-switch>
+          <n-switch v-model:value="formValue.status" size="small" :checked-value="1" :unchecked-value="0" />
         </n-form-item>
       </n-form>
       <template #footer>
@@ -140,6 +137,7 @@ const columns = computed<DataTableColumns<Category>>(() => [
         value: row.status,
         checkedValue: 1,
         uncheckedValue: 0,
+        size: 'small',
         onUpdateValue: (val: number) => handleToggleStatus(row.id, val),
       })
     },

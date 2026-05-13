@@ -31,7 +31,7 @@
         <n-button @click="handleReset">重置</n-button>
       </template>
 
-      <n-data-table
+      <AdminDataTable
         :columns="columns"
         :data="data"
         :loading="loading"
@@ -124,12 +124,10 @@
           <n-form-item v-if="isSuperAdmin" label="状态" path="status">
             <n-switch
               v-model:value="formValue.status"
+              size="small"
               :checked-value="1"
               :unchecked-value="0"
-            >
-              <template #checked>启用</template>
-              <template #unchecked>禁用</template>
-            </n-switch>
+            />
           </n-form-item>
         </n-form>
         <template #footer>
@@ -227,7 +225,7 @@
           <n-input-number v-model:value="aiConcurrency" :min="1" :max="10" :step="1" style="width: 160px" />
         </n-form-item>
         <n-form-item label="覆盖已有">
-          <n-switch v-model:value="aiOverwrite" />
+          <n-switch v-model:value="aiOverwrite" size="small" />
         </n-form-item>
         <n-form-item label="执行规则">
           <n-alert type="info" :show-icon="false">
@@ -491,9 +489,6 @@ const columns = computed<DataTableColumns<Question>>(() => [
         disabled: statusLoadingId.value !== null && statusLoadingId.value !== row.id,
         loading: statusLoadingId.value === row.id,
         onUpdateValue: (value: number) => handleToggleStatus(row, value)
-      }, {
-        checked: () => '启用',
-        unchecked: () => '禁用'
       })
     },
   },
@@ -859,6 +854,23 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .import-shell {
+    gap: 12px;
+  }
+
+  .import-banner {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .import-banner-head {
+    align-items: flex-start;
+  }
+
+  .import-banner-sub {
+    display: none;
+  }
+
   .import-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -885,5 +897,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .option-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 32px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .option-item :deep(.n-input) {
+    min-width: 0;
+  }
+
+  .option-item :deep(.n-button) {
+    width: 32px;
+    height: 32px;
+  }
 }
 </style>

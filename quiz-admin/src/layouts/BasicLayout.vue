@@ -1,6 +1,8 @@
 <template>
   <div class="admin-shell">
-    <aside class="shell-sider" :class="{ collapsed }">
+    <div v-if="mobileMenuOpen" class="mobile-menu-mask" @click="mobileMenuOpen = false" />
+
+    <aside class="shell-sider" :class="{ collapsed, 'mobile-open': mobileMenuOpen }">
       <div class="sider-top">
         <div class="brand-mark">
           <img v-if="siteLogo" class="logo-img" :src="siteLogo" alt="logo" />
@@ -13,6 +15,7 @@
         <button class="collapse-btn" @click="collapsed = !collapsed">
           {{ collapsed ? "›" : "‹" }}
         </button>
+        <button class="mobile-close-btn" type="button" aria-label="关闭菜单" @click="mobileMenuOpen = false">×</button>
       </div>
 
       <div class="menu-wrap">
@@ -87,6 +90,11 @@
 
     <main class="shell-main">
       <header class="shell-header">
+        <button class="mobile-menu-btn" type="button" aria-label="打开菜单" @click="mobileMenuOpen = true">
+          <span />
+          <span />
+          <span />
+        </button>
         <n-breadcrumb>
           <n-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">
             {{ item.title }}
@@ -206,6 +214,7 @@ import {
 } from '@vicons/ionicons5'
 
 const collapsed = ref(false)
+const mobileMenuOpen = ref(false)
 const expandedGroups = ref<string[]>([])
 const route = useRoute()
 const router = useRouter()
@@ -434,6 +443,7 @@ const menuOptions = computed(() => {
 
 async function handleMenuSelect(key: string) {
   if (!key.startsWith('/')) return
+  mobileMenuOpen.value = false
   try {
     await router.push(key)
   } catch (e: any) {
@@ -483,6 +493,12 @@ onMounted(async () => {
   backdrop-filter: var(--glass-blur);
   transition: width 0.25s ease, padding 0.25s ease;
   overflow: hidden;
+}
+
+.mobile-menu-mask,
+.mobile-menu-btn,
+.mobile-close-btn {
+  display: none;
 }
 
 .shell-sider.collapsed {
@@ -792,6 +808,130 @@ onMounted(async () => {
     align-self: stretch;
     width: 100%;
     height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-shell {
+    display: block;
+    padding: 10px;
+  }
+
+  .mobile-menu-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(35, 23, 15, 0.42);
+    backdrop-filter: blur(2px);
+  }
+
+  .shell-sider,
+  .shell-sider.collapsed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: min(82vw, 312px);
+    height: 100dvh;
+    padding: 14px 12px;
+    border-radius: 0 18px 18px 0;
+    transform: translateX(-105%);
+    transition: transform 0.24s ease;
+  }
+
+  .shell-sider.mobile-open,
+  .shell-sider.collapsed.mobile-open {
+    transform: translateX(0);
+  }
+
+  .shell-sider.collapsed .menu-item {
+    justify-content: flex-start;
+    padding: 8px 12px;
+  }
+
+  .shell-sider.collapsed .brand-copy,
+  .shell-sider.collapsed .menu-label-text,
+  .shell-sider.collapsed .menu-label {
+    display: flex;
+  }
+
+  .collapse-btn {
+    display: none;
+  }
+
+  .mobile-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-left: auto;
+    border: 0;
+    border-radius: 10px;
+    background: rgba(95, 68, 47, 0.08);
+    color: var(--color-text-secondary);
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .mobile-menu-btn {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid rgba(95, 68, 47, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--color-text);
+  }
+
+  .mobile-menu-btn span {
+    width: 18px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .shell-main {
+    gap: 12px;
+  }
+
+  .shell-header {
+    position: sticky;
+    top: 8px;
+    z-index: 70;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    min-height: 56px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 10px 30px rgba(55, 27, 17, 0.1);
+  }
+
+  .shell-header :deep(.n-breadcrumb) {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .shell-header :deep(.n-breadcrumb .n-breadcrumb-item__link) {
+    font-size: 12px;
+  }
+
+  .header-actions {
+    flex-shrink: 0;
+  }
+
+  .user-chip {
+    padding: 4px;
+  }
+
+  .user-copy {
+    display: none;
   }
 }
 </style>

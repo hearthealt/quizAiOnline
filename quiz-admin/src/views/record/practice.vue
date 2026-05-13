@@ -18,7 +18,7 @@
         <span class="legend-dot is-total"></span><span>总题数</span>
       </div>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
+      <AdminDataTable :columns="columns" :data="tableData" :loading="loading" :row-key="(row: any) => row.id" striped size="small" />
 
       <template #pagination>
         <n-pagination
@@ -74,7 +74,7 @@
           </div>
         </div>
 
-        <n-data-table :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="420" />
+        <AdminDataTable :columns="detailColumns" :data="detailData" :loading="detailLoading" size="small" :max-height="420" />
 
         <div class="detail-pagination">
           <n-pagination

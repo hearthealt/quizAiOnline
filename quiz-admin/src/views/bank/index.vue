@@ -39,7 +39,7 @@
         <n-button @click="handleReset">重置</n-button>
       </template>
 
-      <n-data-table
+      <AdminDataTable
         :columns="columns"
         :data="data"
         :loading="loading"
@@ -112,12 +112,10 @@
             <n-form-item label="状态" path="status" label-width="80">
               <n-switch
                 v-model:value="formValue.status"
+                size="small"
                 :checked-value="1"
                 :unchecked-value="0"
-              >
-                <template #checked>启用</template>
-                <template #unchecked>禁用</template>
-              </n-switch>
+              />
             </n-form-item>
           </n-gi>
         </n-grid>
@@ -207,9 +205,6 @@ const columns = computed<DataTableColumns<QuestionBank>>(() => [
         disabled: statusLoadingId.value !== null && statusLoadingId.value !== row.id,
         loading: statusLoadingId.value === row.id,
         onUpdateValue: (value: number) => handleToggleStatus(row, value)
-      }, {
-        checked: () => '启用',
-        unchecked: () => '禁用'
       })
     },
   },
@@ -395,5 +390,24 @@ onMounted(() => {
 .upload-trigger span {
   font-size: 12px;
   color: #999;
+}
+
+@media (max-width: 768px) {
+  .cover-upload {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .upload-trigger {
+    width: 100%;
+    height: 112px;
+  }
+
+  .upload-trigger :deep(.n-image),
+  .upload-trigger :deep(img) {
+    width: 100% !important;
+    height: 112px !important;
+    object-fit: cover;
+  }
 }
 </style>
