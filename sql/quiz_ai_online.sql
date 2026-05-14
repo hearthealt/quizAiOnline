@@ -172,7 +172,7 @@ CREATE TABLE `eztest_job`  (
   `session_names` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '题库名称列表',
   `import_bank_id` bigint NULL DEFAULT NULL COMMENT '导入目标题库ID',
   `import_category_id` bigint NULL DEFAULT NULL COMMENT '未指定题库时自动创建题库使用的分类ID',
-  `import_payload` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '已转换题目数据，用于任务完成后再次导入题库',
+  `import_payload` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '可导入题目数据，用于任务完成后再次导入题库',
   `export_xlsx` tinyint NOT NULL DEFAULT 1 COMMENT '是否导出XLSX',
   `export_pdf_with_answers` tinyint NOT NULL DEFAULT 0 COMMENT '是否导出含答案PDF',
   `export_pdf_without_answers` tinyint NOT NULL DEFAULT 0 COMMENT '是否导出不含答案PDF',

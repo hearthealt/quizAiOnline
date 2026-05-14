@@ -37,9 +37,7 @@ public interface QuestionService {
 
     QuestionImportResult importFromExcel(Long bankId, Long categoryId, String originalFilename, InputStream inputStream);
 
-    QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions);
-
-    QuestionImportResult importFromConverted(Long bankId, Long categoryId, String bankName, List<Map<String, Object>> questions);
+    QuestionImportResult importFromPayload(Long bankId, Long categoryId, String bankName, List<Map<String, Object>> questions);
 
     List<Question> listByBankId(Long bankId);
 

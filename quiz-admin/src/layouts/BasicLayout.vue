@@ -208,7 +208,6 @@ import {
   PeopleOutline,
   SettingsOutline,
   StatsChartOutline,
-  SwapHorizontalOutline,
   CloudDownloadOutline,
   WalletOutline,
 } from '@vicons/ionicons5'
@@ -361,7 +360,6 @@ const allMenuOptions = [
       { label: '分类管理', key: '/category', icon: FolderOutline },
       { label: '题库列表', key: '/bank', icon: BookOutline },
       { label: '题目管理', key: '/question', icon: DocumentTextOutline },
-      { label: '题目转换', key: '/bank/convert', icon: SwapHorizontalOutline },
       { label: 'EZTest直连', key: '/eztest/api', icon: CloudDownloadOutline },
     ],
   },

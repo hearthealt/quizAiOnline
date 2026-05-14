@@ -79,7 +79,7 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
     private static final int JOB_FAILED = 4;
     private static final int PROGRESS_START = 3;
     private static final int PROGRESS_EXPORT_END = 64;
-    private static final int PROGRESS_CONVERTED = 72;
+    private static final int PROGRESS_IMPORT_READY = 72;
     private static final int PROGRESS_FILES_END = 88;
     private static final int PROGRESS_IMPORTING = 92;
     private static final int PROGRESS_DONE = 100;
@@ -245,12 +245,12 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         if (importBankId == null && importCategoryId == null) {
             throw new BizException("未选择题库时，请先选择分类");
         }
-        List<ConvertedBundle> convertedBundles = parseImportPayload(job.getImportPayload());
-        if (convertedBundles.isEmpty()) {
+        List<ImportBundle> importBundles = parseImportPayload(job.getImportPayload());
+        if (importBundles.isEmpty()) {
             throw new BizException("任务没有可导入题目，请重新导出");
         }
 
-        QuestionService.QuestionImportResult importResult = importConvertedBundles(importBankId, importCategoryId, convertedBundles);
+        QuestionService.QuestionImportResult importResult = importBundles(importBankId, importCategoryId, importBundles);
         eztestJobMapper.updateImportTarget(id, importBankId, importCategoryId);
         eztestJobMapper.updateImportCounts(
                 id,
@@ -412,9 +412,9 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
                 eztestJobMapper.updateProgress(jobId, completed, calculateExportProgress(completed, selectedSessions.size()), totalRaw, totalExported, totalDuplicate, "已导出 " + completed + "/" + selectedSessions.size(), logs);
             }
 
-            List<ConvertedBundle> convertedBundles = toConvertedBundles(bundles);
-            eztestJobMapper.updateImportPayload(jobId, buildImportPayload(convertedBundles));
-            eztestJobMapper.updateStepProgress(jobId, PROGRESS_CONVERTED, "题目转换完成", logs);
+            List<ImportBundle> importBundles = toImportBundles(bundles);
+            eztestJobMapper.updateImportPayload(jobId, buildImportPayload(importBundles));
+            eztestJobMapper.updateStepProgress(jobId, PROGRESS_IMPORT_READY, "题目数据整理完成", logs);
 
             boolean exportXlsx = dto.getExportXlsx() == null || Boolean.TRUE.equals(dto.getExportXlsx());
             boolean exportPdfWithAnswers = Boolean.TRUE.equals(dto.getExportPdfWithAnswers());
@@ -451,7 +451,7 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
             QuestionService.QuestionImportResult importResult = null;
             if (wantsImport(dto)) {
                 eztestJobMapper.updateStepProgress(jobId, PROGRESS_IMPORTING, "正在导入题库", logs);
-                importResult = importConvertedBundles(dto.getImportBankId(), dto.getImportCategoryId(), convertedBundles);
+                importResult = importBundles(dto.getImportBankId(), dto.getImportCategoryId(), importBundles);
                 eztestJobMapper.updateImportCounts(
                         jobId,
                         importResult.getCreateCount(),
@@ -1102,10 +1102,10 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         if (total <= 0) {
             return PROGRESS_FILES_END;
         }
-        return PROGRESS_CONVERTED + (PROGRESS_FILES_END - PROGRESS_CONVERTED) * Math.min(completed, total) / total;
+        return PROGRESS_IMPORT_READY + (PROGRESS_FILES_END - PROGRESS_IMPORT_READY) * Math.min(completed, total) / total;
     }
 
-    private Map<String, Object> toConvertedQuestion(EzQuestion question) {
+    private Map<String, Object> toImportQuestion(EzQuestion question) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("content", cleanStemForOutput(question));
         data.put("type", question.getType());
@@ -1116,21 +1116,21 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         return data;
     }
 
-    private List<ConvertedBundle> toConvertedBundles(List<ExportBundle> bundles) {
+    private List<ImportBundle> toImportBundles(List<ExportBundle> bundles) {
         if (bundles == null) {
             return Collections.emptyList();
         }
         return bundles.stream()
-                .map(bundle -> new ConvertedBundle(
+                .map(bundle -> new ImportBundle(
                         bundle.getExamName(),
-                        bundle.getExportQuestions().stream().map(this::toConvertedQuestion).toList()
+                        bundle.getExportQuestions().stream().map(this::toImportQuestion).toList()
                 ))
                 .toList();
     }
 
-    private String buildImportPayload(List<ConvertedBundle> bundles) {
+    private String buildImportPayload(List<ImportBundle> bundles) {
         JSONArray array = JSONUtil.createArray();
-        for (ConvertedBundle bundle : bundles) {
+        for (ImportBundle bundle : bundles) {
             array.add(JSONUtil.createObj()
                     .set("bankName", bundle.bankName())
                     .set("questions", bundle.questions()));
@@ -1138,7 +1138,7 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         return array.toString();
     }
 
-    private List<ConvertedBundle> parseImportPayload(String payload) {
+    private List<ImportBundle> parseImportPayload(String payload) {
         if (!hasText(payload)) {
             return Collections.emptyList();
         }
@@ -1147,7 +1147,7 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
             if (!(parsed instanceof JSONArray array)) {
                 return Collections.emptyList();
             }
-            List<ConvertedBundle> result = new ArrayList<>();
+            List<ImportBundle> result = new ArrayList<>();
             for (Object item : array) {
                 if (!(item instanceof JSONObject object)) {
                     continue;
@@ -1164,7 +1164,7 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
                     }
                 }
                 if (!questions.isEmpty()) {
-                    result.add(new ConvertedBundle(bankName, questions));
+                    result.add(new ImportBundle(bankName, questions));
                 }
             }
             return result;
@@ -1191,15 +1191,15 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         return question;
     }
 
-    private QuestionService.QuestionImportResult importConvertedBundles(Long importBankId,
-                                                                        Long importCategoryId,
-                                                                        List<ConvertedBundle> bundles) {
+    private QuestionService.QuestionImportResult importBundles(Long importBankId,
+                                                               Long importCategoryId,
+                                                               List<ImportBundle> bundles) {
         int createCount = 0;
         int updateCount = 0;
         int failCount = 0;
         List<String> errors = new ArrayList<>();
-        for (ConvertedBundle bundle : bundles) {
-            QuestionService.QuestionImportResult result = questionService.importFromConverted(
+        for (ImportBundle bundle : bundles) {
+            QuestionService.QuestionImportResult result = questionService.importFromPayload(
                     importBankId,
                     importBankId == null ? importCategoryId : null,
                     bundle.bankName(),
@@ -1842,7 +1842,7 @@ public class EztestServiceImpl implements EztestService, ApplicationRunner {
         private Path outputDir;
     }
 
-    private record ConvertedBundle(String bankName, List<Map<String, Object>> questions) {
+    private record ImportBundle(String bankName, List<Map<String, Object>> questions) {
     }
 
     private static class PdfFontResource implements AutoCloseable {

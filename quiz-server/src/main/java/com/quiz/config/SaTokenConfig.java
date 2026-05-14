@@ -45,9 +45,6 @@ public class SaTokenConfig implements WebMvcConfigurer {
                     "/api/admin/system/setting"
             ).check(r -> StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN));
 
-            SaRouter.match("/api/admin/question/convert/**")
-                    .check(r -> StpKit.ADMIN.checkRole(CommonConstant.ROLE_SUPER_ADMIN));
-
         })).addPathPatterns("/api/**");
     }
 }

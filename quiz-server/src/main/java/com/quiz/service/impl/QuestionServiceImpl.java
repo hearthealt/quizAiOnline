@@ -408,14 +408,7 @@ public class QuestionServiceImpl implements QuestionService {
     @Override
     @Transactional
     @SuppressWarnings("unchecked")
-    public QuestionImportResult importFromConverted(Long bankId, List<Map<String, Object>> questions) {
-        return importFromConverted(bankId, null, null, questions);
-    }
-
-    @Override
-    @Transactional
-    @SuppressWarnings("unchecked")
-    public QuestionImportResult importFromConverted(Long bankId, Long categoryId, String bankName, List<Map<String, Object>> questions) {
+    public QuestionImportResult importFromPayload(Long bankId, Long categoryId, String bankName, List<Map<String, Object>> questions) {
         Long targetBankId = resolveImportBankIdByName(bankId, categoryId, bankName, "由EZTest直连导入自动创建");
         boolean targetBankEnabled = isBankEnabled(targetBankId);
 
